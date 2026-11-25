@@ -245,7 +245,6 @@ class IpComparisonResolverTest {
         }
     }
 
-    // HTTPS cancellation closes the raw socket; the layered SSLSocket flag can stay false.
     private class RecordingSocketFactory : SocketFactory() {
         val sockets = ConcurrentLinkedQueue<Socket>()
         private val delegate = getDefault()

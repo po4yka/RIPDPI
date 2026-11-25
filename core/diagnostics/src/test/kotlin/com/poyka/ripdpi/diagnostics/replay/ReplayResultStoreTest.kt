@@ -40,7 +40,6 @@ class ReplayResultStoreTest {
         repeat(ReplayResultStore.MaxEntries + 3) { i -> store.record(makeResult("d$i.test")) }
         val recent = store.recent()
         assertEquals(ReplayResultStore.MaxEntries, recent.size)
-        // First three (d0, d1, d2) evicted; ring should start at d3.
         assertEquals("d3.test", recent.first().request.domain)
         assertEquals(
             "d${ReplayResultStore.MaxEntries + 2}.test",
@@ -77,8 +76,6 @@ class ReplayResultStoreTest {
             pool.shutdown()
             pool.awaitTermination(5, TimeUnit.SECONDS)
         }
-        // No data corruption: size is capped at MaxEntries, all entries
-        // are non-null and well-formed (no torn writes).
         val recent = store.recent()
         assertEquals(ReplayResultStore.MaxEntries, recent.size)
         recent.forEach { result ->

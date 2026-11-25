@@ -63,7 +63,6 @@ pub(super) fn build_standard_client_config_with_key_log(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store())
             .expect("bundled webpki roots are non-empty")
             .with_no_client_auth()
@@ -82,7 +81,6 @@ pub(super) fn build_ech_comparison_control_config(
     application_protocol: ApplicationProtocolPolicy,
     #[cfg(test)] fixture_ech_roots: Option<&RootCertStore>,
 ) -> Result<Arc<ClientConfig>, String> {
-    // The real ECH leg uses AWS-LC too. Keep all other controls on that provider and TLS 1.3.
     let builder = ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into());
     let builder = if matches!(profile, TlsClientProfile::ComparisonEchGrease) {
         configure_rustls_ech(builder, &EchSetup::Grease).map_err(|error| error.to_string())?
@@ -138,7 +136,6 @@ fn select_ech_config(
         EchResolutionOutcome::InvalidConfig(error) => EchLookupFailure::InvalidConfig(error),
     };
     let config = connected_addr.and_then(|peer| opportunistic_ech_config_for_ip(peer.ip())).ok_or(failure)?;
-    // A fallback cache read must not start a direct lookup on an in-path scan.
     let bytes = production_updater().cached_config().unwrap_or_else(|| config.ech_config_list.to_vec());
     Ok((bytes, EchConfigSource::CdnFallback(config.provider)))
 }
@@ -287,7 +284,7 @@ mod tests {
         let peer = "104.16.1.1:443".parse::<SocketAddr>().unwrap();
         let bundled = opportunistic_ech_config_for_ip(peer.ip()).unwrap().ech_config_list.to_vec();
         let mut restored = bundled.clone();
-        restored[6] ^= 1; // Change only the ECHConfig config_id.
+        restored[6] ^= 1;
         let fetched_at = u64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()).unwrap();
         let updater = production_updater();
         let previous = updater.snapshot_for_persistence();

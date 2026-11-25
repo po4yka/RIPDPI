@@ -22,24 +22,14 @@ data class LogcatSnapshot(
     val captureScope: String,
     val byteCount: Int,
     val truncated: Boolean = false,
-    /** Bytes emitted by Android's logcat command while this collector was reading it. */
     val sourceByteCount: Long = byteCount.toLong(),
-    /** Source-log bytes retained in [content]; the inserted truncation marker is excluded. */
     val retainedByteCount: Long = byteCount.toLong(),
-    /** Collector-observed source-log bytes omitted by bounded retention. */
     val droppedByteCount: Long = 0L,
-    /**
-     * Android may evict records from its ring before collection starts. The collector cannot
-     * measure that loss, so it must not infer it from [droppedByteCount].
-     */
     val preCollectionRingLoss: LogcatPreCollectionRingLossStatus =
         LogcatPreCollectionRingLossStatus.UNKNOWN,
-    /** Android logcat timestamps from the first and last retained source records, if present. */
     val earliestRetainedTimestamp: String? = null,
     val latestRetainedTimestamp: String? = null,
-    /** Collector entry size before archive-level redaction and final retention. */
     val collectionEntryByteCount: Int = byteCount,
-    /** Exact accounting for the post-redaction content emitted into the archive. */
     val postRedactionAccounting: LogcatPostRedactionAccounting? = null,
 )
 
@@ -65,14 +55,6 @@ open class LogcatSnapshotCollector
             const val MAX_LOGCAT_BYTES = 512 * 1024
         }
 
-        /**
-         * Capture logcat for the app process.
-         *
-         * @param sinceTimestampMs If provided, captures logs starting from this epoch
-         *   timestamp using logcat's `-T` flag. This ensures logs from long-running
-         *   diagnostic scans (300s+) are not lost to the circular buffer rotation that
-         *   occurs between scan start and archive export.
-         */
         open suspend fun capture(sinceTimestampMs: Long? = null): LogcatSnapshot? =
             withContext(Dispatchers.IO) {
                 val output = readLogcatOutput(sinceTimestampMs)
@@ -96,11 +78,6 @@ open class LogcatSnapshotCollector
                 }
             }
 
-        /**
-         * Filter to app's own PID to avoid capturing logs from other apps.
-         * When [sinceTimestampMs] is provided, uses `-T` to capture logs from that
-         * point forward instead of relying on the current circular buffer contents.
-         */
         protected open suspend fun readLogcatOutput(sinceTimestampMs: Long? = null): LogcatReadOutput =
             readLogcatProcessOutput(
                 command = buildLogcatCommand(android.os.Process.myPid(), sinceTimestampMs, BuildConfig.DEBUG),
@@ -125,7 +102,6 @@ internal suspend fun readLogcatProcessOutput(
     retainHead: Boolean,
 ): LogcatReadOutput =
     coroutineScope {
-        // Standard error is outside the capture contract and must never block the child.
         val process = ProcessBuilder(command).redirectError(File("/dev/null")).start()
         try {
             val output =
@@ -318,7 +294,6 @@ internal fun buildLogcatCommand(
             add("-T")
             add(SimpleDateFormat("MM-dd HH:mm:ss.SSS", Locale.US).format(Date(sinceTimestampMs)))
         }
-        // Keep archive collection limited to this app process; no unrestricted logcat fallback.
         if (isDebugBuild) {
             add("*:V")
         } else {

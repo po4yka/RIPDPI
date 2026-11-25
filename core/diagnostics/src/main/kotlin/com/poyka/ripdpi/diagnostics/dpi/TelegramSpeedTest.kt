@@ -39,7 +39,6 @@ enum class TelegramTransferFailure {
 
 data class ProbeStats(
     val status: TelegramProbeStatus,
-    /** Payload bytes read by GET or accepted by completed local POST sink writes. */
     val bytesTotal: Long,
     val durationMs: Long,
     val avgBps: Long,
@@ -48,7 +47,6 @@ data class ProbeStats(
     val httpStatus: Int? = null,
     val failure: TelegramTransferFailure? = null,
     val firstPayloadDelayMs: Long? = null,
-    /** GET setup to response headers or final local POST write to response headers. */
     val responseDelayMs: Long? = null,
     val payloadTargetBytes: Long? = null,
 )

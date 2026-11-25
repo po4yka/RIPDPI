@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Fixed fields only: never copy Android identifiers or exception messages. */
 internal fun LocalNetworkContextModel.localNetworkSummaryLines(): List<String> {
     val safe = toSafeLocalNetworkContext()
     return with(safe) {

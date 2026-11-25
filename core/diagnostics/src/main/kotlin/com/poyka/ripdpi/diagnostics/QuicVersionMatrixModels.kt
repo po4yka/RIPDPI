@@ -7,7 +7,6 @@ const val QuicVersionMatrixProfileId = "quic-version-matrix"
 const val QuicVersionEvidenceKey = "quicVersionEvidence"
 const val QuicVersionMatrixPort = 443
 
-/** Row probe types. Every row of one run shares the `quic_version_` prefix. */
 const val QuicVersionMatrixProbeType = "quic_version_matrix"
 const val QuicVersionV1ProbeType = "quic_version_v1"
 const val QuicVersionV2ProbeType = "quic_version_v2"
@@ -22,14 +21,12 @@ val QuicVersionMatrixProbeTypes =
         QuicVersionResidualProbeType,
     )
 
-/** One user-selected QUIC endpoint (UDP 443) probed with v1 and v2 Initials for a control and a test SNI. */
 @Serializable
 data class QuicVersionMatrixConfig(
     val host: String = "",
     val connectIp: String? = null,
     val controlSni: String = "",
     val testSni: String = "",
-    /** QUIC version (1 or 2) of the same-socket residual cell. Null keeps it disabled. */
     val residualVersion: Int? = null,
 ) {
     fun isValid(): Boolean =
@@ -42,10 +39,8 @@ data class QuicVersionMatrixConfig(
     }
 }
 
-// The SNIs go into the ClientHello, so both must be DNS names.
 private fun isQuicSni(value: String): Boolean = isHttp3Host(value) && !isIpProbeV4(value) && !isIpProbeV6(value)
 
-/** Exported evidence of one matrix row. It holds no SNI, local port or timing. */
 @Serializable
 data class QuicVersionMatrixEvidence(
     val status: String,
@@ -67,7 +62,6 @@ data class QuicVersionCell(
     val bytesReceived: Int = 0,
 )
 
-/** Test SNI then control SNI on one socket. It cannot tell same-flow state from endpoint-wide state. */
 @Serializable
 data class QuicResidualEvidence(
     val testStage: String,
@@ -91,13 +85,11 @@ private fun QuicVersionMatrixEvidence.isConsistent(): Boolean =
         cells.all { it.sni in QuicVersionRoles && it.stage in QuicVersionStages && it.sequence >= 0 } &&
         (residual == null || (residual.testStage in QuicVersionStages && residual.controlStage in QuicVersionStages))
 
-/** The ordinary export keeps validated, re-encoded evidence only. */
 internal fun canonicalQuicVersionMatrixEvidence(value: String?): String? =
     parseQuicVersionMatrixEvidence(value)?.let {
         QuicVersionJson.encodeToString(QuicVersionMatrixEvidence.serializer(), it)
     }
 
-/** A network-scope change withdraws every version claim and keeps the cells. */
 internal fun quicVersionWithoutScopeAuthority(
     probeType: String,
     details: List<ProbeDetail>,

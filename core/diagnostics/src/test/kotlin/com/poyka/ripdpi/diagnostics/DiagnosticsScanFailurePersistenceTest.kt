@@ -12,7 +12,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
-/** A scan whose failure cannot be written must not crash the process or stay "running". */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsScanFailurePersistenceTest {
     private val json = diagnosticsTestJson()

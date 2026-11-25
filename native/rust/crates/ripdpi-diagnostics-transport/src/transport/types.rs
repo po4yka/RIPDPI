@@ -112,12 +112,6 @@ impl std::fmt::Display for TransportConnectError {
 
 impl std::error::Error for TransportConnectError {}
 
-/// Typed error for the probe transport surface.
-///
-/// Display texts are byte-for-byte compatible with the historical
-/// `Result<_, String>` messages so diagnostics summaries and JNI-visible text
-/// are unchanged. `RouteExperiment` marks the one remaining legacy seam: the
-/// route-experiment tracker formats failures into its report as strings.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum TransportError {

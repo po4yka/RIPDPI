@@ -23,11 +23,9 @@ class BaselineProfileGenerator {
             startActivityAndWait()
             device.waitForIdle()
 
-            // The first launch shows onboarding; later iterations start on Home.
             device.findObject(By.res("onboarding-skip"))?.click()
             reach("home-screen")
 
-            // Bottom tabs: Connection, Diagnostics, then Settings.
             tap("bottom-nav-config")
             reach("config-screen")
             tap("bottom-nav-diagnostics")
@@ -35,7 +33,6 @@ class BaselineProfileGenerator {
             tap("bottom-nav-settings")
             reach("settings-screen")
 
-            // Push screens from Settings and come back: the NavHost transitions, tonal cards and empty states.
             openSettingsRow("settings-detection-check", "detection_check-screen")
 
             tap("bottom-nav-home")
@@ -43,14 +40,12 @@ class BaselineProfileGenerator {
         }
     }
 
-    /** Opens a Settings row by its test tag, scrolling the list to it, and returns to Settings. */
     private fun MacrobenchmarkScope.openSettingsRow(
         rowTag: String,
         screenTag: String,
     ) {
         val x = device.displayWidth / 2
         val height = device.displayHeight
-        // Back to the top, then down in half-screen steps until the row sits clear of the bottom navigation.
         repeat(MAX_SCROLLS) { device.swipe(x, height / 4, x, height * 3 / 4, SWIPE_STEPS) }
         device.waitForIdle()
         var row = device.findObject(By.res(rowTag))
@@ -62,7 +57,6 @@ class BaselineProfileGenerator {
             scrolls++
         }
         assertNotNull("Settings row '$rowTag' not found", row)
-        // A fling is still settling when the swipe returns, and a click on a moving list misses.
         Thread.sleep(SETTLE_MS)
         device.findObject(By.res(rowTag)).click()
         reach(screenTag)
@@ -76,7 +70,6 @@ class BaselineProfileGenerator {
         target.click()
     }
 
-    /** Waits for a screen tag and logs it, so the journey log shows every step that was reached. */
     private fun MacrobenchmarkScope.reach(screenTag: String) {
         val reached = device.wait(Until.hasObject(By.res(screenTag)), NAVIGATION_TIMEOUT_MS)
         Log.i(TAG, "reached=$reached screen=$screenTag")

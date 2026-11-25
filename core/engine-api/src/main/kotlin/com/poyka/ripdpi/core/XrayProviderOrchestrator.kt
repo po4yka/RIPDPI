@@ -10,100 +10,33 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Tunnel seam the orchestrator drives, decoupled from the native tun2socks
- * binding so the handover logic is unit-testable offline.
- *
- * In production this is implemented in `:core:service` over `Tun2SocksTunnel`:
- * [start] maps [TunnelUpstream] onto the service's internal `LocalProxyEndpoint`
- * + `Tun2SocksConfig` and adopts the VPN TUN fd; [stop] tears the worker down.
- * The orchestrator NEVER touches the TUN fd directly — fd ownership stays with
- * the service per `docs/architecture/JNI_CONTRACT.md` §9.
- *
- * Lifecycle calls are serialized by the orchestrator; implementations need not
- * be internally synchronized.
- */
 interface ManagedTunnel {
-    /** Start (or restart) the TUN-to-SOCKS worker pointed at [upstream]. */
     suspend fun start(upstream: TunnelUpstream)
 
-    /** Stop forwarding while retaining the installed TUN as a traffic barrier. */
     suspend fun quiesce()
 
-    /** Stop the worker. Idempotent: a stop with no running worker is a no-op. */
     suspend fun stop()
 
-    /** Whether a worker is currently running. */
     val isRunning: Boolean
 }
 
-/**
- * What changed about the local inbound / provider route, triggering a handover.
- *
- * Any non-trivial change here requires restarting BOTH Xray and the tunnel,
- * because the tunnel's upstream endpoint is derived from the Xray inbound: if
- * the inbound moves (port change) or the provider route changes (kind change),
- * the two must be restarted together to avoid a half-migrated session where the
- * tunnel points at a dead inbound.
- */
 data class ProviderRoute(
-    /** Active provider kind. */
     val kind: VpnProviderKind,
-    /** Xray provider config (loopback inbound port + topology). */
     val xrayConfig: XrayProviderConfig = XrayProviderConfig(),
 )
 
-/**
- * Outcome of a [XrayProviderOrchestrator.start] or
- * [XrayProviderOrchestrator.handover].
- */
 sealed interface HandoffOutcome {
-    /** Tunnel is running against the resolved upstream; Xray (if any) is Running. */
     data class Running(
         val upstream: TunnelUpstream,
     ) : HandoffOutcome
 
-    /** Everything is stopped (clean teardown). */
     data object Stopped : HandoffOutcome
 
-    /** Operation failed. The route remains owned if cleanup is incomplete. */
     data class Failed(
         val reason: String,
     ) : HandoffOutcome
 }
 
-/**
- * Pure-Kotlin orchestration that bridges VPN TUN traffic through a protected
- * Xray local inbound, with handover-driven dual restart.
- *
- * Responsibilities:
- * 1. **Provider selection** — resolve the tunnel upstream from the active
- *    [ProviderRoute] via [XrayTunnelHandoff]. Native keeps the RIPDPI path; Xray
- *    points the tunnel at the loopback inbound.
- * 2. **Protect-first ordering** — for the Xray path, start the [RipDpiXrayRuntime]
- *    (which registers the protect controller BEFORE libXray opens any outbound
- *    socket) and confirm readiness BEFORE the tunnel is pointed at the inbound.
- *    Starting the tunnel first would race packets at a not-yet-listening port.
- * 3. **Handover restart** — when the [ProviderRoute] changes (inbound port or
- *    provider kind), restart BOTH Xray and the tunnel in the correct order.
- *
- * The orchestrator owns the start/stop ORDER; it delegates the native concerns
- * to [RipDpiXrayRuntime] (Xray lifecycle + protect) and [ManagedTunnel] (TUN
- * worker). Both are injected, so this class is fully testable with the
- * [com.poyka.ripdpi.core.testing.FakeXrayNativeBridge] and a fake tunnel.
- *
- * Not thread-safe: the caller serializes lifecycle calls on one coroutine,
- * matching [RipDpiXrayRuntime].
- *
- * @param xrayRuntimeFactory builds a fresh [RipDpiXrayRuntime] per Xray start.
- *   A new runtime per start keeps the [VpnProviderState] machine linear across
- *   restarts (each session starts from [VpnProviderState.Stopped]).
- * @param tunnel the TUN-to-SOCKS worker seam.
- * @param protectController protect seam wired into the VPN service (task 3).
- * @param renderedConfigProvider supplies the rendered Xray JSON for a given
- *   route at start time. Held only for the duration of the start call (secrets
- *   are not retained on the orchestrator).
- */
 class XrayProviderOrchestrator(
     private val xrayRuntimeFactory: (XrayProviderConfig) -> RipDpiXrayRuntime,
     private val tunnel: ManagedTunnel,
@@ -124,11 +57,9 @@ class XrayProviderOrchestrator(
     @Volatile
     private var activeXray: RipDpiXrayRuntime? = null
 
-    /** The route currently driving the session, or null when stopped. */
     val currentRoute: ProviderRoute?
         get() = activeRoute
 
-    /** Provider state of the active Xray runtime, or Stopped when none/native. */
     val xrayState: VpnProviderState
         get() = activeXray?.providerState ?: VpnProviderState.Stopped
 
@@ -137,32 +68,11 @@ class XrayProviderOrchestrator(
     val generation: Long?
         get() = activeXray?.generation
 
-    /**
-     * Start the session for [route]. Brings up Xray first (protect-first +
-     * readiness) when the route selects Xray, then points the tunnel at the
-     * resolved upstream.
-     *
-     * On any failure, tears down both halves and returns [HandoffOutcome.Failed]
-     * so the caller never observes a half-started session.
-     *
-     * @throws IllegalStateException if a session is already active (call
-     *   [handover] or [stop] first).
-     */
     suspend fun start(route: ProviderRoute): HandoffOutcome {
         check(activeRoute == null) { "session already active; use handover() or stop()" }
         return bringUp(route)
     }
 
-    /**
-     * Apply a route change. If [newRoute] is equivalent to the active route
-     * (same kind + same Xray inbound port + topology), this is a no-op and the
-     * existing session is preserved. Otherwise BOTH Xray and the tunnel are
-     * restarted: the old session is fully stopped, then the new one is brought
-     * up. Restarting only one half would leave the tunnel pointing at a dead
-     * inbound (or vice versa).
-     *
-     * If no session is active, this behaves like [start].
-     */
     suspend fun handover(newRoute: ProviderRoute): HandoffOutcome {
         val current = activeRoute
         return when {
@@ -170,8 +80,6 @@ class XrayProviderOrchestrator(
                 bringUp(newRoute)
             }
 
-            // No material change to the local inbound / provider route: keep the
-            // existing session, report the current upstream.
             !requiresRestart(current, newRoute) &&
                 (current.kind != VpnProviderKind.Xray || xrayState == VpnProviderState.Running) -> {
                 HandoffOutcome.Running(
@@ -185,12 +93,6 @@ class XrayProviderOrchestrator(
         }
     }
 
-    /**
-     * Force a full provider/tunnel replacement for a resolved route, even when
-     * the local inbound is unchanged. Used for policy refreshes and profile
-     * edits where credentials, DNS, routing rules, or the upstream server can
-     * change without moving the loopback port.
-     */
     suspend fun replace(newRoute: ProviderRoute): HandoffOutcome =
         if (activeRoute == null) {
             bringUp(newRoute)
@@ -207,10 +109,8 @@ class XrayProviderOrchestrator(
         }
     }
 
-    /** Stop the whole session; incomplete cleanup retains the route and TUN barrier. */
     suspend fun stop(): HandoffOutcome = tearDown()
 
-    /** Release Xray while retaining the installed TUN for a provider replacement. */
     suspend fun releaseProviderForNativeReplacement() {
         check(tearDown(releaseTunnel = false) !is HandoffOutcome.Failed) {
             "Xray cleanup incomplete during provider replacement"
@@ -221,19 +121,11 @@ class XrayProviderOrchestrator(
         activeXray?.revokeProtection()
     }
 
-    /** Terminal service destruction also denies callbacks from a lease acquired after this call. */
     fun closeServiceOwner() {
         serviceProtection.set(null)
         revokeProtection()
     }
 
-    /**
-     * Whether a route change between [from] and [to] forces a dual restart.
-     *
-     * Restart is required when the provider kind changes, or (for the Xray
-     * path) when the local inbound port or tunnel topology changes — anything
-     * that moves the endpoint the tunnel is bridged to.
-     */
     private fun requiresRestart(
         from: ProviderRoute,
         to: ProviderRoute,
@@ -260,7 +152,6 @@ class XrayProviderOrchestrator(
             try {
                 XrayTunnelHandoff.resolveUpstream(route.kind, route.xrayConfig)
             } catch (e: IllegalArgumentException) {
-                // Unsupported topology (e.g. SetTunFd) — surface, change nothing.
                 return HandoffOutcome.Failed(e.message ?: "unresolvable upstream")
             }
 
@@ -296,7 +187,6 @@ class XrayProviderOrchestrator(
         retainTunnelBarrierOnFailure: Boolean,
     ): HandoffOutcome {
         val xray = xrayRuntimeFactory(route.xrayConfig)
-        // Own cleanup before the first native side effect, including partial startup.
         activeXray = xray
         activeRoute = route
         return try {

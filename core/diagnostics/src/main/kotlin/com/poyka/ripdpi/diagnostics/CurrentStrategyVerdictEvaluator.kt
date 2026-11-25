@@ -271,7 +271,6 @@ internal object CurrentStrategyVerdictEvaluator {
 
 private const val HostSplitActionCount = 3
 
-// Every control checks a transfer; one blocked control provider must not hide a path that works.
 private fun List<ProbeResult>.activeControlTransferStage(): ConnectionStage? =
     filter { result ->
         result.probeType == "domain_reachability" &&

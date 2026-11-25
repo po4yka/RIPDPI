@@ -23,7 +23,6 @@ import org.junit.Test
 class TlsHopComparisonTest {
     private val config = TlsHopComparisonConfig("203.0.113.7", "control.example", "test.example")
 
-    // Same shape as the native runner emits (ripdpi-diagnostics-runner connectivity/tls_hop.rs).
     private val evidenceJson =
         """{"status":"DIVERGENCE","reason":null,"firstHop":5,"lastHop":5,"pathLength":9,""" +
             """"limits":["inconsistent_repetitions"],"stop":"COMPLETED","controlAttempts":18,"testAttempts":18}"""

@@ -18,7 +18,6 @@ enum class DnsResponseOutcome {
     NOT_OBSERVED,
 }
 
-/** Response facts supplied by a resolver; AD and EDE are not locally verified claims. */
 @Serializable
 data class DnsResponseSemantics(
     val queryType: String = "A",
@@ -36,12 +35,10 @@ data class DnsResponseSemantics(
     val extendedDnsErrorCodes: List<Int> = emptyList(),
     val extendedDnsErrorsObserved: Boolean = false,
 ) {
-    /** Null means EDE availability was not observed. A measured reply can supply no codes. */
     val observedExtendedDnsErrorCodes: List<Int>?
         get() = extendedDnsErrorCodes.takeIf { extendedDnsErrorsObserved || it.isNotEmpty() }
 }
 
-/** Duplicate detail keys and malformed metadata are not usable observations. */
 fun parseDnsResponseSemantics(
     details: List<ProbeDetail>,
     key: String,

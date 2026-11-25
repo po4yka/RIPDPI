@@ -2,7 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.Serializable
 
-/** Device settings and default-data SIM facts; these do not identify the scan path. */
 @Serializable
 data class LocalNetworkContextModel(
     val capturedAt: Long = 0,

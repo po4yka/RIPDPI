@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION") // legacy CDMA/2G/3G network type constants: no replacement, networks are EOL
+@file:Suppress("DEPRECATION")
 
 package com.poyka.ripdpi.diagnostics
 
@@ -130,8 +130,6 @@ class HttpPublicIpInfoResolver
 
         private fun formatAsn(org: String?): String? {
             if (org.isNullOrBlank()) return null
-            // ipinfo.io returns org as "AS12389 Rostelecom" -- keep the full value
-            // but strip the raw IP that might leak through other fields
             return org.trim().takeIf { it.startsWith("AS", ignoreCase = true) }
         }
     }
@@ -171,10 +169,6 @@ class AndroidNetworkMetadataProvider
         private val vpnRouteEvidenceProvider: VpnRouteEvidenceProvider,
         private val snapshotScope: NetworkMetadataCaptureScope,
     ) : NetworkMetadataProvider {
-        // System Private DNS status is read behind an injectable seam so the
-        // status-mapping logic is unit-tested without a device. The default
-        // implementation needs no dependencies, so it is constructed inline
-        // rather than wired through Hilt.
         private val systemPrivateDnsStatusProvider: SystemPrivateDnsStatusProvider =
             AndroidSystemPrivateDnsStatusProvider()
         private val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
@@ -317,7 +311,7 @@ class AndroidNetworkMetadataProvider
         private fun resolveLocalAddresses(linkProperties: LinkProperties?): List<String> =
             linkProperties?.linkAddresses?.map { it.address.hostAddress.orEmpty() }.orEmpty()
 
-        @Suppress("DEPRECATION") // connectionInfo/dhcpInfo: no modern replacement; API 29+ path already preferred
+        @Suppress("DEPRECATION")
         private fun resolveWifiDetails(capabilities: NetworkCapabilities?): WifiNetworkDetails? {
             if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
                 return null
@@ -450,11 +444,10 @@ class AndroidNetworkMetadataProvider
         private fun hasPermission(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
 
-        @Suppress("DEPRECATION") // legacy CDMA/2G/3G constants: no replacement, networks are EOL
+        @Suppress("DEPRECATION")
         private fun describeMobileNetworkType(type: Int): String = mobileNetworkTypeNames[type] ?: type.toString()
 
         companion object {
-            // RSSI validity range
             private const val RssiMinDbm = -127
             private const val RssiMaxDbm = 0
         }
@@ -498,7 +491,6 @@ internal fun NetworkSnapshotModel.toStoredNetworkSnapshot(): NetworkSnapshotMode
 
 private fun String.redactNetworkIdentity(): String = if (equals("unknown", ignoreCase = true)) "unknown" else "redacted"
 
-// WiFi frequency bands (MHz)
 private const val WifiBand24GhzMin = 2400
 private const val WifiBand24GhzMax = 2500
 private const val WifiBand5GhzMin = 4900
@@ -506,7 +498,6 @@ private const val WifiBand5GhzMax = 5900
 private const val WifiBand6GhzMin = 5925
 private const val WifiBand6GhzMax = 7125
 
-// WiFi channel width codes (WifiInfo.CHANNEL_WIDTH_*)
 private const val WifiChannelWidth20Mhz = 0
 private const val WifiChannelWidth40Mhz = 1
 private const val WifiChannelWidth80Mhz = 2
@@ -514,7 +505,6 @@ private const val WifiChannelWidth160Mhz = 3
 private const val WifiChannelWidth80Plus80Mhz = 4
 private const val WifiChannelWidth320Mhz = 5
 
-// WiFi standard codes (WifiInfo.WIFI_STANDARD_*)
 private const val WifiStandardLegacy = 1
 private const val WifiStandard80211n = 4
 private const val WifiStandard80211ac = 5
@@ -522,7 +512,6 @@ private const val WifiStandard80211ax = 6
 private const val WifiStandard80211ad = 7
 private const val WifiStandard80211be = 8
 
-// IPv4 byte-extraction masks and shifts
 private const val ByteMask = 0xff
 private const val BitsPerByte = 8
 private const val TwoBytesShift = 16

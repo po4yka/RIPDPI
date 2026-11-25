@@ -81,7 +81,6 @@ class TerminalOutboxPolicyCheckpointRoomTest : DiagnosticsRoomStoreTestBase() {
             val resetStore = RoomDiagnosticsHistoryResetStore(db, dao)
             val roomRecords = RoomRememberedNetworkPolicyRecordStore(dao, clock)
             val resets = mutableListOf<Job>()
-            // Starts a reset right after the store read the row and gives it time to finish before the write.
             val racingRecords =
                 object : RememberedNetworkPolicyRecordStore by roomRecords {
                     override suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity? {

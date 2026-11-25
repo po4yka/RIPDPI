@@ -446,7 +446,6 @@ internal class DiagnosticsScanRequestFactory
             )
     }
 
-// The catalog's endpoint templates are empty, so user endpoints must replace them before any budget validation.
 private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyEndpointOverrides(
     overrides: DiagnosticsScanTargetOverrides?,
 ): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
@@ -523,10 +522,6 @@ private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     )
 }
 
-/**
- * Probe runtimes that chain through the live native relay must present its session credentials. The native
- * monitor reads them as input only; reports and recommendations never serialize them.
- */
 private fun RipDpiProxyPreferences.withLiveRelayListenerCredentials(): RipDpiProxyPreferences {
     val relay = relayConfigOrNull()
     val credentials = relay?.let { LocalSocksCredentialRegistry.lookup(it.localSocksHost, it.localSocksPort) }
@@ -584,7 +579,6 @@ private fun resolveStrategyProbeRuntimeContext(
     preferredEdges: Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>>,
     protectPath: String?,
 ): RipDpiRuntimeContext? {
-    // canonicalDefaultEncryptedDnsSettings always returns a valid context.
     val dnsContext =
         settings.activeDnsSettings().toRipDpiRuntimeContext()
             ?: preferredDnsPath?.toActiveDnsSettings()?.toRipDpiRuntimeContext()
@@ -592,13 +586,6 @@ private fun resolveStrategyProbeRuntimeContext(
     return dnsContext.copy(protectPath = protectPath, preferredEdges = preferredEdges)
 }
 
-/**
- * Returns the absolute path to the protect_path socket used by VpnService.protect()
- * only while the scan remains inside the active VPN path.
- *
- * RAW_PATH orchestration stops the VPN runtime before starting the native bridge, so its
- * protect backend is intentionally unavailable and must not be advertised to native probes.
- */
 private fun resolveProtectPath(
     context: Context,
     pathMode: ScanPathMode,

@@ -83,7 +83,6 @@ fn parser_drops_parts_past_the_aggregate_wire_frame_bound() {
 
 #[test]
 fn range_is_half_open_as_in_the_reference() {
-    // Reference: rand.Int(max-min) + min, so `1-2` always yields 1.
     let scheme = PaddingScheme::parse(b"stop=2\n0=30-10\n1=1-2").expect("scheme parses");
 
     for selector in 0..1000_u64 {
@@ -102,7 +101,6 @@ fn range_is_half_open_as_in_the_reference() {
 fn padding0_ignores_stop_like_the_reference_client() {
     let scheme = PaddingScheme::parse(b"stop=0\n0=30-30").expect("scheme parses");
     assert_eq!(scheme.auth_padding0_len(0).expect("padding0"), 30);
-    // Session padding for packet 0 still honors stop.
     assert_eq!(scheme.plan_for_packet(0, 0).expect("plan"), PaddingPlan::direct());
 }
 

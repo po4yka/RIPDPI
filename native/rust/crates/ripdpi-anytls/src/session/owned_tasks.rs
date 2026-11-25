@@ -13,8 +13,6 @@ struct State {
     failed: bool,
 }
 
-/// Synchronous registration also covers FIN sends originating in Drop. Finished
-/// tasks are reaped before admission, so history does not grow the registry.
 #[derive(Default)]
 pub(super) struct OwnedTasks {
     active: StdMutex<State>,
@@ -42,7 +40,6 @@ impl OwnedTasks {
         let mut state = self.active.lock().unwrap_or_else(PoisonError::into_inner);
         state.closed = true;
         state.tasks.abort_all();
-        // A set already moved to `draining` was aborted before that move.
     }
 
     /// # Cancel safety
@@ -83,8 +80,6 @@ impl Drop for OwnedTasks {
     }
 }
 
-/// Only application clients/streams own this guard. Background workers never
-/// hold it, so dropping the last application owner breaks pending handshakes.
 pub(super) struct Owner(pub(super) Arc<OwnedTasks>);
 impl Drop for Owner {
     fn drop(&mut self) {

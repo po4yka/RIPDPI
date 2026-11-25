@@ -8,7 +8,6 @@ extensions.configure<DetektExtension> {
     buildUponDefaultConfig = true
     parallel = true
     config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
-    // Baselines are permanently disabled — all violations must be fixed in code.
     source.setFrom(
         files(
             "src/main/kotlin",

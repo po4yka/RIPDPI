@@ -3,31 +3,22 @@ use std::io;
 
 use crate::tls::{ProbeStreamError, ProbeStreamFailureStage};
 
-/// HTTP request failure with its I/O kind and operation stage intact.
 #[derive(Debug)]
 pub enum HttpRequestError {
-    /// The TCP, proxy, or TLS stream could not be opened.
     Stream(ProbeStreamError),
-    /// A request write or flush failed.
     RequestWrite(io::Error),
-    /// Reading or decoding the response failed.
     ResponseRead(io::Error),
-    /// The watchdog socket or control thread could not be prepared.
     SocketSetup(io::Error),
-    /// The scan owner cancelled the request.
     Cancelled,
-    /// The scan deadline expired.
     DeadlineExceeded,
 }
 
 impl HttpRequestError {
-    /// Stable diagnostic status; exchange I/O uses the error kind.
     pub fn status(&self) -> &'static str {
         match self {
             Self::Cancelled => "cancelled",
             Self::DeadlineExceeded => "deadline_exceeded",
             Self::Stream(error) => {
-                // shortcut: setup errors retain only text; remove this fallback when transport/TLS retain error kinds.
                 let message = error.message.to_ascii_lowercase();
                 if message.contains("timeout") || message.contains("timed out") || message.contains("deadline") {
                     "timeout"

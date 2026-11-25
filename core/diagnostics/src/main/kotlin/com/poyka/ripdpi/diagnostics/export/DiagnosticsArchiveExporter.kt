@@ -108,8 +108,6 @@ internal class DefaultDiagnosticsArchiveExporter
             id: DiagnosticsExportLeaseId,
             destination: OutputStream,
         ) = withContext(Dispatchers.IO) {
-            // Open under the lock, copy outside it: the destination is a DocumentsProvider stream that can
-            // block, and the open stream keeps reading even if a later discard() unlinks the file.
             val source =
                 archiveMutex.withLock {
                     archiveStage(DiagnosticsArchiveFailureCode.IO) {
@@ -309,7 +307,6 @@ internal class DefaultDiagnosticsArchiveExporter
             return runCatching { developerAnalyticsSource.collect(analyticsContext) }
                 .getOrElse { error ->
                     if (error is CancellationException || error is Error) throw error
-                    // The class name only: a collector error message or trace can name hosts or addresses.
                     Logger.w(tag = LogTags.DIAGNOSTICS) {
                         "Developer analytics collection failed (${error.javaClass.simpleName}); " +
                             "exporting a typed failure outcome"

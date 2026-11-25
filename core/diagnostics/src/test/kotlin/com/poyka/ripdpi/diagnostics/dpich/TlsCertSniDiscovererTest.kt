@@ -229,8 +229,8 @@ class TlsCertSniDiscovererTest {
         val handshakeLength = this.readU24(index + 1)
         index += 4
         val handshakeEnd = (index + handshakeLength).coerceAtMost(recordEnd)
-        index += 2 // legacy_version
-        index += 32 // random
+        index += 2
+        index += 32
         require(index + 1 <= handshakeEnd)
         val sessionIdLength = this[index].toInt() and 0xff
         index += 1 + sessionIdLength

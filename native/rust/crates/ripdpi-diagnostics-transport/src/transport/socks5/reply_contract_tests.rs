@@ -68,7 +68,6 @@ fn cancelled_tcp_negotiation_closes_the_proxy_socket() {
             assert_eq!(greeting, [5, 1, 0]);
             let cancel_started = Instant::now();
             cancelled.store(true, Ordering::Release);
-            // Do not send a method reply. Only cancellation can make the client close now.
             assert_eq!(stream.read(&mut greeting).unwrap(), 0);
             assert!(cancel_started.elapsed() < Duration::from_millis(300));
         });

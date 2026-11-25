@@ -569,7 +569,6 @@ class ComparisonScanCoordinatorTest {
         assertEquals("raw_controls_mixed", assessment.controlOutcome)
     }
 
-    /** Controls as host to (tier to domain_reachability outcome), plus one failed affected target. */
     private fun assessTiered(vararg controls: Pair<String, Pair<ControlTier, String>>): ConnectivityAssessment {
         val results =
             controls.map { (host, tierAndReachable) ->
@@ -645,7 +644,6 @@ class ComparisonScanCoordinatorTest {
     )
 }
 
-// domain_reachability outcomes by bucket: healthy, failed, and attention (neither passed nor failed).
 private const val Up = "tls_ok"
 private const val Down = "unreachable"
 private const val Unproven = "http_ok"

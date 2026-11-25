@@ -13,7 +13,6 @@ pub struct TlsObservation {
     pub error: Option<String>,
     pub failure_stage: Option<ProbeStreamFailureStage>,
     pub failure_duration_ms: Option<u64>,
-    /// A local verifier reported a rejection. Use certificate_verification for the trust verdict.
     pub certificate_anomaly: bool,
     pub ech_resolution_detail: Option<String>,
     pub ech_config_source: Option<EchConfigSource>,
@@ -32,13 +31,9 @@ pub struct TlsObservation {
     pub local_socket_ttl: Option<u8>,
     pub ja3_fingerprint: Option<String>,
     pub client_hello_capture: ClientHelloCapture,
-    /// Numeric TLS alert code when the handshake fails with AlertReceived.
     pub tls_alert_code: Option<u8>,
-    /// Human-readable alert description (e.g. "HandshakeFailure").
     pub tls_alert_description: Option<String>,
-    /// Whether rustls processed a ServerHello. `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
-    /// Whether a handshake response or alert followed the ClientHello.
     pub tls_peer_response_after_client_hello: Option<bool>,
     pub connected_addr: Option<std::net::SocketAddr>,
     pub local_addr: Option<std::net::SocketAddr>,
@@ -46,14 +41,12 @@ pub struct TlsObservation {
     pub route_report: Option<RouteExperimentReport>,
 }
 
-/// What the TLS probe can assert about certificate verification.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum CertificateVerification {
     NotCompleted,
     VerifiedWebPki,
     RejectedWebPki,
     Skipped,
-    /// A caller-supplied policy owns the decision. No WebPKI verdict is inferred.
     Custom,
 }
 
@@ -93,7 +86,6 @@ impl EchConfigSource {
     }
 }
 
-/// The rejected ECH attempt before starting one retry to the same peer.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EchInitialAttempt {
     pub connected_addr: std::net::SocketAddr,
@@ -157,7 +149,6 @@ pub enum ApplicationProtocolPolicy {
     Http11Only,
 }
 
-/// Overrides are explicit so an unchecked handshake cannot be reported as authenticated.
 #[derive(Clone, Copy)]
 pub enum ProbeCertificatePolicy<'a> {
     WebPki,
@@ -196,7 +187,6 @@ impl ProbeCertificatePolicy<'_> {
 pub struct ProbeStreamOptions<'a> {
     pub profile: TlsClientProfile,
     pub application_protocol: ApplicationProtocolPolicy,
-    /// Selects the CA, server-name, and SPKI verification policy.
     pub certificate_policy: ProbeCertificatePolicy<'a>,
     pub key_log: Option<&'a TlsKeyLogCallback>,
 }
@@ -271,8 +261,6 @@ pub struct ProbeStreamError {
     pub duration_ms: u64,
     pub transport_open_ms: Option<u64>,
     pub connected_addr: Option<std::net::SocketAddr>,
-    /// For a TLS handshake failure, whether the ServerHello was processed first.
-    /// `None` when TLS evidence is unavailable.
     pub tls_server_hello_received: Option<bool>,
     pub(super) peer_response_after_client_hello: Option<bool>,
     pub(crate) tls_alert: Option<rustls::AlertDescription>,
@@ -297,7 +285,6 @@ impl ProbeStreamError {
         self.certificate_anomaly
     }
 
-    /// Report the ECH-specific setup or authenticated rejection observed in the comparison.
     pub fn comparison_ech_failure_outcome(&self) -> Option<&'static str> {
         use super::config::EchLookupFailure;
 

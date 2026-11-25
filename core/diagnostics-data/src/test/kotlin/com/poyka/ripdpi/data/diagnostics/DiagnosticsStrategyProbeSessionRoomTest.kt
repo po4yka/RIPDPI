@@ -38,12 +38,10 @@ class DiagnosticsStrategyProbeSessionRoomTest : DiagnosticsRoomStoreTestBase() {
                 startedAt = 2,
                 reportJson = "{\n  \"strategyProbeReport\": {\n    \"suiteId\": \"quick_v1\"\n  }\n}",
             )
-            // None of these is a strategy test: no key, a null key in both layouts, the key as text, no report.
             scan("no-key", startedAt = 3, reportJson = """{"summary":"ok"}""")
             scan("compact-null", startedAt = 4, reportJson = """{"strategyProbeReport":null}""")
             scan("pretty-null", startedAt = 5, reportJson = "{\n  \"strategyProbeReport\": null\n}")
             scan("as-text", startedAt = 6, reportJson = """{"summary":"\\"strategyProbeReport\\":{"}""")
-            // Too large to read back: the reader gets no report from it, so it must not hide the older test.
             scan(
                 "oversized-test",
                 startedAt = 7,

@@ -57,8 +57,6 @@ async fn bad_password_is_not_reported_as_a_successful_stream() {
     assert!(err.to_string().contains("wrong password or not an AnyTLS server"));
 }
 
-/// Each session carries one stream; a finished stream returns its session to
-/// the client's pool, and the next open reuses it with the next stream id.
 #[tokio::test]
 async fn concurrent_streams_use_separate_sessions_and_a_finished_stream_returns_its_session() {
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
@@ -121,7 +119,6 @@ async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
     let mut stream =
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
 
-    // The stream is alive before the close.
     stream.write_all(b"ping").await.expect("write");
     assert_eq!(stream.read_exact_len(4).await.expect("echo"), b"ping");
 
@@ -135,8 +132,6 @@ async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
     .await
     .expect("close must send FIN");
 
-    // Dropping after a successful close must not queue a second FIN for
-    // the same substream.
     drop(stream);
     tokio::time::sleep(Duration::from_millis(100)).await;
     assert_eq!(fixture.observed().fin_stream_ids, vec![1], "drop must not duplicate the FIN");
@@ -164,9 +159,6 @@ async fn concurrent_opens_dial_one_session_each() {
     assert_eq!(observed.syn_stream_ids, vec![1, 1]);
 }
 
-/// The fixture parks its frame loop in the SYNACK delay, so it answers neither
-/// the SYN nor a HeartRequest: the carrier is silently dead. The open fails
-/// after the liveness probe and the next open dials a new carrier.
 #[tokio::test]
 async fn open_on_a_silent_carrier_fails_and_evicts_it() {
     let fixture = AnyTlsLoopback::start(
@@ -288,9 +280,6 @@ async fn cancelling_an_open_during_the_tls_handshake_does_not_poison_later_opens
     assert_eq!(second.read_exact_len(6).await.expect("read second stream"), b"shared");
 }
 
-/// The first session floods stream 1 and nobody reads it. The carrier reader
-/// waits for that reader instead of dropping data, and a stream on another
-/// session is unaffected.
 #[tokio::test]
 async fn unread_stream_loses_no_data_and_does_not_block_other_sessions() {
     let fixture = AnyTlsLoopback::start(
@@ -488,9 +477,6 @@ async fn session_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch() {
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("bound connect");
     stream.write_all(b"bound").await.expect("write over bound carrier");
 
-    // A v6 bind IP against a v4-only resolved server must fail closed before
-    // any connect runs — silently ignoring the bind would route the carrier
-    // over the default interface instead of the pinned one.
     config.outbound_bind_ip = Some(std::net::IpAddr::V6("::1".parse().expect("v6 loopback")));
     let failed = AnyTlsClient::new(config).expect("client");
     let error = failed
@@ -599,15 +585,10 @@ async fn bridge_drop_preserves_sibling_and_client_close_joins_idle_pumps() {
     .await
     .expect("dropped bridge FIN");
     client.close().await.expect("join carrier and bridges");
-    // Neither application wrapper nor client is dropped: joined pumps close
-    // their endpoints before the stop call can report success.
     assert_eq!(second.read(&mut payload).await.expect("closed bridge"), 0);
     client.close().await.expect("repeat joined close");
 }
 
-/// AnyTLS has no half-close. Like the reference clients, an application
-/// write-shutdown closes the stream at once, so a silent target does not keep
-/// the relay slot open until the idle timeout.
 #[tokio::test]
 async fn app_write_shutdown_sends_fin_without_waiting_for_the_target() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -638,8 +619,6 @@ async fn app_write_shutdown_sends_fin_without_waiting_for_the_target() {
 
 const PAUSE_TOTAL: usize = 4 * 1024 * 1024;
 
-/// A local reader that pauses for 3 s while the peer keeps echoing must still
-/// receive every byte; the stream must not end early with a clean EOF.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn paused_reader_receives_the_whole_echo() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -664,8 +643,6 @@ async fn paused_reader_receives_the_whole_echo() {
         sent
     });
     tokio::time::sleep(Duration::from_secs(3)).await;
-    // One bound on the whole drain, not per read: a stall must fail, while a
-    // slow machine only needs the transfer to finish.
     let drain = async {
         let mut received = 0;
         let mut buffer = vec![0_u8; 64 * 1024];
@@ -680,8 +657,6 @@ async fn paused_reader_receives_the_whole_echo() {
     assert_eq!(writer.await.expect("writer"), PAUSE_TOTAL);
 }
 
-/// Only a peer FIN is a clean end of the stream. A carrier that dies mid-stream
-/// surfaces as a reset to the application.
 #[tokio::test]
 async fn carrier_death_mid_stream_is_a_reset_not_a_clean_eof() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -710,10 +685,6 @@ fn v1_fixture_config() -> AnyTlsLoopbackConfig {
     AnyTlsLoopbackConfig { protocol_v1: true, ..AnyTlsLoopbackConfig::default() }
 }
 
-/// A protocol v1 server sends no ServerSettings and no SYNACK. A fresh session
-/// waits a bounded time (2 s) for ServerSettings, then returns the stream. The
-/// version belongs to the session, so a second fresh session waits again, and a
-/// pooled session does not.
 #[tokio::test]
 async fn protocol_v1_server_tcp_open_returns_without_synack() {
     let fixture = AnyTlsLoopback::start("fixture-password", v1_fixture_config()).await.expect("fixture");
@@ -729,13 +700,11 @@ async fn protocol_v1_server_tcp_open_returns_without_synack() {
     first.write_all(b"v1 echo").await.expect("write");
     assert_eq!(first.read_exact_len(7).await.expect("echo"), b"v1 echo");
 
-    // The first session is still busy, so this one is fresh and waits again.
     let mut second =
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("second v1 stream");
     second.write_all(b"again").await.expect("write");
     assert_eq!(second.read_exact_len(5).await.expect("echo"), b"again");
 
-    // A released v1 session is reused at once: its version is known.
     drop(first);
     let started = std::time::Instant::now();
     let mut third =
@@ -769,9 +738,6 @@ async fn protocol_v1_server_udp_open_returns_without_synack() {
     assert!(fixture.observed().synack_successes.is_empty());
 }
 
-/// The server answers slowly (ServerSettings after 2.5 s), so the open returns
-/// as for a v1 server. The server then rejects the stream with a SYNACK error;
-/// that late rejection must end the stream as a reset, not a clean EOF.
 #[tokio::test]
 async fn a_late_synack_rejection_resets_the_returned_stream() {
     use tokio::io::AsyncReadExt;
@@ -797,9 +763,6 @@ async fn a_late_synack_rejection_resets_the_returned_stream() {
     assert_eq!(end.expect_err("a rejected stream must not look like EOF").kind(), std::io::ErrorKind::ConnectionReset);
 }
 
-/// A server that falls back to a web site answers the auth with HTTP and
-/// closes. Its first bytes are not an AnyTLS frame, so the open fails at once
-/// as an authentication failure, without waiting for the version wait.
 #[tokio::test]
 async fn an_http_fallback_answer_is_an_authentication_failure() {
     let fixture = AnyTlsLoopback::start(

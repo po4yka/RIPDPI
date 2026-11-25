@@ -88,7 +88,6 @@ private fun HTTPSRecord.hasCompatibleServiceParams(): Boolean {
         val supportedKeys = keys.all { it in TcpServiceKeys && getSvcParamValue(it) != null }
         if (!uniqueNonemptyKeys || !supportedKeys) return false
     }
-    // RFC 9460 sections 7.1.2 and 9.2 select a transport by ALPN overlap; TLS then offers its full TCP ALPN list.
     val useDefaultAlpn = getSvcParamValue(SVCBBase.NO_DEFAULT_ALPN) == null
     val alpn = getSvcParamValue(SVCBBase.ALPN) as? SVCBBase.ParameterAlpn
     return useDefaultAlpn || alpn?.values?.any { it in TcpServiceAlpns } == true
@@ -122,7 +121,6 @@ private fun HTTPSRecord.serviceModeRecord(target: String): HttpsRrRecord? {
 private fun String.isDnsBindingHost(): Boolean = dpiTargetHostOrNull(this) == lowercase(java.util.Locale.ROOT)
 
 private fun ByteArray.isEchConfigList(): Boolean {
-    // RFC 9849 section 4. Validate the list and every entry envelope before handing it to the TLS backend.
     if (size < Short.SIZE_BYTES + EchConfigHeaderBytes) return false
     val input = DNSInput(this)
     return input.readU16() == input.remaining() && input.hasCompleteEchConfigEntries()
@@ -130,7 +128,7 @@ private fun ByteArray.isEchConfigList(): Boolean {
 
 private fun DNSInput.hasCompleteEchConfigEntries(): Boolean {
     while (remaining() >= EchConfigHeaderBytes) {
-        readU16() // Version-specific contents are validated by the TLS backend.
+        readU16()
         val length = readU16()
         if (length > remaining()) return false
         readByteArray(length)

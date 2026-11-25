@@ -44,7 +44,6 @@ pub(crate) fn relay_udp_via_socks5_matching(
                 relay
             }
             None => {
-                // An unsupported private request cannot leave a reusable control stream.
                 drop(control);
                 control = connect_control(proxy_host, proxy_port, credentials, deadline, cancel)?;
                 standard_association(&mut control, deadline, cancel)?

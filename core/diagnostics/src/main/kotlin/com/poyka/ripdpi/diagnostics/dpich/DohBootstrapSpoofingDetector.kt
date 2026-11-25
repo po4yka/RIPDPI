@@ -59,7 +59,6 @@ internal suspend fun resolveBlockingDohBootstrap(lookup: () -> List<String>): Li
         Dispatchers.IO.dispatch(EmptyCoroutineContext) {
             try {
                 if (continuation.isActive) {
-                    // The system lookup can outlive its caller. The worker owns the slot until it returns.
                     continuation.resumeWith(runCatching(lookup))
                 }
             } finally {
@@ -83,13 +82,11 @@ class DohBootstrapSpoofingDetector(
                 .toMap()
         }
 
-    // The system resolver and the geo metadata lookup (JNI and file I/O) both block.
     private suspend fun check(provider: DohProviderFilter): DohBootstrapResult =
         withContext(ioDispatcher) { checkBlocking(provider) }
 
     private suspend fun checkBlocking(provider: DohProviderFilter): DohBootstrapResult =
         try {
-            // Judge every answer: on dual-stack the first one can be an IPv6 address no table covers.
             val results = resolver.resolve(provider.dohHostname).map { address -> provider.classify(address) }
             results.firstOrNull { result -> result.verdict == BootstrapVerdict.OK }
                 ?: results.firstOrNull { result -> result.verdict == BootstrapVerdict.SPOOFED }
@@ -111,7 +108,6 @@ class DohBootstrapSpoofingDetector(
         val knownToMetadata = discoveredAsn != null || discoveredOrg != null || discoveredRange != null
         val verdict =
             when {
-                // No DoH provider serves from a loopback, private, link-local or reserved address: a sinkhole.
                 !isPublicAddress(bootstrapIp) -> {
                     BootstrapVerdict.SPOOFED
                 }
@@ -120,8 +116,6 @@ class DohBootstrapSpoofingDetector(
                     BootstrapVerdict.OK
                 }
 
-                // No source knows this address (no geoip.db, or an address outside the bundled /24s):
-                // there is no evidence of spoofing, so report it as not verified.
                 !knownToMetadata -> {
                     BootstrapVerdict.RESOLVE_FAILED
                 }
@@ -156,7 +150,6 @@ class DohBootstrapSpoofingDetector(
 }
 
 private fun isPublicAddress(ip: String): Boolean {
-    // classify() only accepts IP literals, so this getByName never does a DNS lookup.
     val address =
         ip.takeIf { IpAddressClassifier.classify(it) == IpAddressType.PUBLIC }?.let(InetAddress::getByName)
             ?: return false
@@ -171,11 +164,9 @@ private fun isPublicAddress(ip: String): Boolean {
 
 private const val ByteMask = 0xFF
 
-// fc00::/7 unique local addresses.
 private const val UlaMask = 0xFE
 private const val UlaPrefix = 0xFC
 
-// 240.0.0.0/4 (reserved) and the 255.255.255.255 broadcast address.
 private const val ReservedV4FirstOctet = 240
 
 fun DpiAssetLoader.loadDohProviderFilters(): List<DohProviderFilter> =

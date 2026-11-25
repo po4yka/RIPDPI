@@ -261,7 +261,6 @@ class OkHttpProbeEventListenerTest {
             computeIfAbsent: () -> T,
         ): T = computeIfAbsent()
 
-        // okhttp 5.4.0 added Call.addEventListener; this stub never dispatches events.
         override fun addEventListener(eventListener: EventListener) = Unit
     }
 }

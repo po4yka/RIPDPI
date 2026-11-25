@@ -76,7 +76,6 @@ class RipDpiManagedDevicesTest {
         val pullRequest: Boolean,
     )
 
-    // change-routing emits the emulator matrix as a JSON list; PRs run the pull_request subset.
     private fun ciInstrumentedDevices(): List<CiDevice> {
         val workflow = repoRoot().resolve(".github/workflows/ci.yml").readText()
         val devices = workflow.substringAfter("      - id: devices").substringBefore("]'")

@@ -23,7 +23,6 @@ object IfconfigClient {
     private val endpoint = "https://ifconfig.me/ip".toHttpUrl()
     private val httpClient = OkHttpClient()
 
-    /** Measures the process default path, including its system proxy policy; this does not attest an underlay. */
     suspend fun fetchDirectIp(
         dispatchers: AppCoroutineDispatchers,
         timeoutMs: Int = DefaultTimeoutMs,

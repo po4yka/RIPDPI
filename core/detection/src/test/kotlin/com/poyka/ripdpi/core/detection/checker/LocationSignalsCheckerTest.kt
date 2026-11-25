@@ -169,9 +169,7 @@ class LocationSignalsCheckerTest {
                 ),
             )
 
-        // No Finding may contain the raw BSSID substring under any encoding.
         assertFalse(result.findings.any { it.description.contains(rawBssid, ignoreCase = true) })
-        // A usable BSSID is reported as a presence flag only.
         assertTrue(result.findings.any { it.description == "BSSID: present" })
     }
 

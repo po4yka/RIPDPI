@@ -13,7 +13,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Records privacy-safe categories for recent Android process exits. */
 interface LastExitInspector {
     suspend fun recordRecentProcessExits()
 }
@@ -26,9 +25,6 @@ internal data class ProcessExitHistoryItem(
     val pssKb: Long,
     val rssKb: Long,
     val memoryLimiterMarkerPresent: Boolean,
-    // Untrusted fields exist at the source boundary so tests can prove the
-    // persistence projector discards them. The Android source never copies
-    // trace content and only retains the description-derived boolean above.
     val rawPid: Int? = null,
     val rawProcessName: String? = null,
     val rawStatus: Int? = null,
@@ -137,7 +133,6 @@ class DefaultLastExitInspector
         }
 
         companion object {
-            /** Android 17 marker checked locally; its description is never persisted. */
             const val DescriptionMarker: String = "MemoryLimiter:AnonSwap"
 
             const val Source: String = "application_exit"

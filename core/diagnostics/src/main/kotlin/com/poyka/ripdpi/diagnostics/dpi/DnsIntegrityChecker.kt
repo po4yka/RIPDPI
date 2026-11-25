@@ -83,8 +83,6 @@ class DnsIntegrityChecker(
     ): DnsIntegrityResult {
         val dohBootstrapResults = runDohBootstrapDetector()
         val excludedDohHostnames = dohBootstrapResults.excludedDohHostnames()
-        // Domains run in parallel and each UDP leg has a budget: on a network that drops UDP/53 the
-        // sequential 6-server retry loop otherwise took about a minute per domain.
         val permits = Semaphore(DomainConcurrency)
         val results =
             coroutineScope {
@@ -345,10 +343,6 @@ private fun isFakeIp(ip: String): Boolean = NumericIp.parseAddress(ip)?.let(Fake
 
 private val FakeIpRange = requireNotNull(NumericIp.parseCidr("198.18.0.0/15"))
 
-/**
- * IPv4 answers match when they share an address or a /24, the same rule as the native
- * classify_dns_answer_overlap: different resolvers often steer to different edges of one CDN block.
- */
 internal fun dnsAnswersOverlap(
     first: Set<String>,
     second: Set<String>,

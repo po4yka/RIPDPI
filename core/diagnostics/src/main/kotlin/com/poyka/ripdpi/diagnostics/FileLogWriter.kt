@@ -82,7 +82,6 @@ class FileLogWriter(
                 currentHasLoss = true
                 if (!writeFailureActive) {
                     writeFailureActive = true
-                    // Use logcat directly. Kermit would call this failed writer again.
                     resultCatchingExceptions {
                         Log.w(LogTags.DIAGNOSTICS, "app_log_write_failed errorClass=${error.javaClass.simpleName}")
                     }

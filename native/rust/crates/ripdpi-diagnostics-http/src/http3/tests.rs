@@ -169,9 +169,6 @@ fn verified_get_data_fin_and_empty_204_are_complete() {
 fn stalled_headers_and_body_preserve_the_last_observation() {
     for reply in [Reply::HeaderStall, Reply::BodyStall] {
         let server = Server::start(reply, b"h3");
-        // The server never finishes the stalled stage, so this bound only decides
-        // when the probe gives up. It must exceed handshake + headers + first body
-        // chunk under heavy CPU load so the last observation is always captured.
         let result = run(&server, &Http3ProbeConfig { timeout_ms: 3000, ..server.config() });
         assert_eq!(result.status, "TIMEOUT", "{result:?}");
         assert!(!result.body_complete);
@@ -284,8 +281,6 @@ fn initial_packet_or_random_udp_reply_does_not_prove_http3() {
 
 #[test]
 fn failed_protection_closes_socket_before_any_attempt() {
-    // Isolate process-global protection and fd ownership from parallel socket tests.
-    // Otherwise another test may reuse the closed descriptor before the assertion.
     const CHILD: &str = "RIPDPI_HTTP3_PROTECT_CHILD";
     if std::env::var_os(CHILD).is_none() {
         let status = std::process::Command::new(std::env::current_exe().unwrap())
@@ -342,7 +337,6 @@ fn informational_headers_require_a_bounded_final_response() {
 #[test]
 fn silent_first_address_leaves_time_for_the_next_one() {
     let server = Server::start(Reply::Body(200, 12), b"h3");
-    // Bound and never read: Initials to this address get no answer.
     let silent = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
     let addresses = vec![silent.local_addr().unwrap(), server.address];
     let config = server.config();
@@ -380,7 +374,6 @@ fn only_the_last_attempt_gets_the_whole_deadline() {
 /// cancel-safe: all stream handles are local and the test owner drops the runtime.
 async fn serve_raw(connection: &quinn::Connection, response: &[u8], finish: bool) {
     let mut control = connection.open_uni().await.unwrap();
-    // Control stream type, followed by an empty SETTINGS frame (RFC 9114).
     control.write_all(&[0, 4, 0]).await.unwrap();
     let (mut send, mut recv) = connection.accept_bi().await.unwrap();
     recv.read_to_end(4096).await.unwrap();

@@ -18,18 +18,12 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Kotlin half of the failure-stage contract. The Rust half lives in
- * `ripdpi-diagnostics-contracts` (`types/field_failure_stage.rs`); both read the same vendored
- * `client-field-report` v1 schema under `core/data/src/test/resources/contract/`.
- */
 class FieldFailureStageContractTest {
     private fun contract(name: String): JsonObject =
         Json.parseToJsonElement(repoFixture("$ContractDir/$name").readText()).jsonObject
 
     private fun buckets(report: JsonObject) = report["buckets"]!!.jsonArray.map { it.jsonObject }
 
-    /** The bucket rule the schema states: a known stage is present exactly when the outcome is failure. */
     private fun bucketStageIsValid(bucket: JsonObject): Boolean {
         val stage = bucket["failure_stage"]?.jsonPrimitive?.content
         return when (bucket["outcome"]?.jsonPrimitive?.content) {
@@ -111,7 +105,6 @@ class FieldFailureStageContractTest {
                 DpiProbeError.HostUnreach to FieldFailureStage.TcpConnect,
                 DpiProbeError.Unknown to FieldFailureStage.Unknown,
             )
-        // Every sealed subclass is a nested object, so the nested classes enumerate them.
         val subclasses =
             DpiProbeError::class.java.declaredClasses
                 .filter { DpiProbeError::class.java.isAssignableFrom(it) }
@@ -137,7 +130,6 @@ class FieldFailureStageContractTest {
         assertEquals(FieldFailureStage.Dns, fieldFailureStage(DpiProbeError.DnsFail, ProbeStage.TLS_HANDSHAKE))
     }
 
-    /** `(class, stage or "*") -> failure_stage` rows of the table the Rust mapping is tested against. */
     private fun nativeMappingRows(): Map<Pair<String, String>, String> =
         repoFixture(NativeMappingFixture)
             .readLines()
@@ -172,7 +164,6 @@ class FieldFailureStageContractTest {
     fun `every native class decodes and an unknown code or stage reports unknown`() {
         val classes = nativeMappingRows().keys.map { it.first }.toSet()
         assertEquals(19, classes.size)
-        // NativeRuntimeSnapshot.lastFailureClass carries these codes; only "unknown" has no service class.
         (classes - "unknown").forEach { assertNotNull(it, failureClassFromNativeCode(it)) }
         assertEquals(FieldFailureStage.Unknown, nativeFieldFailureStage("not_a_native_code", "connect"))
         assertEquals(FieldFailureStage.Unknown, nativeFieldFailureStage("silent_drop", null))

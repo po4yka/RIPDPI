@@ -23,9 +23,6 @@ object DiagnosticsDatabaseModule {
         name: String = "diagnostics.db",
         allowDestructiveFallback: Boolean = false,
     ): DiagnosticsDatabase {
-        // Use a local variable to apply migrations without triggering SpreadOperator detekt rule
-        // on a fluent chain. Schema 4 (v0.1.0) and later migrate in place; pre-release schemas
-        // 1..3 have no migration and are recreated because their diagnostics data is disposable.
         @Suppress("SpreadOperator")
         var builder =
             Room
@@ -35,10 +32,7 @@ object DiagnosticsDatabaseModule {
                     true,
                     *DiagnosticsDatabaseMigrations.DESTRUCTIVE_FROM_VERSIONS,
                 ).fallbackToDestructiveMigrationOnDowngrade(true)
-        // ORDER MATTERS: fallbackToDestructiveMigrationOnDowngrade resets requireMigration=true,
-        // so the destructive-upgrade opt-in must come after it.
         if (allowDestructiveFallback) builder = builder.fallbackToDestructiveMigration(true)
-        // Cleanup uses diagnosticsHistoryRetentionDays; do not add an on-open TTL.
         return builder.build()
     }
 

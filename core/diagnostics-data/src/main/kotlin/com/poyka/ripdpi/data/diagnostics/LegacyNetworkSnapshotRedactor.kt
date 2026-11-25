@@ -8,7 +8,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
-/** Mirrors the capture-time storage projection without depending on :core:diagnostics. */
 internal fun redactLegacyNetworkSnapshot(payloadJson: String): String? =
     try {
         val source = Json.parseToJsonElement(payloadJson) as? JsonObject ?: return null

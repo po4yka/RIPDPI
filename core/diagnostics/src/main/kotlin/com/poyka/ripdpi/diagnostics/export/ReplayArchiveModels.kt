@@ -5,20 +5,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonClassDiscriminator
 
-/**
- * Wire schema for `replay-results.json` inside the diagnostics archive
- * zip.
- *
- * Deliberately decoupled from the in-memory `ReplayProbeResult` /
- * `ReplayStepEvent` orchestration types so the orchestrator can evolve
- * without dragging the on-disk format with it. The mapping is performed
- * by [ReplayArchiveEntryBuilder]; the redaction is performed by
- * [ReplayArchiveRedactor] before serialization.
- *
- * Schema version is pinned to [DiagnosticsArchiveFormat.schemaVersion]
- * so that any archive-level schema bump rolls forward replay records
- * too.
- */
 @Serializable
 internal data class ReplayArchivePayload(
     val schemaVersion: Int,

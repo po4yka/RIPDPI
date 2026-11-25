@@ -184,7 +184,6 @@ class StunTransportPeerTest {
         transaction: ByteArray,
         address: ByteArray = byteArrayOf(192.toByte(), 0, 2, 1),
     ): ByteArray {
-        // RFC 5769's IPv4 address; XOR is an independently fixed cookie mask, not a decoder round trip.
         val cookie = byteArrayOf(0x21, 0x12, 0xa4.toByte(), 0x42)
         val encoded = ByteArray(4) { (address[it].toInt() xor cookie[it].toInt()).toByte() }
         return ByteBuffer

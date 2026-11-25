@@ -197,7 +197,6 @@ private fun bucketDnsIntegrity(
             DiagnosticsOutcomeBucket.Failed
         }
 
-        // No usable answer is no evidence of interference (outcome.rs).
         "dns_unavailable",
         "dns_oracle_unavailable",
         -> {
@@ -356,9 +355,6 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
         "masque_h3_tcp_unsupported",
         -> DiagnosticsOutcomeBucket.Failed
 
-        // Capability-skipped is not a network failure; a required platform
-        // feature was absent at runtime (e.g. TTL write unavailable). Surface
-        // as Inconclusive so the UI does not show a false negative outcome.
         "capability_skipped" -> DiagnosticsOutcomeBucket.Inconclusive
 
         else -> DiagnosticsOutcomeBucket.Inconclusive
@@ -403,12 +399,6 @@ private fun DiagnosticsOutcomeBucket.eventLevel(): String =
         DiagnosticsOutcomeBucket.Failed -> "error"
     }
 
-/**
- * Some "Failed" outcomes are expected censorship / policy findings rather
- * than infrastructure faults. Logging them at ERROR makes logcat look like the
- * app is crashing; they belong at WARN. Mirrors
- * `ripdpi-diagnostics-contracts/src/util/outcome_policy.rs::event_level_override`.
- */
 private fun eventLevelOverride(
     probeType: String,
     outcome: String,

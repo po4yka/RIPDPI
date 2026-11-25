@@ -125,7 +125,6 @@ class DatagramSocketQuicUdpProbeTest {
 
                     assertTrue("cancel took $elapsed ms", elapsed < 500)
                     assertTrue(pending.isCancelled)
-                    // Reusing the exact client port proves the cancelled probe released its socket.
                     DatagramSocket(received.port, received.address).close()
                 }
             }

@@ -7,17 +7,12 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.security.MessageDigest
 
-/** The second leg must start no later than this after the first. */
 const val SelectiveMatrixPairMaxStartGapMs: Long = 30L * 60L * 1_000L
 
-/** Revisions that decide whether two selective matrix sessions measured the same thing. */
 @Serializable
 data class SelectiveMatrixRevisions(
-    /** SHA-256 of the ordered target list. */
     val targetSet: String,
-    /** SHA-256 of the probe parameters and path mode. */
     val probeParameters: String,
-    /** Stable id of the bypass configuration, without runtime route state. */
     val appConfiguration: String,
 )
 
@@ -36,7 +31,6 @@ internal fun selectiveMatrixRevisions(
         appConfiguration = deriveBypassStrategySignature(settings, routeGroup = null).stableId(),
     )
 
-/** One selected session. Built from stored data only; carries no network identifiers. */
 data class SelectiveMatrixLeg(
     val transport: String?,
     val startedAt: Long,
@@ -60,7 +54,6 @@ enum class SelectiveMatrixPairMismatch {
 
 enum class SelectiveMatrixTargetStage { AVAILABLE, FAILED, UNMEASURED }
 
-/** What one leg observed for one target, with its repetition counts. */
 @Serializable
 data class SelectiveMatrixTargetLegOutcome(
     val stage: SelectiveMatrixTargetStage,
@@ -70,7 +63,6 @@ data class SelectiveMatrixTargetLegOutcome(
 )
 
 enum class SelectiveMatrixPairVerdict {
-    /** Verified TLS and a complete bounded payload on one leg, a failure on the other. */
     PATH_SPECIFIC,
     AVAILABLE_ON_BOTH,
     CONTROL,
@@ -93,7 +85,6 @@ data class SelectiveMatrixLegSummary(
     val transport: String,
     val startedAt: Long,
     val finishedAt: Long?,
-    /** False when the selected underlying network changed during the leg. */
     val valid: Boolean,
     val controlsValid: Boolean,
 )
@@ -110,13 +101,11 @@ sealed interface SelectiveMatrixComparison {
     ) : SelectiveMatrixComparison {
         val pathSpecificCount: Int get() = rows.count { it.verdict == SelectiveMatrixPairVerdict.PATH_SPECIFIC }
 
-        /** Rows that count toward the denominator; inconclusive and control rows stay out. */
         val comparableCount: Int
             get() = pathSpecificCount + rows.count { it.verdict == SelectiveMatrixPairVerdict.AVAILABLE_ON_BOTH }
     }
 }
 
-/** Pairs two sessions the user chose, in either order. Pure: no I/O, no network switching. */
 fun compareSelectiveMatrixSessions(
     a: SelectiveMatrixLeg,
     b: SelectiveMatrixLeg,
@@ -186,7 +175,6 @@ private fun SelectiveMatrixLeg.summaryDetails(): Map<String, String> =
 
 private fun SelectiveMatrixLeg.targetOutcomes(): List<Pair<String, TargetOnLeg>> {
     val repetitions = summaryDetails()["repetitionsPerTarget"]?.toIntOrNull()
-    // Rows key on the opaque target id only; an attempt without one is not paired, so no hostname becomes a key.
     return results
         .filter { it.probeType == MatrixAttemptProbeType && it.outcome !in MatrixUnobservedOutcomes }
         .mapNotNull { result ->

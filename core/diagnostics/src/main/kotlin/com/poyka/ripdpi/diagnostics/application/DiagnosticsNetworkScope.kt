@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics.application
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 
-/** Transient callback evidence; copies of a prepared scan retain the original epoch. */
 internal class DiagnosticsNetworkScope(
     private val epochProvider: DiagnosticsNetworkEpochProvider,
     private val fingerprintProvider: NetworkFingerprintProvider,

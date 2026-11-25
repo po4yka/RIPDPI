@@ -75,7 +75,6 @@ internal fun enrichDirectPathCapabilityObservation(
         ?: observation
 
 private fun ScanReport.hasDefinitiveDirectModeEvidence(): Boolean =
-    // Only a raw-path scan measures the direct path; an in-path scan ran through the active tunnel or proxy.
     pathMode == ScanPathMode.RAW_PATH &&
         completionKind == ScanCompletionKind.NORMAL &&
         terminationReason == null &&
@@ -188,7 +187,6 @@ private fun buildVerdict(
 ): DirectModeVerdict? =
     when (outcome) {
         DirectModeOutcome.TRANSPARENT_OK -> {
-            // A TLS failure alone proves neither claim: a local strategy may still work, so emit no verdict.
             if (signals.hasTransparentSuccess) {
                 DirectModeVerdict(
                     result = DirectModeVerdictResult.TRANSPARENT_WORKS,
@@ -322,7 +320,6 @@ private fun ProbeResult.isDirectModeFailure(): Boolean =
 
 private fun ProbeResult.hasTlsHandshakeFailureEvidence(peerResponseReceived: Boolean): Boolean =
     tlsAttemptPrefixes.any { prefix ->
-        // An alert of unknown origin is evidence of a response only.
         detailValue("${prefix}Status") == "tls_handshake_failed" &&
             detailValue("${prefix}FailureStage") == "tls_handshake" &&
             detailValue("${prefix}PeerResponseReceived")?.toBooleanStrictOrNull() == peerResponseReceived &&

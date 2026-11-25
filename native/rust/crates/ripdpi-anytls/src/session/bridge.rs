@@ -7,19 +7,13 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::task::AbortHandle;
 
-/// Application endpoint; the client's task group retains and joins its pump.
-/// Dropping one endpoint aborts only that stream, preserving multiplexed peers.
 pub struct AnyTlsIo {
     io: DuplexStream,
     abort: AbortHandle,
-    /// Set by the pump before it ends without a peer FIN: the read side then
-    /// ends with `ConnectionReset`, not a clean EOF.
     reset: Arc<AtomicBool>,
     _owner: Arc<Owner>,
 }
 impl AnyTlsStream {
-    /// Registers the pump synchronously before returning the application endpoint.
-    ///
     /// # Cancel safety
     /// Conversion has no await. Pump cancellation ends only this logical stream;
     /// partially forwarded writes are not resumed. The client retains its join.
@@ -45,8 +39,6 @@ impl AnyTlsStream {
                 let mut buffer = [0; 16 * 1024];
                 loop {
                     match app_read.read(&mut buffer).await {
-                        // Local EOF closes the stream, as the reference clients do;
-                        // the downlink keeps delivering frames already in flight.
                         Ok(0) => {
                             let fin = Frame::control(Command::Fin, stream_id);
                             if outbound.send(Outbound::Batch(vec![fin])).await.is_err() {
@@ -76,8 +68,6 @@ impl AnyTlsStream {
                         return;
                     }
                 }
-                // The route closed: only a peer FIN is a clean end; a dead
-                // carrier must not look like a complete response.
                 if !peer_fin.load(Ordering::Acquire) {
                     pump_reset.store(true, Ordering::Release);
                 }

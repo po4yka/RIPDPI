@@ -22,21 +22,6 @@ import java.net.UnknownHostException
 import javax.inject.Inject
 import javax.net.ssl.SSLException
 
-/**
- * OkHttp-backed [ProbeReplayService]. Runs a HEAD request through an
- * [OkHttpClient] supplied by [ReplayHttpClientFactory] (the caller is
- * responsible for wiring it through the local SOCKS5 proxy at
- * 127.0.0.1:1080), instrumenting each protocol boundary via
- * [EventListener] and emitting [ReplayStepEvent] as each step
- * transitions.
- *
- * Cancellation uses OkHttp's [executeAsync] adapter, which cancels the [Call]
- * and closes a response that cannot be delivered to the collector.
- *
- * Strategy activation: callers must wrap the [run] call in their own
- * activate-finally-restore block in StrategyProbeService.
- * This service does NOT mutate AppSettings.
- */
 class DefaultProbeReplayService
     @Inject
     constructor(
@@ -56,7 +41,6 @@ class DefaultProbeReplayService
                         .build()
                 val call = replayClient.client.newCall(httpRequest)
 
-                // Drain the listener channel into the flow as events arrive.
                 val drainer =
                     launch {
                         for (event in events) {
@@ -99,25 +83,11 @@ class DefaultProbeReplayService
             }
     }
 
-/**
- * The OkHttp pair the replay engine needs: a client wired with the
- * caller's preferred [EventListener] + timeouts and the absolute URL
- * to fetch (e.g. `https://example.com/`). The factory owns URL
- * construction so production wiring can target the live SOCKS5 proxy
- * at 127.0.0.1:1080 while tests route through MockWebServer's port.
- */
 data class ReplayHttpClient(
     val client: OkHttpClient,
     val url: HttpUrl,
 )
 
-/**
- * Builds the [OkHttpClient] + URL pair for a single replay run. The
- * factory must apply the request's `timeoutMs` to connect / read /
- * write / call timeouts and attach the supplied [EventListener]. Tests
- * substitute MockWebServer-routed clients; production wiring lives in
- * the diagnostics module.
- */
 fun interface ReplayHttpClientFactory {
     suspend fun build(
         request: ReplayProbeRequest,
@@ -125,11 +95,6 @@ fun interface ReplayHttpClientFactory {
     ): ReplayHttpClient
 }
 
-/**
- * EventListener that translates OkHttp callbacks into ReplayStepEvent
- * emissions. Tracks the most-recently-started step so the terminal
- * event can attribute failure correctly.
- */
 private class ReplayEventListener(
     private val channel: Channel<ReplayStepEvent>,
 ) : EventListener() {
@@ -142,19 +107,16 @@ private class ReplayEventListener(
     @Volatile private var failedStep: ReplayStepKind? = null
     private val stepStartedAtMs = mutableMapOf<ReplayStepKind, Long>()
 
-    // fail() clears currentStep, so the step that failed must be kept on its own.
     fun terminalStep(): ReplayStepKind? = failedStep ?: currentStep ?: lastSuccessfulStep
 
     fun lastErrorKind(): ReplayErrorKind? = lastErrorKind
 
     private fun emit(event: ReplayStepEvent) {
-        // UNLIMITED channel never fails to accept; ignore the Result.
         channel.trySend(event)
     }
 
     private fun start(step: ReplayStepKind) {
         currentStep = step
-        // A new step after a failure means OkHttp retried (another route); the earlier failure is not terminal.
         failedStep = null
         val now = System.currentTimeMillis()
         stepStartedAtMs[step] = now
@@ -227,10 +189,6 @@ private class ReplayEventListener(
     }
 
     override fun secureConnectStart(call: Call) {
-        // OkHttp emits no separate "ClientHello sent" callback. Treat the
-        // ClientHello step as an instantaneous boundary inferred at
-        // secureConnectStart so the UI can show the ordered progression.
-        // The actual TLS handshake spans until secureConnectEnd.
         start(ReplayStepKind.TlsClientHello)
         complete(ReplayStepKind.TlsClientHello, "ClientHello sent")
         start(ReplayStepKind.TlsHandshake)
@@ -259,14 +217,6 @@ private class ReplayEventListener(
         fail(step, classify(ioe), ioe.message ?: ioe.javaClass.simpleName)
     }
 
-    /**
-     * When a call fails with no in-flight step (currentStep == null), the
-     * fault almost always belongs to the next protocol boundary after the
-     * last successfully completed one — e.g. handshake-failed surfaces in
-     * callFailed without re-entering secureConnectStart. This helper maps
-     * "last good" → "what was about to start" so the UI attribution is
-     * correct.
-     */
     private fun ReplayStepKind.next(): ReplayStepKind =
         when (this) {
             ReplayStepKind.DnsResolve -> ReplayStepKind.TcpOpen

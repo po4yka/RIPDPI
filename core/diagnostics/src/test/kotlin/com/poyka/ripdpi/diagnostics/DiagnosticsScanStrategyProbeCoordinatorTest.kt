@@ -164,7 +164,6 @@ class DiagnosticsScanStrategyProbeCoordinatorTest {
             )
             val rememberedBefore = stores.rememberedPoliciesState.value.single()
 
-            // Strategy memory is off, so this eligible result cannot be persisted and must not win.
             val forgetfulSettings = rememberingSettings.toBuilder().setNetworkStrategyMemoryEnabled(false).build()
             runBackgroundProbe(
                 "session-fresh",

@@ -1,4 +1,3 @@
-//! Unit tests of the session client; they use the private items of `session`.
 use super::*;
 
 #[cfg(test)]
@@ -26,7 +25,6 @@ mod redaction_tests {
         assert!(!rendered.contains("super-secret-password"), "password leaked: {rendered}");
         assert!(!rendered.contains("BEGIN CERTIFICATE"), "root certificate leaked: {rendered}");
         assert!(rendered.contains("<redacted>"), "expected redaction marker: {rendered}");
-        // Non-secret fields stay visible for diagnostics.
         assert!(rendered.contains("example.com"), "server_name should remain visible: {rendered}");
     }
 
@@ -44,7 +42,6 @@ mod test_support {
     use super::*;
 
     impl SessionHandle {
-        /// A handle with no carrier task behind `outbound`.
         pub(super) fn detached(seq: u64, outbound: mpsc::Sender<Outbound>, tasks: Arc<OwnedTasks>) -> Self {
             Self {
                 seq,
@@ -61,7 +58,6 @@ mod test_support {
     }
 
     impl AnyTlsStream {
-        /// A stream that is not registered with any client pool.
         pub(super) fn detached(
             outbound: mpsc::Sender<Outbound>,
             inbound: mpsc::Receiver<Vec<u8>>,
@@ -243,7 +239,7 @@ mod session_cache_tests {
             std::task::Poll::Ready(())
         })
         .await;
-        drop(recv); // The uplink branch of the SOCKS pump can win here.
+        drop(recv);
         inbound_tx.send(vec![127, 0, 0, 1, 1, 187, 0, 3, b'a', b'b', b'c']).await.expect("remaining frame");
         let packet = tokio::time::timeout(Duration::from_millis(100), udp.recv_datagram())
             .await
@@ -296,8 +292,6 @@ mod session_cache_tests {
         assert!(client.state.lock().expect("state").idle.is_empty());
     }
 
-    /// A client over a caller's transport has no network dialer: with an empty
-    /// pool the open fails and nothing connects to the configured server.
     #[tokio::test]
     async fn a_transport_client_never_dials_the_server() {
         let listener = tokio::net::TcpListener::bind(("127.0.0.1", 0)).await.expect("listener");
@@ -313,9 +307,6 @@ mod session_cache_tests {
         assert!(accepted.is_err(), "the client connected to the server it must not dial");
     }
 
-    /// The peer version belongs to one session: a later session of the same
-    /// client starts unknown, because addresses of a server can differ and a
-    /// server can be downgraded.
     #[tokio::test]
     async fn a_new_session_does_not_inherit_the_peer_version() {
         let fixture =
@@ -371,8 +362,6 @@ mod session_cache_tests {
         .expect("the sweeper ends with an empty pool");
     }
 
-    /// A frame with an unknown command is skipped with its data; the next frame
-    /// still decodes.
     #[tokio::test]
     async fn read_frame_skips_an_unknown_command_with_its_data() {
         use tokio::io::AsyncWriteExt;
@@ -483,7 +472,6 @@ mod connect_tests {
 
     const ATTEMPT: std::time::Duration = std::time::Duration::from_secs(3);
 
-    /// A loopback port nobody listens on.
     fn closed_addr() -> SocketAddr {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
         listener.local_addr().expect("address")
@@ -498,9 +486,6 @@ mod connect_tests {
         assert_eq!(tcp.peer_addr().expect("peer"), reachable);
     }
 
-    /// An address that never answers must not use up the whole budget. 192.0.2.1
-    /// (TEST-NET-1) is black-holed on most hosts; where the network rejects it at
-    /// once, the fallback is still exercised, only without waiting.
     #[tokio::test]
     async fn connect_gives_each_address_a_bounded_attempt() {
         let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("listener");
@@ -555,7 +540,6 @@ mod tls_profile_tests {
         assert!(draws.iter().any(|(first, second)| first + 8 != *second), "ranges must be drawn independently");
     }
 
-    /// Reads the ClientHello the client writes and returns its cipher suites.
     async fn client_hello_cipher_suites(profile: &str) -> Vec<u16> {
         let config = AnyTlsClientConfig {
             server_host: "127.0.0.1".to_owned(),
@@ -576,7 +560,6 @@ mod tls_profile_tests {
         let mut body = vec![0_u8; usize::from(u16::from_be_bytes([header[3], header[4]]))];
         server.read_exact(&mut body).await.expect("ClientHello");
         handshake.abort();
-        // Handshake header (4), legacy_version (2), random (32), session id.
         let session_id_end = 4 + 2 + 32 + 1 + usize::from(body[38]);
         let suites_len = usize::from(u16::from_be_bytes([body[session_id_end], body[session_id_end + 1]]));
         body[session_id_end + 2..session_id_end + 2 + suites_len]
@@ -608,9 +591,6 @@ mod bridge_tests {
 
     use super::{AnyTlsStream, OwnedTasks, Owner};
 
-    /// A stalled uplink (full carrier queue) must not stop the pump from
-    /// draining the stream's downlink; one coupled loop starved the mailbox
-    /// into a reset.
     #[tokio::test]
     async fn a_stalled_uplink_does_not_stop_downlink_delivery() {
         let tasks = Arc::new(OwnedTasks::default());
@@ -619,7 +599,6 @@ mod bridge_tests {
         let stream =
             AnyTlsStream::detached(outbound, inbound, Arc::clone(&tasks), Some(Arc::new(Owner(Arc::clone(&tasks)))));
         let mut app = stream.into_io().expect("bridge");
-        // The first chunk fills the carrier queue; the pump then waits to send the second.
         app.write_all(b"first").await.expect("first upload");
         tokio::time::sleep(Duration::from_millis(50)).await;
         app.write_all(b"second").await.expect("second upload");

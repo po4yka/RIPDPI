@@ -207,7 +207,6 @@ fn private_udp_error_matches_current_destination() {
             let source = association(&mut control, true);
             accept_private(&mut control, relay.local_addr().unwrap());
             relay.recv_from(&mut [0; 128]).unwrap();
-            // ICMPv4 port unreachable, source 192.0.2.1, target 192.0.2.53.
             let error_body =
                 [4, 3, 3, 0, 0, 0, 0, 0, 192, 0, 2, 1, 4, 192, 0, 2, 53, 0, if wrong_target { 54 } else { 53 }];
             let mut error = frame(3, &error_body);

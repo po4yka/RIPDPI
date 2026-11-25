@@ -71,8 +71,6 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val cmakeVersion: Property<String>
 
-        // Hex ed25519 release key embedded by ripdpi-shared-priors at compile time
-        // (RIPDPI_SHARED_PRIORS_PUB_KEY). An Input so a key change reruns the task.
         @get:Input
         @get:Optional
         abstract val sharedPriorsPublicKey: Property<String>
@@ -117,9 +115,6 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val stripReleaseOutputs: Property<Boolean>
 
-        // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
-        // prebuild), the task copies expected artifacts from
-        // `<prebuiltSourceDir>/<abi>/<outputName>` instead of running cargo.
         @get:InputDirectory
         @get:Optional
         @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -176,17 +171,12 @@ abstract class BuildRustNativeLibsTask
             val abiList = abis.get()
             val configuredAbiParallelism = abiParallelism.get()
 
-            // Resolve the Android SDK cmake binary on the Gradle task thread.  Gradle lazy
-            // property access (sdkDir.get()) is not safe from background threads, and the
-            // cmake crate reads the CMAKE env var to select the cmake binary.  Using the
-            // Android SDK cmake avoids macOS sysroot injection by Homebrew cmake.
             val androidSdkCmake = resolvePinnedAndroidSdkCmake().absolutePath
             logger.lifecycle("boring-sys cmake: $androidSdkCmake")
 
             pruneStaleAbiOutputs(outputRoot)
             debugSymbolsRoot?.let(::pruneStaleAbiOutputs)
 
-            // Validate all ABIs upfront before spawning parallel builds.
             val nfqws2Assets = trustedNfqws2Assets.orNull?.asFile
             val abiConfigs =
                 abiList.map { abi ->
@@ -215,8 +205,6 @@ abstract class BuildRustNativeLibsTask
                     AbiConfig(abi, target, linker, cxx, ar, nfqws2Trust)
                 }
 
-            // Build all ABIs in parallel (each ABI has its own CARGO_TARGET_DIR).
-            // Keep Gradle/Cargo child work within the configured native CPU budget.
             val availableCpus = Runtime.getRuntime().availableProcessors().coerceAtLeast(1)
             val concurrency =
                 computeNativeConcurrency(
@@ -253,7 +241,6 @@ abstract class BuildRustNativeLibsTask
                         }
                     }
 
-                // Collect all results; report first failure.
                 val errors = mutableListOf<Throwable>()
                 for (future in futures) {
                     try {
@@ -335,13 +322,6 @@ abstract class BuildRustNativeLibsTask
                 }
             }
 
-            // Delete stale BoringSSL cmake build directories whose cached cmake binary,
-            // C compiler, or CXX compiler no longer matches the current toolchain.  When
-            // cmake detects changed variables it forces a re-configure, and on macOS the
-            // re-configure injects `-arch arm64 -isysroot MacOSX.sdk` before the Android
-            // toolchain file takes effect, breaking the cross-compilation.  A fresh
-            // configure (no existing CMakeCache.txt) works correctly because the toolchain
-            // file is applied from the very first cmake invocation.
             if (abiCargoTargetDir.isDirectory) {
                 abiCargoTargetDir
                     .walkTopDown()
@@ -372,11 +352,6 @@ abstract class BuildRustNativeLibsTask
                                 (cachedCc != null && cachedCc != config.linker.resolveSibling("clang").absolutePath) ||
                                 (cachedCxx != null && cachedCxx != config.cxx.resolveSibling("clang++").absolutePath)
                         if (stale) {
-                            // Delete the entire Cargo build-script run directory. The CMake cache
-                            // lives under <run>/out/build; deleting only OUT_DIR leaves Cargo's
-                            // build-script output/fingerprint intact and the next link can fail on
-                            // missing archives. Removing <run> invalidates Cargo's own fingerprint
-                            // without making boring-sys watch its mutable generated output.
                             val cargoBuildScriptDir =
                                 boringSslCargoRunDirectory(cacheFile, abiCargoTargetDir) ?: return@forEach
                             logger.warn(
@@ -420,23 +395,12 @@ abstract class BuildRustNativeLibsTask
                     put("CARGO_TARGET_${targetEnv}_LINKER", config.linker.absolutePath)
                     put("CARGO_TARGET_${targetEnv}_AR", config.ar.absolutePath)
                     put("CARGO_TARGET_DIR", abiCargoTargetDir.absolutePath)
-                    // Always set (possibly empty) so a stale value in the daemon environment
-                    // never leaks into the build; empty means "shared priors not configured".
                     put("RIPDPI_SHARED_PRIORS_PUB_KEY", sharedPriorsPublicKey.orNull.orEmpty())
                     instrumentedDiagnosticsRoot.orNull?.asFile?.let { certificate ->
                         put("RIPDPI_INSTRUMENTED_DIAGNOSTICS_ROOT_DER", certificate.absolutePath)
                     }
-                    // A helper only trusts the asset bytes produced by its own Gradle build.
                     put("RIPDPI_NFQWS2_TRUST", config.nfqws2Trust)
-                    // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
-                    // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
-                    // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
                     put("CMAKE", requireNotNull(androidCmakePath))
-                    // Use static C++ STL so libripdpi.so (and siblings) do not depend on
-                    // libc++_shared.so at runtime.  With c++_shared the APK would need to
-                    // package libc++_shared.so separately; c++_static embeds the runtime into
-                    // each .so instead, which is safe because each library is independently
-                    // loaded and they do not share C++ STL state across JNI boundaries.
                     put("BORING_BSSL_RUST_CPPLIB", "c++_static")
                 }
 
@@ -472,9 +436,6 @@ abstract class BuildRustNativeLibsTask
                 .exec {
                     workingDir = manifest.parentFile
                     environment(cargoEnvironment)
-                    // Prevent CMake-based Rust dependencies from inheriting macOS host SDK/arch
-                    // settings while cross-compiling for Android.  These must be removed instead
-                    // of blanked out, otherwise host rustc rejects empty deployment targets.
                     appleHostEnvKeys.forEach(environment::remove)
                     commandLine(cargoCommand)
                 }.assertNormalExitValue()
@@ -768,9 +729,6 @@ abstract class BuildPluggableTransportAssetsTask
         @get:Input
         abstract val forbiddenAmbientCargoOverrideKeys: ListProperty<String>
 
-        // CI consumers receive this directory only from the dedicated PT producer.
-        // The manifest digest is a separate input so an artifact from another run
-        // cannot be substituted silently after download.
         @get:InputDirectory
         @get:Optional
         @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -1339,7 +1297,6 @@ abstract class BuildPluggableTransportAssetsTask
             outputFile.parentFile.mkdirs()
             cacheDir.mkdirs()
             val goArch = abiToGoArch(abi)
-            // Go requires the external Android linker for android/arm source builds.
             val requiresExternalAndroidLinker = abi == "armeabi-v7a"
             val enableCgo = source.cgoEnabled || requiresExternalAndroidLinker
             val cgoEnvironment = buildGoCgoEnvironment(enableCgo, abi)
@@ -1675,7 +1632,6 @@ val detectedAmbientCargoOverrideKeys =
                     .environmentVariablesPrefixedBy(prefix)
                     .get()
                     .keys
-                    // Cargo jobs govern scheduling. The JNI tasks also pass their own --jobs.
                     .filterNot { it == "CARGO_TARGET_DIR" || it == "CARGO_BUILD_JOBS" },
             )
         }
@@ -1697,7 +1653,6 @@ val rustWorkspaceManifestFile =
 val rustWorkspaceDir = rustWorkspaceManifestFile.parentFile
 val rustWorkspaceCratesDir = rustWorkspaceDir.resolve("crates")
 
-// Include the shared schema read by ripdpi-geo's build script in every Cargo task.
 fun rustWorkspaceCrateSources() =
     files(
         fileTree(rustWorkspaceCratesDir) {
@@ -1717,13 +1672,8 @@ val generatedNaiveProxyAssetsDir = layout.buildDirectory.dir("generated/naivePro
 val generatedCloudflareOriginAssetsDir = layout.buildDirectory.dir("generated/cloudflareOriginAssets")
 val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
 
-// App-launched helper executables (NaiveProxy, Cloudflare origin, pluggable-transport upstreams)
-// are packaged as jniLibs, not assets: Android 10+ forbids exec() from the app data directory.
 val generatedHelperExecutableJniLibsDir = layout.buildDirectory.dir("generated/helperExecutableJniLibs")
 val generatedPtMetadataAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportMetadataAssets")
-// All native Cargo tasks share this local state. They build different output
-// directories, but a shard's packages have a large common Rust/C/BoringSSL
-// graph; keeping one target root per ABI lets Cargo reuse it across tasks.
 val rustNativeLibsBuildDir = layout.buildDirectory.dir("intermediates/rust-native-libs")
 val ptAssetsBuildDir = layout.buildDirectory.dir("intermediates/pluggable-transport-assets")
 val ptSourcesManifestFile =
@@ -1903,7 +1853,6 @@ val buildRustRootHelper =
         stripReleaseOutputs.set(true)
         pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustNativeLibsBuildDir)
-        // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
         outputDir.set(generatedRootHelperAssetsDir.map { it.dir("bin") })
         providers
             .gradleProperty("ripdpi.prebuiltRootHelperDir")
@@ -1912,7 +1861,6 @@ val buildRustRootHelper =
             ?.let { prebuiltSourceDir.set(file(it)) }
     }
 
-// Only the app variants that opt in consume these assets.
 configurations.create("extendedRuntimeAssetsElements") {
     isCanBeConsumed = true
     isCanBeResolved = false
@@ -2070,7 +2018,6 @@ val stageHelperExecutableJniLibs =
             (rustNaiveProxyArtifactSpecs + rustCloudflareOriginArtifactSpecs).map { it.substringAfterLast('|') },
         )
         pluggableTransportAssetsDir.set(buildPluggableTransportAssets.flatMap { it.outputDir })
-        // Fetched by scripts/ci/fetch-naive-upstream.py; Gradle verifies it and never downloads.
         naiveUpstreamRoot.from(rootProject.layout.projectDirectory.dir("native/naiveproxy-upstream/artifacts"))
         naiveUpstreamManifest.set(rootProject.layout.projectDirectory.file("native/naiveproxy-upstream/sources.json"))
         abis.set(rustNativeAbis)
@@ -2078,12 +2025,6 @@ val stageHelperExecutableJniLibs =
         pluggableTransportMetadataDir.set(generatedPtMetadataAssetsDir)
     }
 
-// Wire the Rust build into the actual JNI packaging tasks so Rust-only source
-// changes cannot be skipped when the Android variants are otherwise up to date.
-//
-// When `-Pripdpi.skipNativeBuild=true` is passed (e.g. by CI's unit-test or
-// Roborazzi jobs that don't need native libraries), the wiring is omitted so
-// downstream Android tasks don't transitively pull in the long Rust build.
 val skipNativeBuildWiring = shouldSkipNativeBuild()
 if (!skipNativeBuildWiring) {
     tasks.configureEach {

@@ -6,7 +6,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveSourceLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
 
-/** Captures the same immutable archive selection for normal and prepared exports. */
 internal class DiagnosticsArchiveSelectionBuilder(
     private val sourceLoader: DiagnosticsArchiveSourceLoader,
     private val sessionSelector: DiagnosticsArchiveSessionSelector,

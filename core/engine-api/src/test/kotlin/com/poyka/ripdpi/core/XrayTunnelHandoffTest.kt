@@ -24,7 +24,6 @@ class XrayTunnelHandoffTest {
         upstream as TunnelUpstream.Xray
         assertEquals("127.0.0.1", upstream.host)
         assertEquals(10808, upstream.port)
-        // DNS-loop ownership is fixed to the tunnel (single source of truth).
         assertEquals(DnsLoopOwner.Tunnel, upstream.dnsOwner)
     }
 
@@ -35,7 +34,6 @@ class XrayTunnelHandoffTest {
                 VpnProviderKind.Xray,
                 XrayProviderConfig(localInboundPort = 23456),
             ) as TunnelUpstream.Xray
-        // Loopback hardening: the inbound endpoint is never routable.
         assertEquals(XrayTunnelHandoff.LoopbackHost, upstream.host)
     }
 
@@ -58,7 +56,6 @@ class XrayTunnelHandoffTest {
 
     @Test
     fun `xray upstream rejects split DNS model`() {
-        // The XrayDns owner (split model) is not selectable for the bridge.
         assertThrows(IllegalArgumentException::class.java) {
             TunnelUpstream.Xray(host = "127.0.0.1", port = 10808, dnsOwner = DnsLoopOwner.XrayDns)
         }

@@ -1,9 +1,3 @@
-//! QUIC v1/v2 Initial matrix with control and test SNI on isolated UDP flows.
-//!
-//! The matrix reports Initial-stage evidence only. Initial keys come from public inputs, so a valid
-//! Initial response is not endpoint authentication, handshake success or HTTP/3 success. A result
-//! never changes relay or strategy settings.
-
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::sync::atomic::AtomicBool;
@@ -13,7 +7,6 @@ use super::super::protect::protected_udp_bind;
 use super::super::types::TransportError;
 use super::{check_udp_attempt, poll_wait, udp_remaining};
 
-/// Repetitions of the four-cell matrix.
 pub const QUIC_MATRIX_REPETITIONS: usize = 2;
 
 const QUIC_V1_WIRE: u32 = 0x0000_0001;
@@ -26,7 +19,6 @@ pub enum QuicMatrixVersion {
 }
 
 impl QuicMatrixVersion {
-    /// RFC 9000 and RFC 9369 version numbers. Unknown-version decoys are never a matrix version.
     pub fn wire(self) -> u32 {
         match self {
             Self::V1 => QUIC_V1_WIRE,
@@ -41,25 +33,15 @@ pub enum QuicMatrixSni {
     Test,
 }
 
-/// How the caller classified one datagram from the endpoint.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicReply {
-    /// The DIA-07 validator accepted a server Initial for this request.
     ValidInitial,
-    /// A correlated Version Negotiation packet.
     VersionNegotiation,
-    /// Anything else: Retry, unvalidated or uncorrelated bytes.
     Other,
 }
 
-/// Builds Initials and validates replies. The caller supplies the `ripdpi-packets` builders
-/// and the DIA-07 Initial-response validator: every accepted Initial kind (CRYPTO, ACK, other
-/// frames, CONNECTION_CLOSE) maps to `ValidInitial`, Version Negotiation to `VersionNegotiation`,
-/// and Retry or a rejected datagram to `Other`.
 pub trait QuicInitialCodec {
-    /// Build a fresh client Initial with new connection IDs for `version` and `sni`.
     fn build(&self, version: u32, sni: &str) -> Option<Vec<u8>>;
-    /// Classify one datagram that came from the endpoint in reply to `request`.
     fn classify(&self, request: &[u8], response: &[u8]) -> QuicReply;
 }
 
@@ -67,7 +49,6 @@ pub trait QuicInitialCodec {
 pub enum QuicCellStage {
     ValidInitial,
     VersionNegotiationOnly,
-    /// Datagrams came from the endpoint but none was a valid Initial or Version Negotiation.
     Other,
     Timeout,
 }
@@ -81,7 +62,6 @@ pub struct QuicCellOutcome {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct QuicMatrixCell {
-    /// Execution order across the whole matrix, starting at 0.
     pub sequence: usize,
     pub repetition: usize,
     pub version: QuicMatrixVersion,
@@ -90,29 +70,21 @@ pub struct QuicMatrixCell {
     pub outcome: QuicCellOutcome,
 }
 
-/// Test SNI then control SNI on one socket. Reported apart from the matrix.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct QuicResidualCell {
     pub version: QuicMatrixVersion,
     pub local_port: u16,
     pub test: QuicCellOutcome,
     pub control: QuicCellOutcome,
-    /// Fresh-socket controls for this version were valid, but the control after the test timed out.
-    /// An `Other` control is not counted: leftover test-flow Handshake datagrams can cause it.
     pub residual_state_suspected: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicVersionStatus {
-    /// Not every control cell got a valid Initial response. Says nothing about blocking.
     Inconclusive,
-    /// Every control cell got Version Negotiation only: the endpoint does not offer this version.
     UnsupportedByEndpoint,
-    /// Controls valid; the test SNI got a valid Initial response in every repetition.
     TestAnswered,
-    /// Controls valid; the test SNI got no valid Initial response in any repetition.
     TestNotAnswered,
-    /// Controls valid; repetitions disagree for the test SNI.
     TestMixed,
 }
 
@@ -122,12 +94,9 @@ pub enum QuicMatrixStop {
     DeadlineExceeded,
 }
 
-/// Limits every matrix result carries.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QuicMatrixLimit {
-    /// Initial-stage evidence only: not endpoint authentication, handshake or HTTP/3 success.
     InitialStageOnly,
-    /// Each cell uses a new local port, which does not prove a separate NAT mapping.
     LocalPortSeparationOnly,
 }
 
@@ -135,18 +104,12 @@ pub const QUIC_MATRIX_LIMITS: &[QuicMatrixLimit] =
     &[QuicMatrixLimit::InitialStageOnly, QuicMatrixLimit::LocalPortSeparationOnly];
 
 pub struct QuicVersionMatrixRequest<'a> {
-    /// One user-authorized endpoint.
     pub endpoint: SocketAddr,
     pub control_sni: &'a str,
     pub test_sni: &'a str,
-    /// Receive window for one Initial.
     pub cell_timeout: Duration,
-    /// Bytes sent plus received for one Initial exchange. Receiving stops once a datagram crosses
-    /// the budget, so the total can exceed it by at most that one datagram.
     pub cell_byte_budget: usize,
-    /// Wall-clock bound for the whole run, residual cell included.
     pub total_deadline: Duration,
-    /// Run the same-socket residual cell for this version. `None` keeps it disabled.
     pub residual: Option<QuicMatrixVersion>,
 }
 
@@ -157,15 +120,10 @@ pub struct QuicVersionMatrixReport {
     pub stopped: Option<QuicMatrixStop>,
     pub v1: QuicVersionStatus,
     pub v2: QuicVersionStatus,
-    /// Initial-stage version difference for the test SNI. Requires valid controls on both versions.
     pub version_difference: bool,
     pub limits: &'static [QuicMatrixLimit],
 }
 
-/// Run the matrix: each repetition alternates the version order, and every cell uses a fresh
-/// protected socket. All sockets stay open until the run ends, so no two cells share a local port.
-/// Cancellation and the scan deadline are checked between cells and while a cell waits.
-/// A cell that does not complete is dropped and `stopped` says why.
 pub fn run_quic_version_matrix(
     request: &QuicVersionMatrixRequest<'_>,
     codec: &dyn QuicInitialCodec,
@@ -253,7 +211,6 @@ pub fn run_quic_version_matrix(
     })
 }
 
-/// Status of one version from the matrix cells. A cell missing after a stop counts as a failed control.
 pub fn quic_version_status(cells: &[QuicMatrixCell], version: QuicMatrixVersion) -> QuicVersionStatus {
     let stages = |sni| {
         cells.iter().filter(move |cell| cell.version == version && cell.sni == sni).map(|cell| cell.outcome.stage)
@@ -278,7 +235,6 @@ pub fn quic_version_status(cells: &[QuicMatrixCell], version: QuicMatrixVersion)
     }
 }
 
-/// A version difference needs valid controls on both versions and a consistent, different test outcome.
 pub fn quic_version_difference(v1: QuicVersionStatus, v2: QuicVersionStatus) -> bool {
     use QuicVersionStatus::{TestAnswered, TestNotAnswered};
     matches!((v1, v2), (TestAnswered, TestNotAnswered) | (TestNotAnswered, TestAnswered))
@@ -316,7 +272,6 @@ fn fresh_socket(endpoint: SocketAddr) -> Result<UdpSocket, TransportError> {
     Ok(protected_udp_bind(bind, endpoint)?)
 }
 
-/// Turn cancellation and deadline errors into a stop; propagate every other failure.
 fn stop_reason<T>(result: Result<T, TransportError>) -> Result<Result<T, QuicMatrixStop>, TransportError> {
     match result {
         Ok(value) => Ok(Ok(value)),
@@ -326,9 +281,7 @@ fn stop_reason<T>(result: Result<T, TransportError>) -> Result<Result<T, QuicMat
     }
 }
 
-/// Send one Initial and wait for its reply. Datagrams that answer `earlier` (an Initial sent
-/// before on the same socket) are ignored and not charged to the budget.
-#[allow(clippy::too_many_arguments)] // shortcut: one private call shape; group into a struct if a caller is added.
+#[allow(clippy::too_many_arguments)]
 fn exchange(
     socket: &UdpSocket,
     request: &QuicVersionMatrixRequest<'_>,
@@ -341,12 +294,10 @@ fn exchange(
 ) -> Result<(QuicCellOutcome, Vec<u8>), TransportError> {
     check_udp_attempt(Some(cancel))?;
     let cell_deadline = Instant::now().checked_add(request.cell_timeout).ok_or(TransportError::InvalidProbePayload)?;
-    // Start a cell only with its full receive window, so every Timeout means the same wait.
     if cell_deadline > deadline {
         return Err(TransportError::ScanDeadlineExceeded);
     }
     let initial = codec.build(version.wire(), sni).ok_or(TransportError::InvalidProbePayload)?;
-    // A builder that falls back to another version must not be counted as this version.
     if initial.first().is_none_or(|flags| flags & 0x80 == 0) || initial.get(1..5) != Some(&version.wire().to_be_bytes())
     {
         return Err(TransportError::InvalidProbePayload);
@@ -369,7 +320,6 @@ fn exchange(
         };
         socket.set_read_timeout(Some(poll_wait(remaining, true)))?;
         match socket.recv_from(&mut bytes) {
-            // Datagrams from other sources are not the endpoint's reply.
             Ok((size, from))
                 if from == request.endpoint
                     && earlier.is_none_or(|earlier| codec.classify(earlier, &bytes[..size]) == QuicReply::Other) =>

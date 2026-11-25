@@ -7,7 +7,6 @@ import org.junit.Test
 class ReplayStepEventTest {
     @Test
     fun stepKind_enumeratesAllFiveCanonical() {
-        // P4 design lockdown: exactly 5 step kinds in this order
         assertEquals(5, ReplayStepKind.values().size)
         assertEquals(ReplayStepKind.DnsResolve, ReplayStepKind.values()[0])
         assertEquals(ReplayStepKind.FirstByte, ReplayStepKind.values()[4])

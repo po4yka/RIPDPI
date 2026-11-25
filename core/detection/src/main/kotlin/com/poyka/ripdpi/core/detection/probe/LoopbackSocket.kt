@@ -26,7 +26,6 @@ internal suspend fun <T> withCancellableLoopbackSocket(block: (Socket) -> T): T 
         }
     }
 
-/** Owns the socket of one gRPC channel, including a connect still in progress. */
 internal class LoopbackSocketFactory(
     private val endpoint: InetAddress,
     private val connectTimeoutMs: Int,

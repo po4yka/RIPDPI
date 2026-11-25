@@ -92,8 +92,6 @@ fn negotiate_socks5_with_credentials(
             socks.request(Socks5Command::TCPConnect, target).await?;
             Ok::<_, SocksError>(socks.get_socket())
         };
-        // Cancel safety: short waits retain the same future and its partial frame state.
-        // On abort or timeout, drop the future and its exclusively owned socket.
         let mut operation = std::pin::pin!(operation);
         let deadline = tokio::time::Instant::from_std(deadline);
         loop {
@@ -281,8 +279,6 @@ pub fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), Tr
                 SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::from(raw)), u16::from_be_bytes([frame[20], frame[21]]));
             Ok((address, frame[22..].to_vec()))
         }
-        // UDP probes select a numeric peer. Correlate numeric names without resolving
-        // arbitrary names supplied by a relay in an unauthenticated datagram header.
         0x03 => {
             let name_end = 5 + usize::from(frame[4]);
             let full_header = frame.get(..name_end + 2).ok_or(TransportError::SocksUdpFrameTooShort)?;

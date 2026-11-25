@@ -7,10 +7,6 @@ private const val DetectionFindingPreviewLimit = 2
 private const val FailedStageSpotlightLimit = 2
 private val ResolverAppliedSettingLabels = setOf("Resolver", "Protocol")
 
-/**
- * Pure derivation of a plain-language headline + 2-4 next-step recommendations
- * from the existing outcome data. No IO, no new probes.
- */
 @Suppress("detekt.LongMethod", "detekt.CyclomaticComplexMethod")
 internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcome): Pair<String?, List<String>> {
     val steps = mutableListOf<String>()

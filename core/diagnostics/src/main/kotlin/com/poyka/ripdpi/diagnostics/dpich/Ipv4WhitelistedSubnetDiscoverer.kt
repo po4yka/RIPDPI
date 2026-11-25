@@ -110,7 +110,6 @@ class OkHttpSubnetAliveProbe(
         }
 }
 
-// Some JDKs report a handshake read timeout as an SSLException; a silent peer is unreachable, not a TLS failure.
 private fun classifyProbeFailure(error: IOException): SubnetAliveProbeResult {
     val timedOut = generateSequence<Throwable>(error) { it.cause }.any { it is java.io.InterruptedIOException }
     return when {
@@ -155,9 +154,8 @@ class Ipv4WhitelistedSubnetDiscoverer(
                     ),
                 )
             }
-            // Publish only a complete run, so a failed or cancelled run keeps the previous cache.
             cache.save(cached)
-        }.flowOn(Dispatchers.IO) // Cache file I/O, JSON and sampling block; collectors run on Main.
+        }.flowOn(Dispatchers.IO)
 
     fun checkCachedSubnets(config: WhitelistedSubnetConfig = WhitelistedSubnetConfig()): Flow<SubnetCheckProgress> =
         flow {
@@ -166,7 +164,6 @@ class Ipv4WhitelistedSubnetDiscoverer(
             val cached = cache.load()
             cached.forEachIndexed { index, subnet ->
                 val sampledIps = sampleIps(subnet.cidr, config.subnetSampleSize)
-                // A SYN-dropping /24 costs one timeout per wave, not one per sampled address.
                 val permits = Semaphore(SampleProbeConcurrency)
                 val alive =
                     coroutineScope {
@@ -205,7 +202,6 @@ class Ipv4WhitelistedSubnetDiscoverer(
     ): List<String> {
         val range = Ipv4Cidr.parse(cidr)
         val count = min(sampleSize.toLong(), range.hostCount).toInt()
-        // Draw offsets instead of listing every host: a /9 announcement would materialize ~8M strings.
         val offsets =
             if (count.toLong() == range.hostCount) {
                 (0L until count.toLong()).shuffled(random)
@@ -231,7 +227,6 @@ class SubnetsCache(
             try {
                 json.decodeFromString(ListSerializer(CachedWhitelistSubnet.serializer()), file.readText())
             } catch (_: SerializationException) {
-                // A torn or foreign file is a regenerable cache: drop it instead of failing every check.
                 file.delete()
                 emptyList()
             }

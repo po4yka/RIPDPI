@@ -24,7 +24,6 @@ internal data class DiagnosticsExportLeaseRecord(
     val sha256: String? = null,
 )
 
-/** Private durable journal for prepared artifacts; all calls are serialized by archiveMutex. */
 class DiagnosticsPreparedFileStore(
     private val filesDir: File,
     private val json: Json,
@@ -179,8 +178,6 @@ class DiagnosticsPreparedFileStore(
                 directory.name.startsWith(".discard-") -> {
                     val id = requireNotNull(DiagnosticsExportLeaseId.parse(directory.name.removePrefix(".discard-")))
                     if (directory.listFiles()?.isEmpty() == true) {
-                        // Atomic retirement proves ownership of this empty namespace.
-                        // No arbitrary contents are deleted.
                         deleteVerified(verifiedChild(directory.name))
                         null
                     } else {
@@ -227,8 +224,6 @@ class DiagnosticsPreparedFileStore(
         deleteVerified(File(retired, "lease.json"))
         runCatching { deleteVerified(retired) }
             .onFailure { error ->
-                // Keep the known journal retryable after a deletion error.
-                // Empty tombstones also recover after process death.
                 runCatching { writeTo(retiring, retired) }.exceptionOrNull()?.let(error::addSuppressed)
             }.getOrThrow()
     }

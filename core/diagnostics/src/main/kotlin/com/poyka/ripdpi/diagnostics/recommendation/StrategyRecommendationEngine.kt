@@ -159,23 +159,18 @@ internal object StrategyRecommendationEngine {
 
         return when (pattern) {
             PatternRstInjection -> {
-                // RST injection: DPI injects TCP RST. Fake packets with TTL trick defeat this.
                 if (isBasicStrategy || currentFamily == FamilyDisorder) FamilyFake else FamilyTlsrecFake
             }
 
             PatternThresholdBlocking -> {
-                // Threshold blocking: DPI allows handshake but blocks after N KB.
-                // Disorder breaks reassembly. TLS record split + fake is most reliable.
                 if (isBasicStrategy) FamilyTlsrecFake else FamilyDisorder
             }
 
             PatternSilentDrop -> {
-                // Silent drop: packets disappear. Disorder with TTL trick.
                 if (isBasicStrategy) FamilyDisorder else FamilyTlsrecFake
             }
 
             PatternMixedDpi -> {
-                // Mixed signals: TLS record split + fake is the most broadly effective.
                 if (isBasicStrategy) FamilyTlsrecFake else null
             }
 

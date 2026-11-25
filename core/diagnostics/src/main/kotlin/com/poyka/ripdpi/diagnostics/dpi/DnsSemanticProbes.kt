@@ -61,7 +61,6 @@ class DatagramSocketDnsUdpProbe(
     }
 }
 
-/** Known public DoH policies with an explicit endpoint for each supported encoding. */
 enum class DohResolverProfile(
     internal val wireEndpoint: String,
     internal val jsonEndpoint: String? = null,

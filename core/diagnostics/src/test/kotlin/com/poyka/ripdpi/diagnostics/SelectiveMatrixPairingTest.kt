@@ -81,7 +81,6 @@ class SelectiveMatrixPairingTest {
 
     @Test
     fun `payload on wifi and failure on cellular with valid controls is path-specific`() {
-        // Given in reverse order: the comparison orders legs by start time.
         val result =
             compared(
                 leg("cellular", startedAt = MINUTE * 20, target = failed("tls")),
@@ -118,11 +117,9 @@ class SelectiveMatrixPairingTest {
         assertEquals(SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.AVAILABLE, null, 2, 2), site.first)
         assertEquals(SelectiveMatrixTargetLegOutcome(SelectiveMatrixTargetStage.FAILED, "tls", 2, 0), site.second)
         assertEquals(1 to 1, decoded.pathSpecificCount to decoded.comparableCount)
-        // Probe targets carry the hostname label; the export keeps only the opaque target id.
         assertFalse(encoded.contains("label-site"))
         assertFalse(encoded.contains(Revisions.targetSet))
 
-        // An attempt without a target id is not paired, so its hostname never becomes a row key.
         val unkeyed =
             ProbeResult("selective_availability", "host.example", "matrix_target_available", emptyList())
         val withUnkeyed =

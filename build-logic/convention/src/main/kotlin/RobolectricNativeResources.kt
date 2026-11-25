@@ -19,7 +19,6 @@ import java.util.zip.ZipFile
 
 private const val NativeResourcesArtifactType = "ripdpi-robolectric-native-resources"
 
-/** Keep the original native JAR; place its unchanged font data before it on JVM test classpaths. */
 internal fun Project.configureRobolectricNativeResources() {
     dependencies.registerTransform(RobolectricNativeResourcesTransform::class.java) {
         from.attribute(ArtifactTypeDefinition.ARTIFACT_TYPE_ATTRIBUTE, ArtifactTypeDefinition.JAR_TYPE)
@@ -28,7 +27,6 @@ internal fun Project.configureRobolectricNativeResources() {
     val unitTests =
         extensions.findByType(ApplicationExtension::class.java)?.testOptions?.unitTests
             ?: extensions.getByType(LibraryExtension::class.java).testOptions.unitTests
-    // AGP applies this callback after it sets the original unit-test classpath.
     unitTests.all { task ->
         val variantName = task.name.removePrefix("test").replaceFirstChar(Char::lowercaseChar)
         val configuration = configurations.getByName("${variantName}RuntimeClasspath")

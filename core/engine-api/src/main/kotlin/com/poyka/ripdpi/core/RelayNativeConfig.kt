@@ -10,38 +10,14 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 
-/** Runtime-owned policy for protecting relay carrier sockets from the app TUN. */
 @Serializable
 enum class RelaySocketProtection {
-    /** Proxy mode or another runtime with no TUN routing loop risk. */
     @SerialName("inactive")
     Inactive,
 
-    /** VPN mode: every non-loopback carrier socket must be protected or fail closed. */
     @SerialName("vpn_required")
     VpnRequired,
 }
-
-/**
- * Relay native runtime configuration — the payload [RipDpiRelay] encodes to
- * JSON and hands to `libripdpi-relay.so` (Rust crate `ripdpi-relay-android`).
- *
- * [ResolvedRipDpiRelayConfig] is the **wire DTO**: a flat `@Serializable`
- * object whose shape is a config contract with the Rust
- * `FlatResolvedRelayRuntimeConfig` deserializer. Its field set, names, defaults,
- * and `finalmask` / `shadowTlsInner` nested objects must not change without
- * updating the Rust side in the same commit — see
- * `docs/architecture/CONFIG_CONTRACTS.md`.
- *
- * The `Relay*Section` models below give that flat field set a concern-grouped
- * structure: relay-config construction assembles the sections, then
- * [RelayConfigSections.toResolvedConfig] flattens them into the wire DTO — the
- * `core:service` resolver builds every [ResolvedRipDpiRelayConfig] this way.
- * [toSections] is the lossless inverse, for code that inspects an existing
- * config. The section models never touch the wire — only
- * [ResolvedRipDpiRelayConfig] is serialized — so they carry no `@Serializable`
- * annotation and impose no JSON-compatibility constraint.
- */
 
 @Serializable
 data class ResolvedRelayFinalmaskConfig(
@@ -62,7 +38,6 @@ data class ResolvedShadowTlsInnerRelayConfig(
     val server: String,
     val serverPort: Int,
     val serverName: String,
-    // Rust declares both keys without a serde default, so an empty value must still be encoded.
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
     val realityPublicKey: String = "",
     @EncodeDefault(EncodeDefault.Mode.ALWAYS)
@@ -109,7 +84,6 @@ data class ResolvedChainRelayHopConfig(
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val trojanRootCertificatePem: String? = null,
     val anytlsRootCertificatePem: String? = null,
-    /** AnyTLS leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val anytlsCertificatePinSha256: String? = null,
     val naivePath: String = "",
@@ -197,9 +171,6 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitPublicKey: String,
     val chainExitShortId: String,
     val chainExitProfileId: String = "",
-    // Ordered N-hop chain list for 3- and 4-hop chains; the chainEntry/chainExit
-    // resolved configs carry current 2-hop identity and the scalar fields above
-    // remain their derived hop[0]/hop[last] mirror. See CONFIG_CONTRACTS.md §8.
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val chainHops: List<ResolvedChainRelayHopConfig> = emptyList(),
     val masqueUrl: String,
@@ -234,7 +205,6 @@ data class ResolvedRipDpiRelayConfig(
     val sshPrivateKeyPassphrase: String? = null,
     val sshHostKeyFingerprint: String? = null,
     val sshStrictHostKey: Boolean = false,
-    // Android helper launch inputs; the native flat schema has no such fields.
     @Transient val naiveExtraHeaders: String = "",
     @Transient val naiveServerPinSha256: String = "",
     @Transient val naiveQuic: Boolean = false,
@@ -249,7 +219,6 @@ data class ResolvedRipDpiRelayConfig(
     val torTransports: List<ResolvedTorPluggableTransportConfig> = emptyList(),
     val localSocksHost: String,
     val localSocksPort: Int,
-    /** Per-session RFC 1929 credentials the native listener requires; omitted from the wire when absent. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val localSocksUsername: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
@@ -271,7 +240,6 @@ data class ResolvedRipDpiRelayConfig(
     val hysteriaRealmToken: String? = null,
     val hysteriaRealmStunServers: List<String> = emptyList(),
     val hysteriaInsecure: Boolean = false,
-    /** Hysteria2 leaf-certificate SHA-256 pin, 64 lowercase hex characters; `null` = no pin. */
     val hysteriaPinSha256: String? = null,
     @SerialName("anytlsPassword")
     val anyTlsPassword: String? = null,
@@ -313,30 +281,15 @@ data class ResolvedRipDpiRelayConfig(
     @Required
     val schemaVersion: Int = RelayNativeConfigSchemaVersion,
 ) {
-    /** The wire DTO carries relay and listener secrets; its string form must never print them. */
     override fun toString(): String = "ResolvedRipDpiRelayConfig(kind=$kind, profileId=$profileId, [REDACTED])"
 }
 
-/**
- * Current relay native-config wire schema version. Every
- * [ResolvedRipDpiRelayConfig] must carry `schemaVersion`; missing and
- * non-current versions are rejected. Version 10 requires explicit top-level,
- * chain-hop, and ShadowTLS-inner TLS fingerprint fields and retires version 9.
- * Mirrors the Rust schema.
- */
 const val RelayNativeConfigSchemaVersion: Int = 10
 
-/** Minimum number of hops a chain-relay section may carry. */
 const val RelayChainMinHops: Int = 2
 
-/** Maximum number of hops a chain-relay section may carry. */
 const val RelayChainMaxHops: Int = 4
 
-/**
- * Typed validation failure raised when a chain-relay hop list falls outside the
- * `[RelayChainMinHops, RelayChainMaxHops]` bound. Carries the offending count so
- * the caller can surface a precise diagnostic — there is no silent truncation.
- */
 class RelayChainHopCountException(
     val hopCount: Int,
     val minHops: Int = RelayChainMinHops,
@@ -345,14 +298,6 @@ class RelayChainHopCountException(
         "chain relay hop count $hopCount is out of range [$minHops, $maxHops]",
     )
 
-/**
- * One ordered hop in a [RelayChainSection] hop list. Mirrors the flat
- * `chainEntry*` / `chainExit*` wire-DTO scalar group for a single position:
- * [config] is the optional resolved hop template, the remaining fields are the
- * inline / referenced-profile hop reference. Hop 0 is the entry, the last hop is
- * the exit; intermediate hops are reserved for N-hop runtime composition (the
- * next task) and today the list is always length 2.
- */
 data class ResolvedChainRelayHopRef(
     val config: ResolvedChainRelayHopConfig?,
     val server: String,
@@ -366,14 +311,6 @@ data class ResolvedChainRelayHopRef(
     val uuid: String?,
 )
 
-// Section models — the per-protocol `Relay*Section` data classes — live in
-// `RelaySectionsDto.kt` (same package). The conversion functions below regroup
-// the flat [ResolvedRipDpiRelayConfig] wire DTO into those sections and back.
-
-/**
- * The complete [ResolvedRipDpiRelayConfig] field set regrouped into section
- * models. Convert back to the flat wire DTO with [toResolvedConfig].
- */
 data class RelayConfigSections(
     val common: RelayCommonSection,
     val vless: RelayVlessSection,
@@ -432,10 +369,6 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
         vlessUuid = vlessUuid,
     )
 
-// A hop reference derived from a wire [ResolvedChainRelayHopConfig]: the rich
-// resolved template is kept in [ResolvedChainRelayHopRef.config], and the scalar
-// mirror fields are projected from it so the entry/exit derived slots and the
-// in-process composition see a consistent view.
 internal fun ResolvedChainRelayHopConfig.toHopRef(): ResolvedChainRelayHopRef =
     ResolvedChainRelayHopRef(
         config = this,
@@ -455,12 +388,6 @@ internal fun ResolvedChainRelayHopRef.toHopConfig(): ResolvedChainRelayHopConfig
         "Resolved chain hop config with explicit TLS fingerprint is required"
     }
 
-// Fold the flat wire DTO's chain fields into the ordered hop list. When the
-// additive [ResolvedRipDpiRelayConfig.chainHops] list is populated it is the
-// N-hop (3-/4-hop) source of truth and is used directly. Otherwise — v6 payloads
-// and plain 2-hop chains — the legacy two-hop `chainEntry*` / `chainExit*`
-// scalars are folded into a 2-element list (hop 0 = entry, hop 1 = exit), which
-// is also the lossless v6 -> v7 migration.
 private fun ResolvedRipDpiRelayConfig.masqueSection(): RelayMasqueSection =
     RelayMasqueSection(
         masqueUrl = masqueUrl,
@@ -599,7 +526,6 @@ private fun ResolvedRipDpiRelayConfig.appsScriptSection(): RelayAppsScriptSectio
         appsScriptDataDir = appsScriptDataDir,
     )
 
-/** Regroup this flat relay config into concern-scoped [RelayConfigSections]. */
 private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChainRelayHopRef> =
     listOf(
         ResolvedChainRelayHopRef(
@@ -628,22 +554,12 @@ private fun ResolvedRipDpiRelayConfig.legacyTwoHopChainRefs(): List<ResolvedChai
         ),
     )
 
-// Prefer the ordered [ResolvedRipDpiRelayConfig.chainHops] list (the N-hop
-// source of truth); fall back to the resolved two-hop entry/exit fold when it
-// is empty. Scalar fields remain derived mirrors, not executable identity.
-// Brace-free single
-// expression: the empty-list fallback is a bound function reference, so this
-// helper file's brace structure is unchanged from the v6 two-hop shape.
 private fun ResolvedRipDpiRelayConfig.orderedChainHopRefs(): List<ResolvedChainRelayHopRef> =
     chainHops.map(ResolvedChainRelayHopConfig::toHopRef).ifEmpty(this::legacyTwoHopChainRefs)
 
 private fun ResolvedRipDpiRelayConfig.chainSection(): RelayChainSection =
     RelayChainSection(hops = orderedChainHopRefs())
 
-// The ordered hop list to carry over the wire. Emitted only for genuinely N-hop
-// chains (3 or 4 hops); a plain 2-hop chain stays expressed by the required
-// resolved entry/exit configs plus their derived scalar mirrors. Single
-// brace-free expression to keep this helper file's brace structure unchanged.
 internal fun RelayChainSection.wireChainHops(): List<ResolvedChainRelayHopConfig> =
     if (hops.size > RelayChainMinHops) hops.map(ResolvedChainRelayHopRef::toHopConfig) else emptyList()
 
@@ -669,22 +585,6 @@ fun ResolvedRipDpiRelayConfig.toSections(): RelayConfigSections =
         finalmask = finalmask,
     )
 
-/**
- * Flatten the section models back into the [ResolvedRipDpiRelayConfig] wire
- * DTO. Inverse of [toSections]: `config.toSections().toResolvedConfig()`
- * reproduces `config` exactly.
- *
- * The ordered chain-relay hop list is unfolded back into the flat two-hop wire
- * slots via `chain.entryHop` / `chain.exitHop`: hop 0 -> `chainEntry*`, last hop
- * -> `chainExit*` (inverse of the fold in `chainSection()`). Intermediate hops
- * (list lengths 3..4) are not yet expressible on the flat wire — N-hop runtime
- * composition lands in the next task, which owns the wire-shape extension; today
- * the list is always length 2.
- *
- * `@Suppress("LongMethod")`: a flat 1:1 field copy from the concern-scoped
- * sections back onto the wire DTO — every line is one field assignment, so the
- * length is structural, not complexity.
- */
 @Suppress("LongMethod")
 fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
     ResolvedRipDpiRelayConfig(
@@ -721,9 +621,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         chainExitPublicKey = chain.exitHop.publicKey,
         chainExitShortId = chain.exitHop.shortId,
         chainExitProfileId = chain.exitHop.profileId,
-        // Carry the ordered list over the wire only for genuinely N-hop chains
-        // (3 or 4 hops). A plain 2-hop chain stays fully expressed by the
-        // entry/exit scalars above, keeping its wire shape byte-identical to v6.
         chainHops = chain.wireChainHops(),
         masqueUrl = masque.masqueUrl,
         masqueTcpProtocol = masque.masqueTcpProtocol,
@@ -798,18 +695,15 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         finalmask = finalmask,
     ).withHysteria2(hysteria2).withXhttp(vless).withAppsScript(appsScript).withAnyTls(anyTls).withSnell(snell)
 
-/** Copy the Snell credentials as one unit. */
 private fun ResolvedRipDpiRelayConfig.withSnell(section: RelaySnellSection): ResolvedRipDpiRelayConfig =
     copy(snellPsk = section.snellPsk, snellUserKey = section.snellUserKey)
 
-/** Copy the AnyTLS credentials and optional certificate pin as one unit. */
 private fun ResolvedRipDpiRelayConfig.withAnyTls(section: RelayAnyTlsSection): ResolvedRipDpiRelayConfig =
     copy(
         anyTlsPassword = section.anyTlsPassword,
         anyTlsPinSha256 = section.anyTlsPinSha256,
     )
 
-/** Copy Apps Script configuration as one section, including its runtime-owned directory. */
 private fun ResolvedRipDpiRelayConfig.withAppsScript(section: RelayAppsScriptSection): ResolvedRipDpiRelayConfig =
     copy(
         appsScriptScriptIds = section.appsScriptScriptIds,
@@ -823,7 +717,6 @@ private fun ResolvedRipDpiRelayConfig.withAppsScript(section: RelayAppsScriptSec
         appsScriptDataDir = section.appsScriptDataDir,
     )
 
-/** Copy the Hysteria section as one unit, including optional hopping policy. */
 private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Section): ResolvedRipDpiRelayConfig =
     copy(
         hysteriaPassword = section.hysteriaPassword,
@@ -839,7 +732,6 @@ private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Secti
         hysteriaRealmStunServers = section.hysteriaRealmStunServers,
     )
 
-/** Copy the XHTTP options as one unit, including the optional connection bound. */
 private fun ResolvedRipDpiRelayConfig.withXhttp(section: RelayVlessSection): ResolvedRipDpiRelayConfig =
     copy(
         xhttpPath = section.xhttpPath,

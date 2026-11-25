@@ -37,7 +37,6 @@ pub(super) fn capture_with_ech_retry(
             Ok(handshake) => return (Ok(handshake), None),
             Err(failure) => failure,
         };
-        // Retry only the same known peer. A fresh DNS result cannot authorize the retry.
         let (Some(configs), Some(source)) = (failure.ech_retry_configs.take(), failure.ech_config_source) else {
             return (Err(failure), None);
         };

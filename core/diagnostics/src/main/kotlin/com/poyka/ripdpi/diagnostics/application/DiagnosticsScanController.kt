@@ -243,9 +243,6 @@ internal class DefaultDiagnosticsScanController
                     }.fold(
                         onSuccess = { sessionId -> DiagnosticsManualScanResolution.Started(sessionId) },
                         onFailure = { failure ->
-                            // Cancellation must propagate so structured concurrency sees the
-                            // caller's scope was torn down; converting it into Failed would
-                            // resume a cancelled coroutine with an unrelated error result.
                             if (failure is CancellationException) throw failure
                             DiagnosticsManualScanResolution.Failed(
                                 DiagnosticsManualScanResolutionFailureReason.START_FAILED,
@@ -465,8 +462,6 @@ internal class DefaultDiagnosticsScanController
 
             val executionJob =
                 scope.launch(start = CoroutineStart.LAZY) {
-                    // The application scope has no handler: a store failure while recording a failed
-                    // or cancelled scan must not kill the process. Cleanup has already run in finally.
                     val failure =
                         runCatching {
                             executionCoordinator.execute(
@@ -478,9 +473,6 @@ internal class DefaultDiagnosticsScanController
                         }.exceptionOrNull()
                     if (failure is CancellationException || failure is Error) throw failure
                     failure?.let { Logger.e(it, tag = LogTags.DIAGNOSTICS) { "Diagnostics scan execution failed" } }
-                    // A failed cleanup write surfaces here (it replaces any cancellation): retry it once so the
-                    // scan does not show as running until the next process. Raw-path scans are left to the
-                    // settlement barrier, which owns their terminal record.
                     if (failure == null || prepared.pathMode == ScanPathMode.RAW_PATH) return@launch
                     val summary =
                         activeScanRegistry.cancellationSummaryFor(prepared.sessionId) ?: ExecutionFailedSummary

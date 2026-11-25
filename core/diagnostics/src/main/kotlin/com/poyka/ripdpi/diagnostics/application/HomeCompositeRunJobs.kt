@@ -56,7 +56,6 @@ internal class HomeCompositeRunJobs(
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (error: Throwable) {
-                    // The application scope has no handler: a failing failure handler must not kill the process.
                     val handlerFailure = runCatching { onFailure(error) }.exceptionOrNull()
                     if (handlerFailure is CancellationException || handlerFailure is Error) throw handlerFailure
                     handlerFailure?.let {

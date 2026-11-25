@@ -380,9 +380,6 @@ class StrategyProbeServiceTest {
     @Test
     fun `candidate provider tolerates null lua binding returns`() =
         runTest {
-            // A contained native panic marshals luaListStrategies/luaLoadedScriptPaths to
-            // null; the boundary must coalesce to empty rather than NPE. Only the built-in
-            // candidates should remain.
             val provider =
                 DefaultStrategyProbeCandidateProvider(
                     FakeStrategyEngineBindings(luaStrategies = null, luaScriptPaths = null),

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Only validated numeric measurements and known stop reasons enter the text export. */
 internal fun transferEvidenceSummaryLines(results: List<ProbeResult>): List<String> =
     results
         .withIndex()

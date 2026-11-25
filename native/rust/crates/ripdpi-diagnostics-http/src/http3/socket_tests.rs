@@ -27,7 +27,6 @@ fn slow_protection_never_holds_the_probe_deadline_or_sends_after_cancel() {
     }
     let server = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
     server.set_read_timeout(Some(Duration::from_millis(30))).unwrap();
-    // Unspecified target invokes protection; no QUIC packet may be sent to it.
     let config = Http3ProbeConfig {
         connect_ip: Some("0.0.0.0".into()),
         port: server.local_addr().unwrap().port(),

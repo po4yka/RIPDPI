@@ -10,7 +10,6 @@ internal fun bucketSelectiveMatrix(outcome: String): DiagnosticsOutcomeBucket =
         else -> DiagnosticsOutcomeBucket.Inconclusive
     }
 
-/** Target identifiers stay opaque; archive text redaction removes user hostnames and source URLs. */
 internal fun List<ProbeResult>.selectiveMatrixSummaryLines(): List<String> =
     filter { it.probeType in MatrixProbeTypes }.take(MatrixMaximumResultRows).flatMap { result ->
         buildList {

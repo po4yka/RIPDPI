@@ -1,13 +1,3 @@
-//! Independent upstream-faithful ShadowTLS v3 server oracle.
-//!
-//! This module re-derives the v3 server from ihciah/shadow-tls `src/server.rs`
-//! and `src/util.rs` at commit 02dd0bc7bae8a2011729f95021690e694fd8e43e. It uses
-//! `ring` HMAC and SHA-256 directly. It must not reuse the crate helpers
-//! (`hmac`, `frames`, `handshake`): a bug shared by the client and the helpers
-//! would then pass unseen. `ShadowTlsLoopback` reuses those helpers and does
-//! not verify the ClientHello HMAC, so it cannot play this role. The cover
-//! server is a real rustls TLS 1.3 `ServerConnection`. The client side uses
-//! only the public `ShadowTlsClient` and `Config` API.
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 use std::sync::Arc;
 
@@ -51,8 +41,6 @@ fn split_records(mut b: &[u8]) -> Vec<Vec<u8>> {
     out
 }
 
-/// upstream server.rs ClientHello check, independently re-derived:
-/// HMAC_SHA1(pw, handshake msg with the last 4 session-id bytes zeroed)[..4].
 fn upstream_verify_client_hello(pw: &[u8], record: &[u8]) -> bool {
     let msg = &record[5..];
     if msg.len() < 71 || msg[0] != 1 || msg[38] != 32 {
@@ -113,7 +101,6 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
     }
     let recs = split_records(&flight);
     if !rep.client_hello_hmac_ok {
-        // upstream: "ClientHello verify failed, will work as a SNI proxy"
         for r in &recs {
             let _ = s.write_all(r).await;
         }
@@ -140,14 +127,11 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
         hmac_sr.update(&p);
         appdata(tag(hmac_sr), &p)
     };
-    // copy_by_frame_with_modification: relay the rest of the cover flight.
     for r in &recs[1..] {
         rep.cover_records_after_server_hello += 1;
         let out = if r[0] == 0x17 { modify(&mut hmac_sr, r) } else { r.clone() };
         s.write_all(&out).await.unwrap();
     }
-    // Extra in-flight cover record (e.g. a late NewSessionTicket-sized record)
-    // that must be ignored by the client's residual detector.
     let late = {
         let mut r = vec![0x17, 0x03, 0x03, 0x00, 0x30];
         r.extend((0..0x30u8).map(|i| i.wrapping_mul(7)));
@@ -155,7 +139,6 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
     };
     s.write_all(&modify(&mut hmac_sr, &late)).await.unwrap();
 
-    // copy_by_frame_until_hmac_matches (client -> cover).
     let first_data = loop {
         let Ok(f) = read_record(&mut s).await else { return rep };
         if f.len() > 9 && f[0] == 0x17 {
@@ -172,7 +155,6 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
         let _ = cover.process_new_packets();
     };
     rep.switched = true;
-    // verified_relay with an echo "data server".
     let echo = |data: &[u8], hmac_s: &mut Context| -> Vec<u8> {
         hmac_s.update(data);
         let t = tag(hmac_s);
@@ -182,7 +164,6 @@ async fn upstream_like_server(mut s: DuplexStream, server_pw: &str, only_p256: b
     s.write_all(&echo(&first_data, &mut hmac_s)).await.unwrap();
     loop {
         let Ok(f) = read_record(&mut s).await else { break };
-        // upstream verify_appdata: content type 0x17 and record version 03 03.
         if f.len() < 9 || f[0] != 0x17 || f[1..3] != [0x03, 0x03] {
             break;
         }
@@ -266,7 +247,6 @@ async fn cover_hello_retry_request_is_a_typed_error() {
     drop(server.await);
 }
 
-/// Upstream v2 relays the cover TLS flight unchanged (`relay_v2`).
 async fn v2_like_server(mut s: DuplexStream) {
     let Ok(ch) = read_record(&mut s).await else { return };
     let mut cover = rustls::ServerConnection::new(cover_config(false)).unwrap();

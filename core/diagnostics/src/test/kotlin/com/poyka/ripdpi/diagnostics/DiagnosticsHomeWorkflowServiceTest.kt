@@ -576,7 +576,6 @@ class DiagnosticsHomeWorkflowServiceTest {
     }
 
     private companion object {
-        // The network that createHomeWorkflowService's default fingerprint provider reports.
         val CurrentNetwork = requireNotNull(MutableNetworkFingerprintProvider().fingerprint).scopeKey()
     }
 

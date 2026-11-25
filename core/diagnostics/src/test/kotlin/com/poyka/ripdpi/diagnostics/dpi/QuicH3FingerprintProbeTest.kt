@@ -217,8 +217,6 @@ class QuicH3FingerprintProbeTest {
 
             val result = probe.check("example.com")
 
-            // Three silent attempts consume nine seconds. The successful control leaves 2.5 seconds
-            // for the three missing templates to retry once in parallel.
             assertEquals(listOf(2_500, 2_500, 2_500), socket.sendTimeoutsMs.drop(4))
             assertEquals(12_000L, testScheduler.currentTime)
             assertEquals(
@@ -481,14 +479,12 @@ private class RecordingQuicUdpProbe(
         }
     }
 
-    /** A real socket waits out its whole timeout when nothing answers. */
     private suspend fun silence(timeoutMs: Int): QuicProbeSample {
         delay(timeoutMs.toLong())
         return QuicProbeSample(QuicProbeOutcome.NO_RESPONSE)
     }
 }
 
-// These tokens exercise verdict and retry orchestration; native RFC tests own wire validation.
 private val LoopbackAddress = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 private val SuccessfulReply = byteArrayOf(0x7f)
 private val AcceptSuccessfulReplies =

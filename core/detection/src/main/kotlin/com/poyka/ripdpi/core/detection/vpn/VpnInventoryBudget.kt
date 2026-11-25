@@ -37,7 +37,6 @@ internal class VpnInventoryBudget(
         return hasCapacity
     }
 
-    // ROADMAP-architecture-refactor Android can rethrow Binder failures as RuntimeException.
     @Suppress("TooGenericExceptionCaught")
     fun <T> readPackageManager(read: () -> T): T? {
         if (!canContinue()) return null

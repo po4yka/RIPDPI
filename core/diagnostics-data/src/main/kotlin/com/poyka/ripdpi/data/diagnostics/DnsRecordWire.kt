@@ -11,7 +11,6 @@ import org.xbill.DNS.Type
 import org.xbill.DNS.WireParseException
 import java.nio.ByteBuffer
 
-/** Read only the wire fields that dnsjava normalizes without changing its record factories. */
 internal fun validateDnsRecordWire(
     bytes: ByteArray,
     message: Message,
@@ -35,7 +34,6 @@ internal fun validateDnsRecordWire(
 
     var restoredOpt: OPTRecord? = null
     for (section in Section.ANSWER..Section.ADDITIONAL) {
-        // For TC, dnsjava lists only complete records. Do not examine the partial record.
         for (record in message.getSection(section)) {
             Name(input)
             input.readU16()
@@ -51,7 +49,6 @@ internal fun validateDnsRecordWire(
             }
 
             if (opt != null && record === opt && ttl >= HighTtlBit) {
-                // The OPT TTL field is an unsigned control word. RFC 2181 TTL clamping does not apply.
                 restoredOpt =
                     OPTRecord(
                         opt.payloadSize,
@@ -71,7 +68,6 @@ internal fun validateDnsRecordWire(
     }
 }
 
-/** Enforce RFC 9460 wire constraints that dnsjava does not check. */
 internal fun validateHttpsRdata(input: DNSInput) {
     input.readU16()
     val nameStart = input.current()

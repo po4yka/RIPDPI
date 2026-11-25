@@ -65,7 +65,6 @@ interface DiagnosticsHistorySource {
 
     fun observeDiagnosticsSessions(limit: Int = 120): Flow<List<DiagnosticScanSession>>
 
-    /** The newest scan that holds a strategy test, at any age. */
     fun observeLatestStrategyTest(): Flow<DiagnosticScanSession?>
 
     fun observeNativeEvents(limit: Int = 250): Flow<List<DiagnosticEvent>>
@@ -76,11 +75,6 @@ interface DiagnosticsHistorySource {
 interface DiagnosticsRememberedPolicySource {
     fun observePolicies(limit: Int = 64): Flow<List<DiagnosticsRememberedPolicy>>
 
-    /**
-     * Removes a single remembered policy entry and truly purges any per-network learned state
-     * (DNS path preference, blocked paths, edge preferences) once no other mode still references
-     * the same network scope (fingerprint).
-     */
     suspend fun deletePolicy(policy: DiagnosticsRememberedPolicy)
 
     suspend fun clearAll()
@@ -180,7 +174,6 @@ interface DiagnosticsShareService {
     ): Unit = error("Direct archive export is unavailable")
 }
 
-/** Each action returns false when it applied nothing, for example on a different or unknown network. */
 interface DiagnosticsResolverActions {
     suspend fun keepResolverRecommendationForSession(sessionId: String): Boolean
 
@@ -214,7 +207,6 @@ data class DiagnosticsHomeAuditOutcome(
     val capabilityEvidence: List<DiagnosticsCapabilityEvidence> = emptyList(),
     val strategyAdequacy: StrategyAdequacy? = null,
     val directModeVerdict: DirectModeVerdict? = null,
-    /** The device is not on the network the audit measured (or that network is unknown), so nothing was applied. */
     val networkChanged: Boolean = false,
 )
 
@@ -302,9 +294,7 @@ data class DiagnosticsHomeCompositeStageSummary(
     val summary: String,
     val unavailableReason: DiagnosticsHomeCompositeStageUnavailableReason? = null,
     val recommendationContributor: Boolean = false,
-    /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
     val wallClockMs: Long? = null,
-    /** Sessionless, generation-bound VPN route receipt captured by this Home run. */
     val passiveVpnRouteEvidence: NetworkPathValidationEvidence? = null,
 )
 
@@ -449,19 +439,14 @@ data class DiagnosticsHomePacketCaptureDisposition(
             }
 
             DiagnosticsHomePacketCaptureOutcome.RECORDING -> {
-                // A live lease carries captureSetId. Durable and archive-safe projections omit it.
                 require(requested && totalDrops == null)
             }
 
             DiagnosticsHomePacketCaptureOutcome.CLEANUP_PENDING -> {
-                // The report records that capture retirement was not confirmed at export time.
-                // captureSetId stays process-local so recovery retains exact ownership.
                 require(requested && totalDrops == null && failureCode != null)
             }
 
             DiagnosticsHomePacketCaptureOutcome.CAPTURED_SEPARATE -> {
-                // A live receipt carries captureSetId. The persisted, privacy-safe projection
-                // deliberately omits that local identifier and restores the terminal facts only.
                 require(requested && totalDrops != null && failureCode == null)
             }
 
@@ -537,11 +522,9 @@ interface DiagnosticsHomeCompositeRunService {
 
 data class DiagnosticsHomeRunOptions(
     val packetCaptureRequested: Boolean = false,
-    /** Runs after a stable Home run id is allocated and before any diagnostic stage starts. */
     val admitPacketCapture: suspend (String) -> DiagnosticsHomePacketCaptureDisposition = {
         DiagnosticsHomePacketCaptureDisposition.notRequested()
     },
-    /** Settles only this run's capture before the Home outcome becomes terminally observable. */
     val settlePacketCapture: suspend (String) -> DiagnosticsHomePacketCaptureDisposition? = { null },
 )
 
@@ -612,9 +595,6 @@ abstract class DiagnosticsManagerModule {
     @Singleton
     abstract fun bindProbeResultCache(cache: DefaultProbeResultCache): ProbeResultCache
 
-    // Lets RipDpiApp.onTrimMemory shed the in-memory probe cache when the app is
-    // backgrounded (Android 17 per-app memory cap). The persisted file survives;
-    // only the regenerable in-memory map is dropped. See [TrimmableCache].
     @Binds
     @IntoSet
     abstract fun bindProbeResultCacheTrimmable(cache: DefaultProbeResultCache): TrimmableCache

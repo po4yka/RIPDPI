@@ -29,7 +29,6 @@ class QuicVersionMatrixTest {
             testSni = "test.example",
         )
 
-    // Same shape as the native runner emits (ripdpi-diagnostics-runner connectivity/quic_version.rs).
     private val limits = """"limits":["initial_stage_only","local_port_separation_only"]"""
     private val v1Json =
         """{"status":"TEST_NOT_ANSWERED","version":"V1","reason":null,"stop":null,$limits,"cells":[""" +

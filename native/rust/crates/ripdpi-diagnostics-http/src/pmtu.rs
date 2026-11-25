@@ -1,4 +1,3 @@
-//! Authenticated QUIC DPLPMTUD observations, separated by address family.
 use quinn::Runtime;
 use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
 use ripdpi_diagnostics_contracts::{PmtuEvidence, PmtuProbeConfig};
@@ -12,7 +11,6 @@ use std::sync::{
 use std::time::{Duration, Instant};
 type Failure = (&'static str, &'static str);
 
-/// Measure one address family. The verifier is an internal fixture seam, never wire input.
 pub fn probe_pmtu(
     config: &PmtuProbeConfig,
     ipv6: bool,
@@ -32,7 +30,6 @@ pub fn probe_pmtu(
     } else if config.validate().is_err() {
         Err(("INVALID", "invalid_config"))
     } else if cancel.load(Ordering::Acquire) {
-        // Acquire observes cancellation published by the scan owner.
         Err(("CANCELLED", "cancelled"))
     } else if Instant::now() >= deadline {
         Err(("TIMEOUT", "deadline_exceeded"))
@@ -49,7 +46,6 @@ pub fn probe_pmtu(
         }
     };
     if let Err((status, reason)) = result {
-        // Socket workers share this cutoff, so retain its owner for their timeouts too.
         let reason = if status == "TIMEOUT"
             && reason == "deadline_exceeded"
             && scan_deadline.is_none_or(|scan| scan > own_deadline)
@@ -78,7 +74,6 @@ fn elapsed(started: Instant) -> u64 {
 /// cancel-safe: timer cancellation drops the timer without changing the borrowed flag.
 async fn cancelled(cancel: &AtomicBool) {
     loop {
-        // Acquire observes cancellation published by the scan owner.
         if cancel.load(Ordering::Acquire) {
             return;
         }
@@ -200,7 +195,6 @@ async fn observe(
     evidence.handshake_elapsed_ms = Some(elapsed(started));
     evidence.alpn = Some("h3".into());
     let mut observed = Observation { connection, evidence };
-    // h3 ALPN requires the control streams and SETTINGS even without a request.
     let (mut driver, _sender) = h3::client::builder()
         .max_field_section_size(16384)
         .build::<_, _, bytes::Bytes>(h3_quinn::Connection::new(observed.connection.clone()))
@@ -240,8 +234,6 @@ async fn observe(
     endpoint.close(0u32.into(), b"probe complete");
     result
 }
-// Capture final counters even when the outer select cancels the observation timer.
-// This private short-lived guard borrows only within observe; it does not enter a public API.
 struct Observation<'a> {
     connection: quinn::Connection,
     evidence: &'a mut PmtuEvidence,
@@ -260,8 +252,6 @@ impl Drop for Observation<'_> {
 fn record(connection: &quinn::Connection, evidence: &mut PmtuEvidence) {
     let path = connection.stats().path;
     evidence.current_udp_payload_bytes = Some(path.current_mtu);
-    // With initial=min=1200 and no migration, only an ACKed discovery probe can
-    // raise current_mtu. The baseline itself is never treated as a measurement.
     evidence.acknowledged_udp_payload_lower_bound_bytes = (path.current_mtu > 1200).then_some(path.current_mtu);
     evidence.configured_upper_bound_reached = path.current_mtu >= evidence.configured_upper_bound_udp_payload_bytes;
     evidence.sent_probe_count = path.sent_plpmtud_probes;

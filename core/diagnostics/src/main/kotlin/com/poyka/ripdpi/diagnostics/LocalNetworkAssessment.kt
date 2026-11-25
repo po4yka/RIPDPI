@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Observed conditions to review, not diagnoses of a provider restriction. */
 enum class LocalConstraintCode {
     AIRPLANE_MODE,
     BACKGROUND_DATA_RESTRICTED,
@@ -91,7 +90,6 @@ private fun LocalNetworkContextModel.hasIncompleteEvidence(): Boolean {
     return deviceIncomplete || simIncomplete || transport == LocalTransport.UNKNOWN
 }
 
-/** Remove unusable capture times and any SIM facts outside a stable default-data selection. */
 fun LocalNetworkContextModel.toSafeLocalNetworkContext(): LocalNetworkContextModel =
     copy(
         capturedAt = capturedAt.takeIf { it in 1..MaxLocalCaptureTime } ?: 0,

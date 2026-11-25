@@ -43,7 +43,6 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 
-/** Fallback group labels injected by `ripdpi_default` runtime preset. */
 private val DefaultFallbackGroupFamilies = listOf("tlsrec_disorder", "disorder_host", "split_host")
 
 @Serializable

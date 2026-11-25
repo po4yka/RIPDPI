@@ -27,7 +27,6 @@ internal data class PreparedArchiveContent(
     override fun toString(): String = "PreparedArchiveContent(entries=${entries.size})"
 }
 
-/** Owns prepared export transactions inside the exporter's single archiveMutex. */
 internal class DiagnosticsPreparedExportManager
     @Inject
     constructor(
@@ -147,7 +146,6 @@ internal class DiagnosticsPreparedExportManager
             return CheckedDiagnosticsExportHandoff(preview, files.artifact(files.read(id)).absolutePath)
         }
 
-        /** Checks a document-save lease; the caller copies the returned file without holding the archive lock. */
         suspend fun documentSaveSource(id: DiagnosticsExportLeaseId): File {
             val handoff = validateHandoff(id)
             check(
@@ -187,13 +185,10 @@ internal class DiagnosticsPreparedExportManager
 
         suspend fun cleanup() {
             val owned = records.getExportRecords().mapTo(hashSetOf()) { it.id }
-            // A published lease whose export record is gone (for example after "Reset all settings")
-            // is no longer owned by anything and must not stay readable until it expires.
             val orphaned =
                 files.records().filter { lease ->
                     lease.leaseId !in owned && lease.phase in PublishedPhases
                 }
-            // One lease that cannot be removed must not keep the others from being reclaimed.
             var failure: Throwable? = null
             (files.expiredLeases(clock) + orphaned)
                 .distinctBy { it.leaseId }

@@ -120,7 +120,7 @@ class CrashReportReaderTest {
     fun `delete is safe when file does not exist`() {
         val reader = createReader()
 
-        reader.delete() // should not throw
+        reader.delete()
     }
 
     @Test

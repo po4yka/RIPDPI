@@ -22,7 +22,6 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Privacy-safe lifecycle hooks for connection-scoped Android device-state evidence. */
 interface DeviceStateEventRecorder {
     suspend fun beginServiceStart(mode: Mode)
 
@@ -342,8 +341,6 @@ internal class DefaultDeviceStateEventRecorder
 
         private fun scheduleSystemStateCapture() {
             scope.launch {
-                // A broadcast callback has no caller to report to, and the application scope
-                // has no handler: an evidence write failure must not kill the process.
                 val failure =
                     runCatching {
                         mutex.withLock {

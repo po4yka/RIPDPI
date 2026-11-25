@@ -126,7 +126,6 @@ internal object ProcNetTcpProxyScanner {
         val byteCount = if (table == "tcp") Ipv4Bytes else Ipv6Bytes
         if (address.length != byteCount * HexDigitsPerByte) return null
 
-        // Linux prints each native-order 32-bit word separately, including in tcp6.
         val bytes = ByteBuffer.allocate(byteCount).order(ByteOrder.nativeOrder())
         for (word in address.chunked(HexDigitsPerWord)) {
             bytes.putInt(word.toUIntOrNull(HexRadix)?.toInt() ?: return null)

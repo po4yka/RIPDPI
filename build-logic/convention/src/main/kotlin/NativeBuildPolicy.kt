@@ -75,8 +75,6 @@ internal fun Project.resolvedNativeCargoProfile(): String {
     }
 }
 
-// Maps the JVM's reported os.arch to the matching Android ABI identifier.
-// Returns null on unrecognized hosts so the resolver can fall back gracefully.
 private fun hostMatchingAndroidAbi(): String? =
     when (System.getProperty("os.arch")?.lowercase()) {
         "aarch64", "arm64" -> "arm64-v8a"
@@ -109,9 +107,6 @@ internal fun Project.resolvedNativeAbis(): List<String> {
             .orNull
             ?.trim()
             .orEmpty()
-    // Special token: "host" derives the local default from the JVM's os.arch.
-    // This makes Apple Silicon devs get arm64-v8a and Intel Mac / Linux x86_64
-    // devs get x86_64 without committing per-host overrides.
     val defaultLocalAbis: List<String> =
         when {
             defaultLocalRaw.isEmpty() -> {

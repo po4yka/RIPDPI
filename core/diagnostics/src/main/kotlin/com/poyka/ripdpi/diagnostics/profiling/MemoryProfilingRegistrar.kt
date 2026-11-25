@@ -18,17 +18,6 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Registers Android 17's event-driven profiling triggers so a Java heap dump is
- * captured automatically when the app hits an OutOfMemoryError ([OOM][ProfilingTrigger.TRIGGER_TYPE_OOM])
- * or a severe memory/binder anomaly ([ANOMALY][ProfilingTrigger.TRIGGER_TYPE_ANOMALY]).
- * The OOM profile is delivered on the next launch; the anomaly profile just
- * before the system terminates the app.
- *
- * Artifacts are written to the app's own storage by the platform (no backend,
- * per project policy); we record a diagnostics event pointing at the captured
- * file so it can be surfaced and exported through the existing pipeline.
- */
 interface MemoryProfilingRegistrar {
     fun register()
 }
@@ -42,7 +31,6 @@ class DefaultMemoryProfilingRegistrar
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) : MemoryProfilingRegistrar {
         override fun register() {
-            // ProfilingTrigger.TRIGGER_TYPE_OOM / TRIGGER_TYPE_ANOMALY are API 37.
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.CINNAMON_BUN) return
             val profilingManager = context.getSystemService(ProfilingManager::class.java) ?: return
             runCatching {
@@ -87,7 +75,6 @@ class DefaultMemoryProfilingRegistrar
         }
 
         companion object {
-            /** Diagnostics event source tag for captured memory profiles. */
             const val Source: String = "memory_profiling"
 
             private const val RateLimitHours: Int = 1

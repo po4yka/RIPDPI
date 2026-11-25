@@ -9,10 +9,6 @@ pub struct Config {
     pub inner_profile_id: String,
     #[serde(skip, default)]
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
-    /// Local address the carrier socket is bound to before connect (interface
-    /// pinning). `None` binds to an unspecified address. Not part of the
-    /// serialized profile: it is runtime routing state supplied by the relay
-    /// builder, mirroring `socket_protection`.
     #[serde(skip, default)]
     pub outbound_bind_ip: Option<std::net::IpAddr>,
 }

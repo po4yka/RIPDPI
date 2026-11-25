@@ -38,12 +38,6 @@ import org.junit.Test
 import java.util.UUID
 import java.util.zip.ZipFile
 
-/**
- * Verifies that `developer-analytics.json` inside a diagnostics archive never contains
- * fields that are not disclosed on the DataTransparencyScreen.
- *
- * These are the regression guards for the diagnostics archive AppSec boundary.
- */
 class DeveloperAnalyticsAllowListTest {
     private val json = diagnosticsTestJson()
 

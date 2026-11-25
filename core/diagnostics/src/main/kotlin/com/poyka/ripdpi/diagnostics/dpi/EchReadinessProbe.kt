@@ -180,7 +180,6 @@ class EchReadinessProbe(
     private companion object {
         private const val MaxBindingAttempts = 4
 
-        // Native gets 10 seconds per binding. The coroutine guard also bounds four injected or stalled bindings.
         private const val BindingTimeoutMs = 11_000L
         private const val MinConcurrency = 1
         private const val DefaultConcurrency = 4

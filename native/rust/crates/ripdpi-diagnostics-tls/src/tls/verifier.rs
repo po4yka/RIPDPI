@@ -2,9 +2,6 @@ use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, Server
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme};
 
-/// An explicit diagnostic override that skips certificate and handshake signature checks.
-/// Use it only with authorized diagnostic payloads. It provides no authentication or
-/// evidence of certificate validity and cannot authorize ECH retry.
 #[derive(Debug)]
 pub struct NoCertificateVerification;
 

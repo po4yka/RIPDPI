@@ -110,7 +110,6 @@ internal class PreparedDiagnosticsExportTimeTest : DiagnosticsArchiveExporterTes
             val id = DiagnosticsExportLeaseId.create()
             val preview = first.prepare(id, preparation(session.id))
             first.consume(id)
-            // No intervening read: wall time advances only one day, elapsed time advances three.
             time =
                 PreparedExportTime(
                     created + DiagnosticsArchiveFormat.maxArchiveAgeMs / 3,

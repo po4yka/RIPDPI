@@ -15,7 +15,6 @@ use super::types::{
 use crate::util::{CONNECT_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline};
 
 const HAPPY_EYEBALLS_DELAY: Duration = Duration::from_millis(250);
-/// Bounds the threads one race uses; a failed attempt frees a slot for the next address.
 const MAX_IN_FLIGHT_ATTEMPTS: usize = 4;
 
 pub fn connect_transport_observed(
@@ -51,8 +50,6 @@ fn connect_transport(
     }
 }
 
-/// Connect exactly one numeric peer through the protected direct path.
-/// Preserves the OS error kind for diagnostics and never performs DNS or family fallback.
 pub fn connect_direct_address(address: SocketAddr) -> std::io::Result<TcpStream> {
     let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT)
         .map_err(|_| std::io::Error::new(std::io::ErrorKind::TimedOut, "scan deadline exceeded"))?;
@@ -65,7 +62,6 @@ pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, Tr
         .map_err(|err| TransportError::ConnectFailed { stage: err.stage, message: err.message })
 }
 
-/// Open a protected numeric peer, retaining the address scope and socket error kind.
 pub fn connect_direct_address_with_abort(
     address: SocketAddr,
     should_abort: &dyn Fn() -> Option<&'static str>,
@@ -151,7 +147,6 @@ pub(super) fn candidate_address_groups<'a>(
     port: u16,
     mut resolve: impl FnMut(&TargetAddress, u16, Duration) -> Result<Vec<SocketAddr>, super::DnsResolveError> + 'a,
 ) -> impl Iterator<Item = Result<Vec<SocketAddr>, TransportError>> + 'a {
-    // Keep literal peers together for Happy Eyeballs, before any fallback DNS work.
     let pinned = targets
         .iter()
         .filter_map(|target| match target {
@@ -192,8 +187,6 @@ pub(super) fn candidate_address_groups<'a>(
     })
 }
 
-/// Orders addresses by alternating families (RFC 8305 section 4, First Address Family Count 1).
-/// The family of the first address leads; order inside each family is kept.
 pub(super) fn interleave_address_families(addresses: &[SocketAddr]) -> Vec<SocketAddr> {
     let Some(first) = addresses.first() else {
         return Vec::new();
@@ -218,18 +211,14 @@ fn connect_addresses_with_race(
         interleave_address_families(addresses),
         Arc::new(move |address, stop| {
             let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-            // Acquire pairs with the race owner's Release store when it has a result.
             Ok(super::protect::protected_tcp_connect_until(address, timeout, || stop.load(Ordering::Acquire))?)
         }),
         should_abort,
     )
 }
 
-/// One connect attempt; the flag is set once the race has a result.
 type RaceConnect<T> = dyn Fn(SocketAddr, &AtomicBool) -> Result<T, TransportError> + Send + Sync + 'static;
 
-/// Sets the race's `decided` flag when dropped, so every exit of the race (also a failed spawn)
-/// stops the attempts that already started.
 struct DecideOnDrop(Arc<AtomicBool>);
 
 impl Drop for DecideOnDrop {
@@ -238,8 +227,6 @@ impl Drop for DecideOnDrop {
     }
 }
 
-/// Sends a `ConnectRacePanicked` failure for its attempt when dropped before a result was sent
-/// (a panicking attempt), so the caller gets exactly one message per started attempt.
 struct AttemptReport<T> {
     tx: mpsc::Sender<(SocketAddr, Result<T, TransportError>)>,
     address: SocketAddr,
@@ -254,10 +241,6 @@ impl<T> Drop for AttemptReport<T> {
     }
 }
 
-/// Races `addresses` in order (RFC 8305 section 5): attempt `i` starts `HAPPY_EYEBALLS_DELAY` after
-/// attempt `i - 1` started, or at once when the previous attempt failed. Started attempts keep
-/// running; the first success wins. At most `MAX_IN_FLIGHT_ATTEMPTS` attempts run at the same time.
-///
 /// # Cancel safety: NOT cancel-safe: blocking call; dropping the race flags `decided` so started attempts stop.
 fn race_addresses_with_abort<T>(
     addresses: Vec<SocketAddr>,
@@ -269,8 +252,6 @@ where
 {
     let scan_deadline = active_scan_io_deadline();
     let (result_tx, result_rx) = mpsc::channel();
-    // Set when the caller returns, so a pending attempt does not complete a connection that nobody
-    // reads (RFC 8305 section 5). `connect` receives it to stop a started attempt.
     let decided = Arc::new(AtomicBool::new(false));
     let _decide_on_exit = DecideOnDrop(Arc::clone(&decided));
     let mut pending = addresses.into_iter().enumerate();
@@ -309,7 +290,6 @@ where
         if in_flight == 0 && next.is_none() {
             return Err(last_error.unwrap_or(TransportError::NoAddresses));
         }
-        // Wake for the next start only when one is allowed; otherwise wait for a result.
         let wake = (next.is_some() && in_flight < MAX_IN_FLIGHT_ATTEMPTS).then_some(next_start);
         let wait_until = match (wake, scan_deadline) {
             (Some(wake), Some(deadline)) => Some(wake.min(deadline)),
@@ -326,7 +306,6 @@ where
             Ok((_, Err(error))) => {
                 in_flight -= 1;
                 last_error = Some(error);
-                // A failed attempt starts the next one at once.
                 next_start = Instant::now();
             }
             Err(mpsc::RecvTimeoutError::Timeout) => {
@@ -436,7 +415,6 @@ mod tests {
             let observed_tx = std::sync::Mutex::new(observed_tx);
             Arc::new(move |address, stop: &AtomicBool| {
                 if address == first {
-                    // Win after the delayed attempt has started.
                     thread::sleep(HAPPY_EYEBALLS_DELAY + Duration::from_millis(150));
                     return Ok(());
                 }
@@ -491,7 +469,6 @@ mod tests {
         )
         .expect("the reachable address wins");
 
-        // Attempts start at 0, 250, 500 and 750 ms; sequential tails would take 3 x 2.5 s.
         assert_eq!(winner, good);
         assert!(started.elapsed() < Duration::from_millis(1500), "tail was tried sequentially");
     }
@@ -530,7 +507,6 @@ mod tests {
                 if address == good {
                     Ok(())
                 } else {
-                    // Fail quickly so each failure frees a slot for the next address.
                     thread::sleep(Duration::from_millis(20));
                     Err(TransportError::NoAddresses)
                 }
@@ -571,7 +547,6 @@ mod tests {
         })
         .expect("the sixth address wins once the first frees a slot");
 
-        // Four attempts run at 0, 250, 500 and 750 ms; the fifth waits for the failure at 1200 ms, fails at once, and frees the slot for the sixth.
         assert_eq!(winner, good);
         let started = started_at.lock().unwrap().expect("sixth started");
         assert!(started >= Duration::from_millis(1200), "cap exceeded: sixth started at {started:?}");

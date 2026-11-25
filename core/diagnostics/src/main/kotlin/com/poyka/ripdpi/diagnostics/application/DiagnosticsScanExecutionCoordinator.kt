@@ -484,12 +484,6 @@ internal class DiagnosticsScanExecutionCoordinator
                 runCatching {
                     activeScanRegistry.rememberPreparedScan(preparedReprobe, ownerId)
                     scanRecordStore.upsertScanSession(preparedReprobe.initialSession)
-                    // Reserve the hidden scan slot and bind the execution job BEFORE
-                    // the VPN-resume wait. Admission control (hasActiveScan /
-                    // HiddenAutomaticProbeConflict) reads only the registry, so a slot
-                    // reserved here is what prevents a manual or automatic start from
-                    // being admitted into the resume window and probing the same
-                    // network path concurrently with this re-probe.
                     reprobeHandle =
                         bridgeExecutionService.createHandle(
                             sessionId = preparedReprobe.sessionId,

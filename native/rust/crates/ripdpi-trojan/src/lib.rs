@@ -1,17 +1,3 @@
-//! Trojan outbound client and wire-format framing.
-//!
-//! # Wire format
-//! ```text
-//! SHA-224(password) as 56 lowercase hex chars
-//! CRLF
-//! command byte  (0x01 = TCP CONNECT, 0x03 = UDP ASSOCIATE)
-//! target ATYP   (0x01 IPv4 | 0x03 Domain | 0x04 IPv6)
-//! target ADDR   (4 bytes | 1-byte-len + N bytes | 16 bytes)
-//! target PORT   (2 bytes big-endian)
-//! CRLF
-//! [payload follows]
-//! ```
-
 #![forbid(unsafe_code)]
 
 use std::collections::VecDeque;
@@ -31,12 +17,9 @@ mod stream;
 
 pub use stream::TrojanStream;
 
-/// Trojan command byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrojanCommand {
-    /// TCP CONNECT (0x01)
     TcpConnect,
-    /// UDP ASSOCIATE (0x03)
     UdpAssociate,
 }
 
@@ -49,7 +32,6 @@ impl TrojanCommand {
     }
 }
 
-/// Target address — mirrors SOCKS5 address types.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TrojanAddr {
     Ipv4(Ipv4Addr),
@@ -57,7 +39,6 @@ pub enum TrojanAddr {
     Domain(String),
 }
 
-/// Error type for Trojan framing operations.
 #[derive(Debug, thiserror::Error)]
 pub enum TrojanError {
     #[error("domain name too long ({0} bytes, max 255)")]
@@ -84,7 +65,6 @@ pub enum TrojanError {
     TlsHandshake(String),
 }
 
-/// Decoded Trojan UDP ASSOCIATE packet.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TrojanUdpPacket {
     pub addr: TrojanAddr,
@@ -92,18 +72,12 @@ pub struct TrojanUdpPacket {
     pub payload: Vec<u8>,
 }
 
-/// Hash a password with SHA-224 and return the 56-character hex string.
-///
-/// This is the password token that appears at the start of every Trojan request.
 pub fn hash_password(password: &str) -> String {
     let mut hasher = Sha224::new();
     hasher.update(password.as_bytes());
     hex::encode(hasher.finalize())
 }
 
-/// Encode a [`TrojanAddr`] + port into the SOCKS5-style byte representation.
-///
-/// Layout: `ATYP | ADDR | PORT(2 BE)`
 pub fn encode_addr(addr: &TrojanAddr, port: u16) -> Result<Vec<u8>, TrojanError> {
     let mut buf = Vec::new();
     match addr {
@@ -129,9 +103,6 @@ pub fn encode_addr(addr: &TrojanAddr, port: u16) -> Result<Vec<u8>, TrojanError>
     Ok(buf)
 }
 
-/// Build the complete Trojan request header as a byte vector (without payload).
-///
-/// Layout: `password_hex CRLF command addr_block CRLF`
 pub fn build_request(
     password: &str,
     command: TrojanCommand,
@@ -141,9 +112,6 @@ pub fn build_request(
     build_request_frame(password, command, addr, port, &[])
 }
 
-/// Build a Trojan request frame with an optional first payload.
-///
-/// Layout: `password_hex CRLF command addr_block CRLF payload`
 pub fn build_request_frame(
     password: &str,
     command: TrojanCommand,
@@ -164,17 +132,8 @@ pub fn build_request_frame(
     Ok(buf)
 }
 
-/// Largest UDP payload the reference servers accept in one frame: Xray-core
-/// (`maxLength`) ends the whole association on a larger one ("oversize
-/// payload"; measured on 26.3.27: 8192 accepted, 8193 ends it), and trojan-go
-/// (`MaxPacketSize`) discards it with an error. Xray also ends the association
-/// when a downlink frame exceeds 8192 bytes in total, header included (an
-/// 8182-byte IPv4 echo failed, 8181 passed).
 pub const MAX_UDP_PAYLOAD: usize = 8192;
 
-/// Encode one Trojan UDP ASSOCIATE packet.
-///
-/// Layout: `ATYP ADDR PORT Length CRLF Payload`
 pub fn encode_udp_packet(addr: &TrojanAddr, port: u16, payload: &[u8]) -> Result<Vec<u8>, TrojanError> {
     let payload_len = u16::try_from(payload.len()).map_err(|_| TrojanError::PayloadTooLong(payload.len()))?;
     let addr_bytes = encode_addr(addr, port)?;
@@ -186,9 +145,6 @@ pub fn encode_udp_packet(addr: &TrojanAddr, port: u16, payload: &[u8]) -> Result
     Ok(buf)
 }
 
-/// Decode one complete Trojan UDP ASSOCIATE packet.
-///
-/// Layout: `ATYP ADDR PORT Length CRLF Payload`
 pub fn decode_udp_packet(packet: &[u8]) -> Result<TrojanUdpPacket, TrojanError> {
     let (packet_out, used) = decode_udp_prefix(packet)?;
     if used != packet.len() {
@@ -197,7 +153,6 @@ pub fn decode_udp_packet(packet: &[u8]) -> Result<TrojanUdpPacket, TrojanError> 
     Ok(packet_out)
 }
 
-/// Decode the frame at the start of `bytes`; returns it and its length.
 fn decode_udp_prefix(bytes: &[u8]) -> Result<(TrojanUdpPacket, usize), TrojanError> {
     let mut cursor = 0;
     let addr = decode_addr(bytes, &mut cursor)?;
@@ -211,16 +166,12 @@ fn decode_udp_prefix(bytes: &[u8]) -> Result<(TrojanUdpPacket, usize), TrojanErr
     Ok((TrojanUdpPacket { addr, port, payload }, cursor))
 }
 
-/// Reads Trojan UDP ASSOCIATE frames from a stream and keeps a partial frame
-/// between calls, so a cancelled read does not desynchronise the stream.
 #[derive(Debug, Default)]
 pub struct TrojanUdpReader {
     buffer: Vec<u8>,
 }
 
 impl TrojanUdpReader {
-    /// Read the next frame from `stream`. Use one reader per stream.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: bytes taken from the stream stay in the reader until a
@@ -292,13 +243,8 @@ fn read_exact<'a>(
     Ok(bytes)
 }
 
-/// Stateless Trojan client helper.
-///
-/// Accepts an already-connected TLS stream and writes the Trojan request header.
-/// The caller must then pipe payload bytes directly through the same stream.
 pub struct TrojanClient;
 
-/// TLS CONNECT client configuration.
 #[derive(Clone, PartialEq, Eq)]
 pub struct TrojanClientConfig {
     pub server_host: String,
@@ -308,9 +254,6 @@ pub struct TrojanClientConfig {
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
-    /// Local address the carrier socket is bound to before connect (interface
-    /// pinning). `None` binds to an unspecified address. The bind IP family must
-    /// match the resolved server address family or the connect fails closed.
     pub outbound_bind_ip: Option<IpAddr>,
 }
 
@@ -330,10 +273,6 @@ impl std::fmt::Debug for TrojanClientConfig {
     }
 }
 
-/// Open a protected TCP connection to the Trojan server.
-///
-/// Tries each resolved address in order; see [`connect_first_reachable`]. REL-1.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: the future owns the socket being connected; dropping it closes it.
@@ -342,22 +281,9 @@ async fn connect_server_tcp(config: &TrojanClientConfig) -> io::Result<TcpStream
     connect_first_reachable(addrs, config.outbound_bind_ip, config.socket_protection).await
 }
 
-/// Connect budget for one server address except the last. A blackholed address
-/// would otherwise wait for the kernel connect timeout, longer than the relay
-/// connect deadline, and the next address would never be tried.
 const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
     if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(8) };
 
-/// Connect to the first reachable address of `addrs`.
-///
-/// Addresses are tried with the families interleaved (RFC 8305 section 4), so
-/// a broken family costs at most one timeout. Each attempt builds its own
-/// socket and protects its fd via the in-process `VpnService.protect()`
-/// registry BEFORE connect, so the non-loopback carrier socket bypasses the
-/// app's own TUN route. Loopback-skip and fail-closed are handled by
-/// [`protect_outbound_socket`]. With a bind IP, only addresses of its family
-/// are tried. Returns the last error when every attempt fails.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: the future owns the socket being connected; dropping it closes it.
@@ -370,9 +296,6 @@ async fn connect_first_reachable(
         .await
 }
 
-/// Run `connect` on each usable address in order; every attempt but the last
-/// gets `per_address` before the next address is tried.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: holds no state besides the pending `connect` future, which is
@@ -414,8 +337,6 @@ where
     Err(last_error)
 }
 
-/// Alternates IPv6 and IPv4 addresses, starting with the family of the first
-/// resolved address, and keeps the resolver order inside each family.
 fn interleave_address_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
     let first_is_ipv6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
     let (mut preferred, mut other): (VecDeque<_>, VecDeque<_>) =
@@ -428,8 +349,6 @@ fn interleave_address_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
     ordered
 }
 
-/// Connect one protected socket to `server_addr`.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: the future owns the socket being connected; dropping it closes it.
@@ -451,14 +370,6 @@ async fn connect_one(
     Ok(tcp)
 }
 
-/// Protect a freshly created outbound socket via the registered
-/// `VpnService.protect()` callback before it connects to a non-loopback peer.
-///
-/// No-op for loopback. Fails closed for a non-loopback target when no callback
-/// is registered: under a live TUN there is no other per-socket mechanism to
-/// keep the socket out of the tunnel, so refusing is safer than dialing
-/// unprotected. (Own-UID TUN exclusion via `computeAppRoutingPlan` remains the
-/// second layer.) Mirrors the `ripdpi-vless` gold-standard helper.
 fn protect_outbound_socket<T: AsRawFd>(
     socket: &T,
     target: SocketAddr,
@@ -470,9 +381,6 @@ fn protect_outbound_socket<T: AsRawFd>(
 }
 
 impl TrojanClient {
-    /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a CONNECT request and optional first payload.
-    /// With an empty `first_payload`, the request goes out with the first write (see [`TrojanStream`]).
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the future owns the connection; dropping it closes it.
@@ -486,9 +394,6 @@ impl TrojanClient {
         connect_stream_over(config, tcp, target_addr, target_port, first_payload).await
     }
 
-    /// Complete TLS and send a TCP CONNECT request over an existing transport to the Trojan server.
-    /// With an empty `first_payload`, the request goes out with the first write (see [`TrojanStream`]).
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the future owns the connection; dropping it closes it.
@@ -505,14 +410,6 @@ impl TrojanClient {
         connect_stream_over(config, transport, target_addr, target_port, first_payload).await
     }
 
-    /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
-    ///
-    /// The request goes out with the first write (the first UDP frame), as in
-    /// Xray-core, so the first TLS record has no fixed header-only length. Its
-    /// address is 0.0.0.0:0: servers ignore it for UDP, and each frame carries
-    /// its own destination. A read before any write sends the header alone
-    /// after a short delay (see [`TrojanStream`]).
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the future owns the connection; dropping it closes it.
@@ -526,10 +423,6 @@ impl TrojanClient {
         Ok(TrojanStream::with_deferred_header(stream, header))
     }
 
-    /// Write a Trojan request header onto `stream`.
-    ///
-    /// `password` is the plaintext password; it is SHA-224-hashed in memory
-    /// and never written to disk or logs.
     pub async fn write_request<S>(
         stream: &mut S,
         password: &str,
@@ -546,9 +439,6 @@ impl TrojanClient {
     }
 }
 
-/// TLS, then a TCP CONNECT request: sent now with a first payload, or
-/// deferred to the first write without one.
-///
 /// # Cancel safety:
 ///
 /// NOT cancel-safe: a partial TLS handshake can remain on a borrowed transport;
@@ -580,8 +470,6 @@ where
     Ok(TrojanStream::header_sent(stream))
 }
 
-/// TLS, then the request frame, written now.
-///
 /// # Cancel safety:
 ///
 /// NOT cancel-safe: a partial TLS handshake or request can remain on a borrowed
@@ -633,8 +521,6 @@ where
         .map_err(|error| TrojanError::TlsHandshake(error.to_string()))
 }
 
-/// Read one Trojan UDP ASSOCIATE packet from a stream.
-///
 /// # Cancel safety
 ///
 /// NOT cancel-safe: partial reads consume a frame prefix; callers must discard the stream on cancellation.
@@ -686,7 +572,6 @@ where
     Ok(byte[0])
 }
 
-/// Helper: parse a raw IP address string into a [`TrojanAddr`].
 impl From<IpAddr> for TrojanAddr {
     fn from(ip: IpAddr) -> Self {
         match ip {
@@ -695,10 +580,6 @@ impl From<IpAddr> for TrojanAddr {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -909,7 +790,6 @@ mod tests {
 
         server.write_all(&first[..7]).await.expect("frame prefix");
         {
-            // Poll once (it consumes the prefix and waits), then cancel.
             let mut read = std::pin::pin!(reader.read_packet(&mut client));
             let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
             assert!(read.as_mut().poll(&mut cx).is_pending(), "test precondition: the read waits for the rest");
@@ -955,7 +835,7 @@ mod tests {
         let bytes = encode_addr(&addr, 443).unwrap();
         assert_eq!(bytes[0], 0x01, "ATYP must be 0x01 for IPv4");
         assert_eq!(&bytes[1..5], &[1, 2, 3, 4]);
-        assert_eq!(&bytes[5..7], &[0x01, 0xBB]); // port 443 big-endian
+        assert_eq!(&bytes[5..7], &[0x01, 0xBB]);
         assert_eq!(bytes.len(), 7);
     }
 
@@ -964,8 +844,8 @@ mod tests {
         let addr = TrojanAddr::Ipv6(Ipv6Addr::LOCALHOST);
         let bytes = encode_addr(&addr, 80).unwrap();
         assert_eq!(bytes[0], 0x04, "ATYP must be 0x04 for IPv6");
-        assert_eq!(bytes.len(), 19); // 1 + 16 + 2
-        assert_eq!(&bytes[17..19], &[0x00, 0x50]); // port 80
+        assert_eq!(bytes.len(), 19);
+        assert_eq!(&bytes[17..19], &[0x00, 0x50]);
     }
 
     #[test]
@@ -975,7 +855,7 @@ mod tests {
         assert_eq!(bytes[0], 0x03, "ATYP must be 0x03 for domain");
         assert_eq!(bytes[1], 11, "length prefix must be 11 for 'example.com'");
         assert_eq!(&bytes[2..13], b"example.com");
-        assert_eq!(&bytes[13..15], &[0x1F, 0x90]); // port 8080
+        assert_eq!(&bytes[13..15], &[0x1F, 0x90]);
     }
 
     #[test]
@@ -988,13 +868,12 @@ mod tests {
         )
         .unwrap();
 
-        // password hex (56) + CRLF (2) + cmd (1) + ATYP+addr+port (7) + CRLF (2) = 68
         assert_eq!(req.len(), 68);
         assert_eq!(&req[56..58], b"\r\n");
-        assert_eq!(req[58], 0x01); // TCP CONNECT
-        assert_eq!(req[59], 0x01); // ATYP IPv4
+        assert_eq!(req[58], 0x01);
+        assert_eq!(req[59], 0x01);
         assert_eq!(&req[60..64], &[127, 0, 0, 1]);
-        assert_eq!(&req[64..66], &[0x01, 0xBB]); // port 443
+        assert_eq!(&req[64..66], &[0x01, 0xBB]);
         assert_eq!(&req[66..68], b"\r\n");
     }
 
@@ -1007,7 +886,7 @@ mod tests {
             53,
         )
         .unwrap();
-        assert_eq!(req[58], 0x03); // UDP ASSOCIATE
+        assert_eq!(req[58], 0x03);
     }
 
     #[test]
@@ -1016,11 +895,10 @@ mod tests {
         let req =
             build_request("trojan-fixture-pw", TrojanCommand::TcpConnect, &TrojanAddr::Domain(domain.to_owned()), 443)
                 .unwrap();
-        // 56 + 2 + 1 + (1 + 1 + 11 + 2) + 2 = 76
         assert_eq!(req.len(), 76);
-        assert_eq!(req[58], 0x01); // TCP CONNECT
-        assert_eq!(req[59], 0x03); // ATYP domain
-        assert_eq!(req[60], 11); // domain length
+        assert_eq!(req[58], 0x01);
+        assert_eq!(req[59], 0x03);
+        assert_eq!(req[60], 11);
     }
 
     #[tokio::test]
@@ -1037,18 +915,16 @@ mod tests {
         .await
         .unwrap();
 
-        // Drop writer so reader sees EOF
         drop(client_side);
 
         let mut received = Vec::new();
         tokio::io::AsyncReadExt::read_to_end(&mut server_side, &mut received).await.unwrap();
 
         assert_eq!(received.len(), 68);
-        // Verify password hex prefix
         let expected_hex = hash_password("trojan-fixture-pw");
         assert_eq!(&received[..56], expected_hex.as_bytes());
         assert_eq!(&received[56..58], b"\r\n");
-        assert_eq!(received[58], 0x01); // TCP CONNECT
+        assert_eq!(received[58], 0x01);
     }
 
     #[tokio::test]
@@ -1073,7 +949,7 @@ mod tests {
         assert_eq!(received.len(), 76);
         assert_eq!(&received[56..58], b"\r\n");
         assert_eq!(received[58], 0x01);
-        assert_eq!(received[59], 0x03); // domain ATYP
+        assert_eq!(received[59], 0x03);
     }
 
     #[test]
@@ -1171,26 +1047,8 @@ mod protect_tests {
     }
 }
 
-// ---------------------------------------------------------------------------
-// ClientHello fingerprint-parity tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod client_hello_parity_tests {
-    //! Prove the Trojan outbound ClientHello carries the selected
-    //! `ripdpi-tls-profiles` browser fingerprint. Trojan's whole cover is that a
-    //! server forwards auth-failing connections to a real fallback site
-    //! (`https://trojan-gfw.github.io/trojan/protocol.html`), so the outbound
-    //! ClientHello must look like the configured browser or the connection
-    //! sticks out as not-a-browser and the cover is void.
-    //!
-    //! The oracle is the `chrome_stable` profile spec (`chrome::CHROME_LATEST`):
-    //! the `X25519MLKEM768:X25519:P-256:P-384` groups, the `h2`/`http/1.1` ALPN,
-    //! and `grease_enabled = true`. None of these are emitted by a stock
-    //! BoringSSL ClientHello — the negative control at the end of the test
-    //! proves the assertions discriminate a real browser profile from the
-    //! default and are therefore not tautological.
-
     use super::{TrojanAddr, TrojanClient, TrojanClientConfig};
     use std::io::Read;
     use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
@@ -1198,8 +1056,6 @@ mod client_hello_parity_tests {
     use std::time::Duration;
 
     const PROFILE: &str = "chrome_stable";
-    // chrome_stable supported groups, GREASE-stripped (CHROME_LATEST.curves =
-    // "X25519MLKEM768:X25519:P-256:P-384").
     const X25519MLKEM768: u16 = 0x11ec;
     const X25519: u16 = 0x001d;
     const SECP256R1: u16 = 0x0017;
@@ -1213,7 +1069,6 @@ mod client_hello_parity_tests {
         alpn: Vec<Vec<u8>>,
     }
 
-    // A GREASE value has both bytes equal and the low nibble == 0x0a (RFC 8701).
     fn is_grease(value: u16) -> bool {
         let [hi, lo] = value.to_be_bytes();
         hi == lo && (hi & 0x0f) == 0x0a
@@ -1233,9 +1088,6 @@ mod client_hello_parity_tests {
         u16::from_be_bytes([bytes[index], bytes[index + 1]])
     }
 
-    /// Minimal, bounds-checked ClientHello parser that reads only the
-    /// JA3-relevant fields: cipher suites, extension types, offered supported
-    /// groups, and offered ALPN. Panics (test failure) on malformed input.
     fn parse_client_hello(record: &[u8]) -> ParsedHello {
         assert_eq!(record.first().copied(), Some(0x16), "expected a TLS handshake record");
         let payload = &record[5..];
@@ -1243,7 +1095,6 @@ mod client_hello_parity_tests {
         let hs_len = (usize::from(payload[1]) << 16) | (usize::from(payload[2]) << 8) | usize::from(payload[3]);
         let body = &payload[4..4 + hs_len];
 
-        // legacy_version(2) + random(32)
         let mut cursor = 34_usize;
         let session_id_len = usize::from(body[cursor]);
         cursor += 1 + session_id_len;
@@ -1273,8 +1124,8 @@ mod client_hello_parity_tests {
             let data = &body[cursor + 4..cursor + 4 + ext_len];
             ext_types.push(ext_type);
             match ext_type {
-                0x000a => groups = parse_u16_list(data), // supported_groups
-                0x0010 => alpn = parse_alpn(data),       // application_layer_protocol_negotiation
+                0x000a => groups = parse_u16_list(data),
+                0x0010 => alpn = parse_alpn(data),
                 _ => {}
             }
             cursor += 4 + ext_len;
@@ -1318,10 +1169,6 @@ mod client_hello_parity_tests {
         out
     }
 
-    /// Bind a loopback listener and capture the first TLS record an inbound
-    /// connection sends. The caller initiates the connection toward the returned
-    /// address; the handshake is expected to fail once the listener drops the
-    /// socket — only the ClientHello is needed.
     fn spawn_capture() -> (SocketAddr, thread::JoinHandle<Vec<u8>>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind capture listener");
         let addr = listener.local_addr().expect("capture listener addr");
@@ -1357,9 +1204,6 @@ mod client_hello_parity_tests {
             socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             outbound_bind_ip: None,
         };
-        // connect_tcp opens the TCP socket, builds the BoringSSL connector from
-        // the profile, and writes the ClientHello before the handshake fails on
-        // the listener's shutdown. We discard the resulting error.
         let _ = TrojanClient::connect_tcp(&config, &TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST), 443, &[]).await;
         parse_client_hello(&handle.join().expect("capture thread join"))
     }
@@ -1380,27 +1224,19 @@ mod client_hello_parity_tests {
             let _ = connector.connect("trojan-parity.test", stream);
         });
 
-        // (1) Independent spec oracle: chrome_stable offers exactly these groups
-        // (CHROME_LATEST.curves). A stock BoringSSL ClientHello never offers
-        // X25519MLKEM768.
         assert_eq!(
             strip_grease(&trojan.groups),
             vec![X25519MLKEM768, X25519, SECP256R1, SECP384R1],
             "Trojan ClientHello must offer the chrome_stable supported groups"
         );
-        // (2) chrome_stable offers h2 then http/1.1 (CHROME_LATEST.alpn).
         assert_eq!(
             trojan.alpn,
             vec![b"h2".to_vec(), b"http/1.1".to_vec()],
             "Trojan ClientHello must offer the chrome_stable ALPN list"
         );
-        // (3) chrome_stable sets grease_enabled = true.
         assert!(trojan.ciphers.iter().any(|cipher| is_grease(*cipher)), "expected a GREASE cipher suite");
         assert!(trojan.ext_types.iter().any(|ext| is_grease(*ext)), "expected a GREASE extension");
 
-        // (4) Matches the SELECTED profile precisely. Cipher order is stable (not
-        // permuted) so it must equal the profile connector's; extensions are
-        // permuted (permute_extensions = true) so compare as a GREASE-folded set.
         assert_eq!(
             strip_grease(&trojan.ciphers),
             strip_grease(&profile.ciphers),
@@ -1417,9 +1253,6 @@ mod client_hello_parity_tests {
             "Trojan supported groups must match the chrome_stable profile connector"
         );
 
-        // (5) Negative control: a stock BoringSSL ClientHello is a different
-        // fingerprint, proving the assertions above discriminate a browser
-        // profile from the default rather than passing vacuously.
         assert_ne!(
             sorted_no_grease(&stock.groups),
             sorted_no_grease(&trojan.groups),

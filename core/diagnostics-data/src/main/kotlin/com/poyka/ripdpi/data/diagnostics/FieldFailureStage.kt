@@ -1,12 +1,7 @@
 package com.poyka.ripdpi.data.diagnostics
 
-/** Version of the vendored `client-field-report` contract (its `x-contract-version`). */
 const val ClientFieldReportContractVersion = 1
 
-/**
- * The `failure_stage` of a `client-field-report` v1 bucket. Wire values equal the vendored schema enum
- * and the Rust `ripdpi_diagnostics_contracts::FieldFailureStage` serialization.
- */
 enum class FieldFailureStage(
     val wireValue: String,
 ) {
@@ -28,12 +23,6 @@ enum class FieldFailureStage(
     }
 }
 
-/**
- * Connection-path mapping from the typed native failure: [failureClass] is a Rust `FailureClass::as_str` code
- * (`NativeRuntimeSnapshot.lastFailureClass`) and [failureStage] a Rust `FailureStage::as_str` code. It equals
- * the Rust `field_failure_stage`; both are tested against `contract-fixtures/native_failure_stage_mapping.tsv`.
- * An unknown code, and a stage-dependent class without a known stage, report [FieldFailureStage.Unknown].
- */
 fun nativeFieldFailureStage(
     failureClass: String,
     failureStage: String?,
@@ -68,7 +57,6 @@ private val StageByNativeClass =
         "confirm_good_dpi_suspected" to FieldFailureStage.IdleTimeout,
     )
 
-/** A silent drop is reported at the stage where the traffic stopped. */
 private val SilentDropStageByNativeStage =
     mapOf(
         "dns" to FieldFailureStage.Dns,

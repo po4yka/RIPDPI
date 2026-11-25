@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Only validated response codes, flags and counts enter the text export. */
 internal fun dnsSemanticsSummaryLines(results: List<ProbeResult>): List<String> =
     results
         .withIndex()

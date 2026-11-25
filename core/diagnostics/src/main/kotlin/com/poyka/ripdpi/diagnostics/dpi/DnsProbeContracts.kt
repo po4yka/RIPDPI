@@ -15,7 +15,6 @@ interface BootstrapFilterableDnsAddressProbe : DnsAddressProbe {
     ): Set<String>
 }
 
-/** Metadata is absent for legacy probes that expose only address lists. */
 data class DnsProbeAnswer(
     val addresses: List<String> = emptyList(),
     val response: com.poyka.ripdpi.diagnostics.DnsResponseSemantics? = null,

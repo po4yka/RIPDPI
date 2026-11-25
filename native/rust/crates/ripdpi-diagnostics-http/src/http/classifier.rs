@@ -13,9 +13,6 @@ pub fn classify_http_response(response: &HttpResponse) -> String {
     }
 }
 
-/// Classify an HTTP response using the fingerprint database first, then fall
-/// back to the existing heuristic classification. Returns the classification
-/// string and, when a fingerprint matched, its name.
 pub fn classify_http_response_with_fingerprints(
     response: &HttpResponse,
     fingerprints: &[BlockpageFingerprint],
@@ -43,11 +40,7 @@ pub fn is_blockpage(observation: &HttpObservation) -> bool {
     observation.status == "http_blockpage"
 }
 
-/// A short body that says a third party blocked the site. Generic words such as "forbidden",
-/// "access denied" or "blocked" also appear on origin authorization, WAF, rate-limit and error
-/// pages, so they are not evidence for any status.
 fn body_has_explicit_blockpage_message(body: &[u8]) -> bool {
-    // Large pages from legitimate sites may quote these phrases in their normal content.
     if body.len() > 8192 {
         return false;
     }

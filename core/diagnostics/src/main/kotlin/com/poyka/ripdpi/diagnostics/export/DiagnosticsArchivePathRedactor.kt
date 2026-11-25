@@ -14,8 +14,6 @@ internal object DiagnosticsArchivePathRedactor {
 
     fun redact(value: String): String = logicalLineContentRegex.replace(value) { match -> redactLine(match.value) }
 
-    // Ambiguous absolute paths have no reliable boundary once spaces, punctuation, or escape layers are allowed.
-    // Fail closed per logical line, retaining only a strict known-app Android logcat prefix when present.
     private fun redactLine(line: String): String {
         val semanticRedaction = redactSemanticQuotedPathValues(line)
         if (!semanticRedaction.malformed && !containsResidualAbsolutePath(semanticRedaction.value)) {
@@ -87,8 +85,6 @@ internal object DiagnosticsArchivePathRedactor {
         line.containsPercentEncodedPathSeparator() ||
             line.indices.any { index ->
                 val character = line[index]
-                // A backslash may be a Windows separator, a JSON escape layer, or the introducer for
-                // a case-insensitive Unicode slash/backslash escape. None is safe to preserve verbatim.
                 (character == '/' && line.isPathBoundaryBefore(index)) ||
                     line.hasDrivePathStartAt(index) ||
                     character == '\\'

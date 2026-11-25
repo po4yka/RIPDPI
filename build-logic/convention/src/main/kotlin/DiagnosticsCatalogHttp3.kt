@@ -1,7 +1,6 @@
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-// The default control is reachable in Russia, where Cloudflare is blocked.
 internal data class Http3ProbeDefinition(
     val version: Int = 1,
     val host: String = "www.google.com",

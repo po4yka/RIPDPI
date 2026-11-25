@@ -5,7 +5,6 @@ import org.gradle.api.provider.Provider
 import java.io.StringReader
 import java.util.Properties
 
-/** Resolve a shared-priors input from the first non-blank build source. */
 object SharedPriorsBuildProperty {
     fun resolve(
         project: Project,

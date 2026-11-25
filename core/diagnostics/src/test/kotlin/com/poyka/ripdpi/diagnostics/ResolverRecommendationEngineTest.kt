@@ -14,8 +14,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ResolverRecommendationEngineTest {
-    // -- parseHostFromEncryptedEndpoint --
-
     @Test
     fun `parseHost returns null for empty string`() {
         assertNull(ResolverRecommendationEngine.parseHostFromEncryptedEndpoint(""))
@@ -57,8 +55,6 @@ class ResolverRecommendationEngineTest {
             ResolverRecommendationEngine.parseHostFromEncryptedEndpoint("dns.google"),
         )
     }
-
-    // -- parsePortFromEncryptedEndpoint --
 
     @Test
     fun `parsePort returns null for empty string`() {
@@ -114,8 +110,6 @@ class ResolverRecommendationEngineTest {
         assertEquals("2001:db8::1", ResolverRecommendationEngine.parseHostFromEncryptedEndpoint("2001:db8::1"))
         assertNull(ResolverRecommendationEngine.parsePortFromEncryptedEndpoint("2001:db8::1"))
     }
-
-    // -- parseResolverPathCandidate --
 
     @Test
     fun `parseCandidate returns null for non-doh protocol with blank host and doh url`() {
@@ -187,8 +181,6 @@ class ResolverRecommendationEngineTest {
         assertNotNull(candidate)
         assertEquals("", candidate!!.tlsServerName)
     }
-
-    // -- toEncryptedDnsPathCandidate --
 
     @Test
     fun `toEncryptedDnsPathCandidate preserves dot settings`() {
@@ -264,8 +256,6 @@ class ResolverRecommendationEngineTest {
 }
 
 class ResolverRecommendationEngineComputeTest {
-    // -- compute --
-
     @Test
     fun `compute returns null when no dns integrity results`() {
         val report =

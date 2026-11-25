@@ -13,7 +13,6 @@ private const val MaxTelegramDcEndpoints = 32
 private const val MaxTelegramDcLabelBytes = 64
 private val TelegramDnsLabel = Regex("[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
 
-// Keep input checks before permission preflight, which can resolve a host.
 internal fun TelegramTarget.validateForScan(): URI {
     val media = parseTelegramMediaUrl(mediaUrl)
     require(

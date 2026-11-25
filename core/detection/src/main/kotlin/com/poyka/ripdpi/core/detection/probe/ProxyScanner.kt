@@ -120,7 +120,6 @@ internal class ProxyScanner(
             val match =
                 select<ProxyEndpoint?> {
                     found.onAwait { it }
-                    // The workers may finish before select delivers a match they already published.
                     workers.onJoin { if (found.isCompleted) found.await() else null }
                 }
             workers.cancelAndJoin()

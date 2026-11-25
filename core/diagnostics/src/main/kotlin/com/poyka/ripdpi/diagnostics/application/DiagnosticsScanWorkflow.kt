@@ -495,10 +495,6 @@ internal object DiagnosticsScanWorkflow {
                     )
             }
 
-    /**
-     * The settings with one candidate's strategy applied to its own lane, or null when the candidate did not
-     * pass under the rules a recommended winner must meet.
-     */
     fun candidateStrategySettings(
         candidate: StrategyProbeCandidateSummary,
         tcpLane: Boolean,
@@ -510,9 +506,6 @@ internal object DiagnosticsScanWorkflow {
             ?.let(::decodeEngineConfig)
             ?.applyStrategyToSettings(settings, applyTcp = tcpLane, applyQuic = !tcpLane)
 
-    // The engine writes an unset option of a strategy config as an explicit null. The app's config model reads a
-    // missing key as unset and rejects a null, so the nulls are dropped before an engine config is decoded. A config
-    // the user supplies keeps the strict decoder, which rejects an explicit null.
     private fun decodeEngineConfig(configJson: String): com.poyka.ripdpi.core.RipDpiProxyUIPreferences? =
         runCatching { Json.parseToJsonElement(configJson).withoutNulls().toString() }
             .getOrNull()
@@ -603,7 +596,6 @@ internal object DiagnosticsScanWorkflow {
     private fun StrategyProbeCandidateSummary.isPromotableStrategyWinner(
         settings: com.poyka.ripdpi.proto.AppSettings,
     ): Boolean {
-        // Same bar as the engine: at least half the targets, so one success out of several does not promote.
         val hasTargetSuccess = !skipped && succeededTargets > 0 && succeededTargets * 2 >= totalTargets
         val hasPromotableOutcome = outcome.lowercase() !in NonPromotableStrategyProbeOutcomes
         val hasExecutionEvidence = !desyncExecutionRequired || executionEvidenceComplete

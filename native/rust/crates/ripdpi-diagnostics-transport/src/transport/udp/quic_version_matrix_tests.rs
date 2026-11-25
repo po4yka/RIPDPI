@@ -10,8 +10,6 @@ use super::*;
 const CONTROL: &str = "control.example.test";
 const TEST: &str = "test.example.test";
 
-/// Wire shape: long-header flags, version, a per-request nonce, then the SNI.
-/// A reply is `I` or `V` followed by the exact request.
 struct FakeCodec(AtomicU32);
 
 impl QuicInitialCodec for FakeCodec {
@@ -39,7 +37,6 @@ struct Seen {
     sni: String,
 }
 
-/// Loopback endpoint. `reply(version, sni, earlier datagrams from this peer)` returns the datagrams to send.
 struct Responder {
     addr: SocketAddr,
     stop: Arc<AtomicBool>,
@@ -159,7 +156,6 @@ fn v1_test_timeout_with_v2_answer_and_valid_controls_is_a_version_difference() {
     assert!(report.version_difference);
     assert_eq!(report.stopped, None);
     assert_eq!(report.limits, [QuicMatrixLimit::InitialStageOnly, QuicMatrixLimit::LocalPortSeparationOnly]);
-    // Both versions went out with their RFC version numbers.
     let versions = seen.iter().map(|entry| entry.version).collect::<HashSet<_>>();
     assert_eq!(versions, HashSet::from([0x0000_0001, 0x6b33_43cf]));
 }
@@ -199,7 +195,6 @@ fn residual_disabled_runs_every_cell_on_its_own_socket_in_alternating_order() {
 
 #[test]
 fn residual_cell_shares_one_socket_and_is_reported_apart() {
-    // The flow is dropped after a test SNI; fresh flows are not.
     let responder = Responder::start(|_, sni, earlier| {
         if sni == TEST || earlier.iter().any(|entry| entry.sni == TEST) { Vec::new() } else { answer() }
     });
@@ -215,7 +210,6 @@ fn residual_cell_shares_one_socket_and_is_reported_apart() {
     let residual_snis =
         seen.iter().filter(|entry| entry.peer.port() == residual.local_port).map(|entry| entry.sni.as_str());
     assert_eq!(residual_snis.collect::<Vec<_>>(), [TEST, CONTROL]);
-    // The residual cell does not feed the matrix verdict.
     assert_eq!(report.v1, QuicVersionStatus::TestNotAnswered);
 }
 
@@ -241,7 +235,6 @@ fn total_deadline_stops_before_a_cell_without_its_full_window() {
     let responder = Responder::start(|_, _, _| Vec::new());
     let mut bounded = request(responder.addr, None);
     bounded.cell_timeout = Duration::from_millis(200);
-    // Cells 1 and 2 fit; cell 3 would start near 400 ms and end past 500 ms.
     bounded.total_deadline = Duration::from_millis(500);
     let report = run_quic_version_matrix(&bounded, &FakeCodec(AtomicU32::new(0)), &AtomicBool::new(false)).unwrap();
     responder.finish();
@@ -262,13 +255,11 @@ fn byte_budget_ends_a_cell_of_unvalidated_replies() {
 
     let first = report.cells[0].outcome;
     assert_eq!(first.stage, QuicCellStage::Other);
-    // 29-byte request: the third 40-byte reply crosses 120 bytes.
     assert_eq!((first.bytes_sent, first.bytes_received), (9 + CONTROL.len(), 120));
 }
 
 #[test]
 fn late_test_flow_replies_do_not_mark_the_residual_control() {
-    // Fresh flows answer at once; on the residual socket the test reply arrives late, during the control wait.
     let responder = Responder::start(|_, sni, earlier| {
         if earlier.is_empty() && sni == TEST {
             thread::sleep(Duration::from_millis(30));

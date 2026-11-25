@@ -30,7 +30,6 @@ internal class PreparedExportOrphanCleanupTest : DiagnosticsArchiveExporterTestB
             exporter.prepare(kept, preparation(session.id))
             val wipedFile = File(exporter.consume(wiped).absolutePath)
             val keptFile = File(exporter.consume(kept).absolutePath)
-            // "Reset all settings" deletes the export records but not filesDir/diagnostics-prepared.
             stores.deleteExportRecords(listOf(wiped.encoded))
 
             exporter.cleanupCache()

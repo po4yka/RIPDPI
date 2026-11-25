@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 
-/** Project port numbers and known states before archive redaction removes dial addresses. */
 internal fun DiagnosticsSummaryDocument.withTelegramEvidence(
     report: EngineScanReportWire?,
 ): DiagnosticsSummaryDocument {
@@ -74,7 +73,6 @@ private fun telegramAddressPortFacts(
     val fields = evidence.splitToSequence(';').iterator()
     val port = fields.next().substringAfterLast(':', "").toTelegramPort() ?: return emptySequence()
     val family = fields.asSequence().firstOrNull()?.removePrefix("family=")
-    // The final fields may contain untrusted report text. Emit only known tokens.
     val path = evidence.substringAfter(";path=", "").substringBefore(';')
     val familyFact = if (family in TelegramFamilies) " family=$family" else ""
     return sequenceOf("port=$port status=${telegramSummaryState(parts[1])}$familyFact${telegramPathFact(path)}")

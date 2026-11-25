@@ -218,7 +218,6 @@ class DiagnosticsDnsReprobeCancellationTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores().apply { seedStrategyProbeProfile(json) }
             val clock = TestDiagnosticsHistoryClock()
-            // Halted service parks the re-probe inside waitForVpnServiceResume.
             val serviceStateStore = FakeServiceStateStore(initialStatus = AppStatus.Halted to Mode.VPN)
             val bridgeFactory = FakeNetworkDiagnosticsBridgeFactory(json).apply { bridge.autoCompleteOnStart = false }
             val fixtures =
@@ -277,9 +276,6 @@ class DiagnosticsDnsReprobeCancellationTest {
                 admission.admitAutomaticProbe(),
             )
 
-            // The reservation is released once the resume wait times out and cleanup
-            // runs; afterwards the same admission call succeeds, proving the rejection
-            // above was caused by the pending re-probe rather than static policy.
             repeat(30) {
                 testScheduler.advanceTimeBy(500)
                 runCurrent()

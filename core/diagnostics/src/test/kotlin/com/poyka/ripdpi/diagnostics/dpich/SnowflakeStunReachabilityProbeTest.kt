@@ -143,7 +143,6 @@ class SnowflakeStunReachabilityProbeTest {
         private val Loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
         private val BindingRequest = "000100002112a442000102030405060708090a0b".hexToByteArray()
 
-        // RFC 8489 §14.2, IPv4 address 127.0.0.1 and port 3478.
         private val BindingSuccess = "0101000c2112a442000102030405060708090a0b0020000800012c845e12a443".hexToByteArray()
     }
 }

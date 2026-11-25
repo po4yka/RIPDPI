@@ -4,9 +4,6 @@ fn join_decimal(values: &[u16]) -> String {
     values.iter().map(std::string::ToString::to_string).collect::<Vec<_>>().join("-")
 }
 
-/// Compute the JA3 fingerprint hash of the first ClientHello in recorded TLS bytes.
-///
-/// Returns `None` for incomplete records or invalid ClientHello framing and JA3 fields.
 pub fn compute_ja3(recorded_bytes: &[u8]) -> Option<String> {
     let fields = parse_client_hello(recorded_bytes)?;
     let ja3_string = format!(

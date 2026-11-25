@@ -147,7 +147,6 @@ class HttpCompressionProber(
         httpStatus: Int,
         comprMin: Int,
     ): CompressionProbeResult {
-        // Counted as the stream is read, so a failure mid-body still reports how far decoding got.
         var decoded: CountingInputStream? = null
 
         fun result(
@@ -184,7 +183,6 @@ class HttpCompressionProber(
         while (read >= 0) read = input.read(buffer)
     }
 
-    // RFC 9110 s8.4.1.3: x-gzip is the same coding as gzip.
     private fun CompressionCodec.matchesContentEncoding(contentEncoding: String): Boolean =
         contentEncoding.equals(acceptEncoding, ignoreCase = true) ||
             (this == CompressionCodec.GZIP && contentEncoding.equals("x-gzip", ignoreCase = true))

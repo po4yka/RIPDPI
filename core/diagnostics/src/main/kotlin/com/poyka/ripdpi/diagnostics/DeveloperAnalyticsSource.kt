@@ -1,13 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
 import java.io.File
 
-/**
- * Public context projected from the internal archive selection so app-layer
- * collectors can read the bits they need without leaking internals of
- * [DiagnosticsArchiveSelection].
- */
 data class DeveloperAnalyticsContext(
     val archiveCreatedAtMs: Long,
     val archiveFileName: String,
@@ -26,11 +20,6 @@ data class DeveloperStageProbeEvidence(
     val outcome: String,
 )
 
-/**
- * Collects developer-facing analytics that are serialized into the share archive as
- * `developer-analytics.json`. Implementations live in the app layer because most
- * signals require Android APIs, proc filesystem access, or BuildConfig constants.
- */
 interface DeveloperAnalyticsSource {
     suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload
 }

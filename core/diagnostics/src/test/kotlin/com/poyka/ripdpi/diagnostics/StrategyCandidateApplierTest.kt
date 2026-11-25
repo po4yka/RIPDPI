@@ -35,7 +35,6 @@ class StrategyCandidateApplierTest {
         runTest {
             val repository = FakeAppSettingsRepository(defaultDiagnosticsAppSettings())
             val before = repository.snapshot()
-            // The engine marks an unset option with a null; the app's own encoder leaves the key out.
             val engineConfig = config.replaceFirst("\"fakePackets\":{", "\"fakePackets\":{\"entropyPaddingMax\":null,")
             assertTrue(engineConfig != config)
             val report = report(candidate("tcp-pass", "success", succeeded = 4).copy(proxyConfigJson = engineConfig))

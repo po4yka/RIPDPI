@@ -27,29 +27,15 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 
-/**
- * Turns a FULL backup export into the plaintext preset asset the app restores on first launch.
- *
- * The preset carries no credentials. FULL is the only export that keeps a subscription link, so the
- * task reads it, drops `privateData`, and writes `containsCredentials: false`. At least one group must
- * hold a pending `BOOTSTRAP` subscription (the token slot `PendingBootstrapProvisioner` consumes on
- * first run); profiles, group members, and any other subscription are refused, so nothing is written.
- *
- * The envelope layout mirrors `BackupEncryption` in `:core:data`; both sides decrypt the shared
- * fixture `core/data/src/test/resources/backup/preset-fixture.ripdpibackup` in their tests.
- */
 @DisableCachingByDefault(because = "Reads a credential-bearing archive; must never enter the build cache")
 abstract class PreparePresetTask : DefaultTask() {
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val archive: RegularFileProperty
 
-    // Test seam. The build reads the environment in the task action, so the value
-    // stays out of the configuration cache.
     @get:Internal
     abstract val passphrase: Property<String>
 
-    /** `BackupV1.kt`, the single owner of the supported schema version range. */
     @get:InputFile
     @get:PathSensitive(PathSensitivity.NONE)
     abstract val schemaSource: RegularFileProperty
@@ -59,7 +45,6 @@ abstract class PreparePresetTask : DefaultTask() {
 
     @TaskAction
     fun prepare() {
-        // A failed run must not leave an older preset to be packaged.
         presetFile.get().asFile.delete()
         val bytes = archive.get().asFile.readBytes()
         val json = if (bytes.startsWithMagic()) decrypt(bytes) else bytes.toString(Charsets.UTF_8)
@@ -79,7 +64,6 @@ abstract class PreparePresetTask : DefaultTask() {
         }
     }
 
-    // Messages name group ids only, never a link, token, or profile field.
     private fun requireBootstrapSlotOnly(document: JsonObject) {
         if ((document["profiles"] as? JsonArray).orEmpty().isNotEmpty()) {
             throw GradleException("The archive carries profiles; a preset ships no credentials")

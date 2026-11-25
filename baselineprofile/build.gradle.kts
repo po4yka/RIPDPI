@@ -26,14 +26,11 @@ android {
     targetProjectPath = ":app"
     experimentalProperties["android.experimental.self-instrumenting"] = true
     buildTypes {
-        // Match :app's release-derived, profileable benchmark variant. Keep the
-        // existing debug lane for profile generation and startup diagnostics.
         create("benchmark") {
             initWith(getByName("debug"))
             matchingFallbacks += "release"
         }
     }
-    // Managed devices, including the pinned pixel6Api34Atd benchmark image, come from ripdpi.android.test.
 }
 
 extensions.configure<TestAndroidComponentsExtension> {

@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 
-/** Export only enum identifiers and bounded numeric observations from the shared projection. */
 internal fun connectionStageSummaryLines(
     results: List<ProbeResult>,
     networkScopeUnverified: Boolean = false,
@@ -51,7 +50,6 @@ private fun formatConnectionStage(
         if (networkScopeUnverified || lane.networkScopeUnverified) append(" networkScope=unverified")
     }
 
-/** Preserve measured stage facts before source identifiers are removed from the archive report. */
 internal fun DiagnosticsSummaryDocument.withConnectionStageEvidence(
     report: EngineScanReportWire?,
 ): DiagnosticsSummaryDocument =

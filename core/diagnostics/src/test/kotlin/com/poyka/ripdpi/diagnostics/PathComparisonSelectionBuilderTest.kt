@@ -43,7 +43,6 @@ class PathComparisonSelectionBuilderTest {
             val failed = DomainTarget(host = "failed.example")
             val selection = select(stores, listOf(domestic, failed), report(domestic, failed))
 
-            // The domestic site answers on the direct path anyway, so it cannot show what the bypass changes.
             assertTrue(selection?.domainTargets.orEmpty().none { it.host == "ya.ru" })
         }
 

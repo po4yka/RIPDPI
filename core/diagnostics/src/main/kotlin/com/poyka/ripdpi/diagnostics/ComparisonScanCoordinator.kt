@@ -123,7 +123,6 @@ class ComparisonScanCoordinator
                         ConnectivityAssessmentCode.RESOLVER_INTERFERENCE
                     }
 
-                    // Only a foreign control proves the path the affected targets use; a domestic one does not.
                     controlTiers.foreignBaselinePassed(rawControlSuccess) && rawAffectedFailure -> {
                         ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING
                     }
@@ -423,10 +422,6 @@ internal data class TargetOutcome(
     val failed: Boolean get() = bucket == DiagnosticsOutcomeBucket.Failed
 }
 
-/**
- * Control results by where the control lives. A control without a tier counts as foreign; a report with no tier
- * at all (an older catalog) keeps its previous verdicts.
- */
 private class ControlTierOutcome(
     private val domesticPassed: Boolean,
     private val foreignPassed: Boolean,
@@ -434,7 +429,6 @@ private class ControlTierOutcome(
     private val hasTiers: Boolean,
     val cdnOnlyFailure: Boolean,
 ) {
-    /** The local network works while every foreign control failed: the international link is the problem. */
     val internationalFailure: Boolean get() = domesticPassed && foreignAllFailed
 
     fun foreignBaselinePassed(anyControlPassed: Boolean): Boolean = if (hasTiers) foreignPassed else anyControlPassed
@@ -449,10 +443,8 @@ private class ControlTierOutcome(
             return ControlTierOutcome(
                 domesticPassed = domestic.any { it.success },
                 foreignPassed = foreign.any { it.success },
-                // Every foreign control failed; an inconclusive one is not proof of a broken link.
                 foreignAllFailed = foreign.isNotEmpty() && foreign.all { it.failed },
                 hasTiers = controls.any { it.controlTier != null },
-                // Only the CDN provider is unreachable: every other control answered.
                 cdnOnlyFailure =
                     cdn.isNotEmpty() && cdn.all { it.failed } && otherForeign.isNotEmpty() &&
                         otherForeign.all { it.success } && domestic.none { it.failed },
@@ -513,7 +505,6 @@ private fun domainTargetOutcome(
         }
     val bucket =
         when {
-            // Plain HTTP cannot clear a control whose TLS certificate failed.
             fact.isControl && http == DiagnosticsOutcomeBucket.Healthy && !certificateFailure -> http
 
             http == DiagnosticsOutcomeBucket.Failed && result?.detailValue("httpStatus") == "http_unreachable" -> http

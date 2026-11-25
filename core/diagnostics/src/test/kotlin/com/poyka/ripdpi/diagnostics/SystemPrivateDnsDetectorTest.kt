@@ -3,11 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/**
- * Unit tests for the pure system Private DNS status mapping. These exercise
- * [mapLinkPropertiesToStatus] without touching Android APIs so the tri-state
- * logic is verifiable without a device.
- */
 class SystemPrivateDnsDetectorTest {
     @Test
     fun mapLinkPropertiesToStatus_present_when_server_name_set() {
@@ -37,7 +32,6 @@ class SystemPrivateDnsDetectorTest {
 
     @Test
     fun mapLinkPropertiesToStatus_unknown_when_api_unsupported() {
-        // Below API 28 the resolver name cannot be read, even if one were configured.
         assertEquals(
             SystemPrivateDnsStatus.UNKNOWN,
             mapLinkPropertiesToStatus(privateDnsServerName = "dns.example.org", apiSupported = false),

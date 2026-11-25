@@ -162,8 +162,6 @@ internal class RuntimeTerminalOutbox(
         if (outcome != null && policy == null) {
             pending.policyEvidenceComplete = false
         }
-        // The outcome is a delta, so it must reach the row once: the checkpoint records policyApplied in the
-        // same transaction, and a replay of this phase (process death before SESSION_UPSERT) skips it.
         if (!pending.policyApplied) {
             val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION, policyApplied = true)
             reconcileCheckpoint(
@@ -171,7 +169,6 @@ internal class RuntimeTerminalOutbox(
                 intendedMarker = policyCheckpoint,
                 checkpointSucceeded =
                     outboxStore.checkpointTerminalPolicy(
-                        // The checkpoint applies the outcome to the row read in its own transaction.
                         policyId = policy?.id,
                         update = { current -> outcome?.applyTo(current, pending.finishedSession.strategyJson) },
                         expectedMarker = pending.currentMarker,
@@ -361,7 +358,6 @@ internal data class TerminalOutboxMarker(
     val terminalEvidenceSealed: Boolean,
     val policyOutcome: RememberedPolicyTerminalOutcome? = null,
     val policyEvidenceComplete: Boolean = true,
-    // True once the policy checkpoint applied the outcome; absent in markers written before it existed.
     val policyApplied: Boolean = false,
     val artifactBatch: RuntimeTerminalArtifactBatch,
     val phase: PendingTerminalPhase,

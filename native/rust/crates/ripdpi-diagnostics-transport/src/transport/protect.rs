@@ -1,22 +1,3 @@
-//! `VpnService.protect` integration for the `Direct` probe transport.
-//!
-//! A `Direct` connectivity probe is meant to measure the device's *underlying*
-//! network path. When the app's VPN is up, an unprotected probe socket is
-//! captured by the TUN route: it no longer measures the direct path, and — per
-//! the `VpnService.protect()` invariant — the app's own sockets must not be
-//! routed back into the tunnel they own. When a protect callback is registered
-//! (the VPN is up), protect the probe fd so it bypasses the tunnel.
-//!
-//! Fail-open by design only when there is nothing to protect against: the
-//! helpers are a no-op when no callback is registered (desktop, tests, or VPN
-//! down) and for loopback targets. When a callback *is* registered and protect
-//! fails, the error propagates so the caller abandons the unprotected probe
-//! (fail-closed). The `Socks5` transport connects to its proxy through the direct
-//! connector too. The proxy host is the app's own loopback listener
-//! (`LocalProxyEndpoint`), which protect skips. The onward path through the
-//! proxy is not routed through here: it measures the through-proxy path and
-//! must traverse the tunnel.
-
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
@@ -24,11 +5,6 @@ use std::time::{Duration, Instant};
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-/// Protect `socket` via the in-process `VpnService.protect` callback registry
-/// when one is registered and `target` is non-loopback.
-///
-/// No-op when no callback is registered or `target` is loopback. Returns the
-/// callback's error (fail-closed) when protection is required but fails.
 pub(crate) fn protect_for_target<S: AsRawFd>(socket: &S, target: SocketAddr) -> io::Result<()> {
     if target.ip().is_loopback() || !ripdpi_native_protect::has_protect_callback() {
         return Ok(());
@@ -36,7 +12,6 @@ pub(crate) fn protect_for_target<S: AsRawFd>(socket: &S, target: SocketAddr) -> 
     ripdpi_native_protect::protect_socket_via_callback(socket.as_raw_fd())
 }
 
-/// Create an unconnected TCP socket that is protected before the caller connects it.
 pub fn protected_tcp_socket(target: SocketAddr) -> io::Result<TcpStream> {
     new_protected_tcp_socket(target).map(Into::into)
 }
@@ -47,9 +22,6 @@ fn new_protected_tcp_socket(target: SocketAddr) -> io::Result<Socket> {
     Ok(socket)
 }
 
-/// Create a TCP socket, protect it if the VPN is active, then connect to
-/// `target` with `timeout`. Replaces a bare `TcpStream::connect_timeout` so the
-/// protect step can run on the fd before `connect`.
 pub(crate) fn protected_tcp_connect(target: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
     let socket = new_protected_tcp_socket(target)?;
     socket.connect_timeout(&SockAddr::from(target), timeout)?;
@@ -58,8 +30,6 @@ pub(crate) fn protected_tcp_connect(target: SocketAddr, timeout: Duration) -> io
 
 const CONNECT_STOP_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
-/// Like [`protected_tcp_connect`], but give up once `stop` is set, so an attempt that lost a
-/// connect race does not complete a connection that nobody reads (RFC 8305 section 5).
 pub(crate) fn protected_tcp_connect_until(
     target: SocketAddr,
     timeout: Duration,
@@ -107,7 +77,6 @@ pub(crate) fn connect_socket_until(
             if let Some(error) = socket.take_error()? {
                 return Err(error);
             }
-            // POLLHUP without SO_ERROR: the peer is gone although no error was recorded.
             socket.peer_addr()?;
         }
         Err(error) => return Err(error),
@@ -122,7 +91,6 @@ pub(crate) fn connect_socket_until(
     Ok(socket.into())
 }
 
-/// Wait at most `wait` for a connecting socket to become writable (connected or failed).
 fn wait_until_writable(socket: &Socket, wait: Duration) -> io::Result<bool> {
     let mut poll_fd = libc::pollfd { fd: socket.as_raw_fd(), events: libc::POLLOUT, revents: 0 };
     let millis = libc::c_int::try_from(wait.as_millis()).unwrap_or(libc::c_int::MAX).max(1);
@@ -137,8 +105,6 @@ fn wait_until_writable(socket: &Socket, wait: Duration) -> io::Result<bool> {
     }
 }
 
-/// Bind a UDP socket at `bind_addr` for an outbound probe to `server`,
-/// protecting it if the VPN is active so the probe bypasses the tunnel.
 pub fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Result<UdpSocket> {
     let socket = Socket::new(domain_for(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     protect_for_target(&socket, server).map_err(|error| io::Error::new(io::ErrorKind::PermissionDenied, error))?;
@@ -146,9 +112,6 @@ pub fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Resu
     Ok(socket.into())
 }
 
-/// The first of `addresses` the device has a route to, found by connecting a protected UDP socket, which
-/// sends no packet. Without this a probe that pins one address can pick an AAAA record on an IPv4-only
-/// network and fail every attempt locally. Falls back to the first address when none is routable.
 pub fn first_routable_address(addresses: &[SocketAddr]) -> Option<SocketAddr> {
     addresses
         .iter()
@@ -168,7 +131,6 @@ fn domain_for(addr: SocketAddr) -> Domain {
     if addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 }
 }
 
-// Every test in this crate that mutates the process-wide protect slot shares this lock.
 #[cfg(test)]
 pub(crate) static TEST_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
@@ -201,11 +163,7 @@ mod tests {
 
     #[test]
     fn connect_until_stops_a_pending_connect_once_stopped() {
-        // The protect slot is global: hold the lock so this non-loopback connect cannot reach
-        // another test's recording callback.
         let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-        // TEST-NET-1 (RFC 5737) is never routed, so the SYN gets no answer and the connect stays
-        // pending. A loopback listener with a full backlog does not work: macOS resets it.
         let target = SocketAddr::from((Ipv4Addr::new(192, 0, 2, 1), 9));
         let stop = Arc::new(AtomicBool::new(false));
         let stopper = {
@@ -223,7 +181,6 @@ mod tests {
         stopper.join().unwrap();
 
         if matches!(error.kind(), io::ErrorKind::NetworkUnreachable | io::ErrorKind::HostUnreachable) {
-            // No route on this host: the connect cannot stay pending, so there is nothing to stop.
             eprintln!("skipped: {error}");
             return;
         }
@@ -246,7 +203,6 @@ mod tests {
         stream.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
         let started = Instant::now();
         let error = (&stream).read(&mut [0u8; 1]).expect_err("no data yet");
-        // SO_RCVTIMEO reports WouldBlock on Unix too; only a blocking read waits for it first.
         assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error:?}");
         assert!(started.elapsed() >= Duration::from_millis(50), "the read did not wait: the stream is non-blocking");
     }
@@ -346,14 +302,11 @@ mod tests {
         let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         unregister_protect_callback();
         let sock = UdpSocket::bind(loopback(0)).expect("bind probe fd");
-        // No VPN callback registered (desktop / VPN down): protecting a
-        // non-loopback target is a no-op and must not error.
         protect_for_target(&sock, non_loopback(443)).expect("no-callback path must be a no-op");
     }
 
     #[test]
     fn routable_address_skips_a_peer_without_a_route() {
-        // A link-local IPv6 peer without a scope id has no route on any host.
         let unroutable: SocketAddr = "[fe80::1]:443".parse().unwrap();
         assert_eq!(first_routable_address(&[unroutable, loopback(443)]), Some(loopback(443)));
         assert_eq!(first_routable_address(&[unroutable]), Some(unroutable));

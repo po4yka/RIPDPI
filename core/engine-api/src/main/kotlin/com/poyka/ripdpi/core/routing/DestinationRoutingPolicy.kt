@@ -2,18 +2,9 @@ package com.poyka.ripdpi.core.routing
 
 import java.util.Collections
 
-/**
- * Engine API destination routing policy.
- *
- * [rules] are evaluated in list order and the first matching rule wins. A destination that does
- * not match any rule uses [defaultAction], which deliberately defaults to the tunneled path.
- * Collection inputs are copied and exposed through unmodifiable views so a compiled snapshot
- * cannot be changed after publication.
- */
 class DestinationRoutingPolicy(
     rules: List<DestinationRoutingRule> = emptyList(),
     val defaultAction: DestinationRoutingAction = DestinationRoutingAction.TUNNELED,
-    /** Stable digest of the canonical matcher/action representation, excluding source metadata. */
     val canonicalDigest: String,
 ) {
     val rules: List<DestinationRoutingRule> = rules.immutableCopy()

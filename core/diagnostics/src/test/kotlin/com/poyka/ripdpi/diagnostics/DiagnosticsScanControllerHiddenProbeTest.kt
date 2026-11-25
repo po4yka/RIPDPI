@@ -272,8 +272,6 @@ class DiagnosticsScanControllerHiddenProbeTest {
             completeHiddenScan(bridgeFactory, hiddenSessionId, settings)
             advanceUntilIdle()
 
-            // Park the manual startup inside persistPreparedScan so cancellation lands
-            // inside resolveHiddenProbeConflict itself.
             stores.afterUpsertScanSession = { awaitCancellation() }
             val pendingResolution =
                 async {

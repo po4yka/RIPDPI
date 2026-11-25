@@ -6,10 +6,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 
-/**
- * Extracted quick-scan execution logic to keep [DefaultDiagnosticsHomeCompositeRunService]
- * within its LoC budget. This is an internal helper, not a standalone service.
- */
 internal class DiagnosticsQuickScanRunner(
     private val scanRecordStore: DiagnosticsScanRecordStore,
     private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
@@ -59,7 +55,6 @@ internal class DiagnosticsQuickScanRunner(
             c.copy(headline = audit.headline, summary = audit.summary, recommendationContributor = audit.actionable)
         }
 
-        // Detection stage (index 1) runs after audit. Uses DetectionRunner, not a profile scan.
         val detectionSpec = QuickScanStageSpecs[1]
         if (detectionSpec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
             runDetectionStage(runId, 1, detectionSpec)

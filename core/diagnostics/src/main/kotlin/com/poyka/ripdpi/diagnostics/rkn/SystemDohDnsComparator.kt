@@ -90,7 +90,6 @@ class SystemDohDnsComparator(
             onFailure = { error ->
                 currentCoroutineContext().ensureActive()
                 if (error is CancellationException && error !is TimeoutCancellationException) throw error
-                // Only a "no such host" answer is a negative answer; a timeout or other error proves nothing.
                 LookupOutcome(emptySet(), negative = isNegativeDnsAnswer(error))
             },
         )
@@ -157,7 +156,6 @@ class SystemDohDnsComparator(
         )
     }
 
-    // Large domains rotate multi-A answers; only zero intersection is a rewrite signal.
     private fun areDisjoint(
         sysIps: Set<String>,
         dohIps: Set<String>,
@@ -173,13 +171,6 @@ class SystemDohDnsComparator(
     }
 }
 
-/**
- * Android's getAllByName throws UnknownHostException for every getaddrinfo failure, with the (hidden)
- * android.system.GaiException as its cause, whose message names the code: "android_getaddrinfo failed:
- * EAI_NODATA (...)". Only EAI_NODATA and EAI_NONAME are a negative answer; EAI_AGAIN (SERVFAIL, upstream
- * timeout, no network) and every other failure prove nothing. The whole cause chain is read because
- * coroutine stack-trace recovery can wrap the original exception in a copy.
- */
 private fun isNegativeDnsAnswer(error: Throwable): Boolean =
     error is UnknownHostException &&
         generateSequence(error.cause, Throwable::cause)
@@ -199,16 +190,11 @@ class SystemIpv4Resolver : Ipv4Resolver {
                     .filterIsInstance<Inet4Address>()
                     .mapNotNull { address -> address.hostAddress }
                     .toCollection(linkedSetOf())
-            // An IPv6-only answer is an answer, not a negative one.
             if (ipv4.isEmpty() && addresses.isNotEmpty()) throw IOException("System resolver returned no IPv4 address")
             ipv4
         }
 }
 
-/**
- * Public DoH resolvers with a JSON API on a fixed IP, so a reference lookup never depends on the system resolver.
- * They belong to independent providers: Cloudflare is blocked in Russia, so it cannot be the only reference.
- */
 enum class DohReferenceEndpoint(
     val url: String,
 ) {
@@ -217,10 +203,6 @@ enum class DohReferenceEndpoint(
     CLOUDFLARE("https://1.1.1.1/dns-query"),
 }
 
-/**
- * Asks every reference provider at once and unions their answers. A blocked provider does not remove the
- * reference, and CDN answers that differ by provider do not read as a rewrite. Fails only when no provider answers.
- */
 class DohReferenceResolver(
     private val resolvers: List<Ipv4Resolver> = DohReferenceEndpoint.entries.map { DohJsonResolver(it.url) },
 ) : Ipv4Resolver {
@@ -228,7 +210,6 @@ class DohReferenceResolver(
         coroutineScope {
             val answers = resolvers.map { resolver -> async { runCatching { resolver.resolve(host) } } }.awaitAll()
             currentCoroutineContext().ensureActive()
-            // Only a failed provider is skipped: cancellation and JVM errors still propagate.
             answers.firstNotNullOfOrNull { it.exceptionOrNull() as? CancellationException }?.let { throw it }
             answers.firstNotNullOfOrNull { it.exceptionOrNull() as? Error }?.let { throw it }
             val answered = answers.mapNotNull { it.getOrNull() }
@@ -253,11 +234,9 @@ class DohJsonResolver(
             connection.useCaches = false
             connection.setRequestProperty("Accept", "application/dns-json")
             try {
-                // An error status is not an answer, so the reference resolver can tell it from an empty one.
                 if (connection.responseCode !in HttpSuccessStatusRange) {
                     throw IOException("DoH reference $endpoint returned HTTP ${connection.responseCode}")
                 }
-                // A capped read keeps a slow or oversized provider answer from outliving the comparison budget.
                 val body = ByteArrayOutputStream()
                 connection.inputStream.use { stream ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -288,7 +267,6 @@ class DohJsonResolver(
     private fun isIpv4Literal(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
     private companion object {
-        // Connect plus read stays under the comparator's 5 s budget, so a silent provider cannot void the others.
         private const val HttpTimeoutMs = 2_000
         private const val MaxBodyBytes = 16 * 1024
         private const val ARecordType = 1

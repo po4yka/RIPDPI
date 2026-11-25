@@ -16,21 +16,6 @@ import org.jetbrains.kotlin.psi.KtNameReferenceExpression
 import org.jetbrains.kotlin.psi.KtSimpleNameStringTemplateEntry
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
 
-/**
- * Prevents logging resolver/upstream IP addresses in log statements.
- *
- * Logging DNS resolver or upstream endpoint IPs leaks user-visible network
- * state into logs that may be accessible to third parties (crash reporters,
- * adb, bug reports). Use a non-identifying placeholder instead.
- *
- * Compliant:
- *   Logger.v { "DNS configured" }
- *   Logger.v { "DNS configured (${resolvers.size} resolvers)" }
- *
- * Non-compliant:
- *   Logger.v { "DNS: $dns" }
- *   Logger.d { "upstream: $resolverIp" }
- */
 class NoResolverIpInLogs(
     config: Config = Config.empty,
 ) : Rule(config) {
@@ -58,13 +43,6 @@ class NoResolverIpInLogs(
     }
 
     private fun isLogCall(expression: KtCallExpression): Boolean {
-        // For Logger.v { ... }, the PSI is:
-        //   KtDotQualifiedExpression
-        //     KtNameReferenceExpression("Logger")  ← receiver
-        //     KtCallExpression
-        //       KtNameReferenceExpression("v")     ← calleeExpression
-        // So calleeExpression.text == "v", not "Logger.v".
-        // We must walk up to the parent dot-qualified expression to get the receiver.
         val parent = expression.parent
         val receiverName =
             if (parent is KtDotQualifiedExpression) {
@@ -72,7 +50,6 @@ class NoResolverIpInLogs(
             } else {
                 null
             }
-        // Also handle bare calls like `Log.v(...)` where the whole thing is top-level.
         val calleeText = expression.calleeExpression?.text ?: return false
         return (receiverName != null && loggerNames.contains(receiverName)) ||
             loggerNames.any { name -> calleeText == name || calleeText.startsWith("$name.") }

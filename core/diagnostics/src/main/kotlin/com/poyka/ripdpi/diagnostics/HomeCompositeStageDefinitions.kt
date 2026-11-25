@@ -114,7 +114,6 @@ internal val HomeCompositeStageSpecs =
         HomeCompositeStageSpec(
             key = "ru_circumvention",
             label = "Sensitive services reachability",
-            // Keep the stable profile id for catalog/session compatibility.
             profileId = "ru-circumvention",
             pathMode = ScanPathMode.RAW_PATH,
         ),

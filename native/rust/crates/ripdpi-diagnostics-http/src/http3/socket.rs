@@ -1,4 +1,3 @@
-//! A fixed worker keeps a blocking platform protection callback off the probe runtime.
 use super::Failure;
 use ripdpi_diagnostics_transport::transport::protected_udp_bind;
 use std::net::{SocketAddr, UdpSocket};
@@ -27,10 +26,8 @@ fn worker() -> Result<&'static mpsc::SyncSender<Job>, Failure> {
                         let result =
                             std::panic::catch_unwind(|| bind(job.target)).unwrap_or(Err(("FAILED", "protect_failed")));
                         if Instant::now() < job.deadline {
-                            // If cancelled, send fails and owns/drops the returned socket.
                             let _ = job.result.send(result);
                         }
-                        // Expired jobs drop the socket here. This worker never sends packets.
                     }
                 })
                 .map_err(|_| ())?;
@@ -57,8 +54,6 @@ fn bind(target: SocketAddr) -> SocketResult {
 pub(crate) async fn protected_socket(target: SocketAddr, deadline: Instant) -> SocketResult {
     let (sender, receiver) = mpsc::channel();
     let mut job = Job { target, deadline, result: sender };
-    // A full queue is transient backpressure, not an I/O failure: wait for a slot
-    // until the probe deadline instead of reporting `io_error`.
     loop {
         match worker()?.try_send(job) {
             Ok(()) => break,

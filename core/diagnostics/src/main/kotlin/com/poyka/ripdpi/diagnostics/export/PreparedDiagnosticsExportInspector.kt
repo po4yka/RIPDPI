@@ -12,7 +12,6 @@ internal data class PreparedExportContent(
     val entryNames: List<String>,
 )
 
-/** Preview reads the final file, after every typed/correlation redactor and ZIP packaging step. */
 internal object PreparedDiagnosticsExportInspector {
     private const val LogExcerptCodePoints = 4096
     private const val CopyBufferBytes = 8192

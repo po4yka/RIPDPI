@@ -36,7 +36,6 @@ pub(crate) struct CapturedTlsHandshake {
     pub(super) client_hello_capture: ClientHelloCapture,
 }
 
-/// A failed handshake and whether the server's ServerHello was processed before it failed.
 pub(crate) struct CaptureTlsError {
     pub(crate) message: String,
     pub(crate) server_hello_received: Option<bool>,
@@ -91,7 +90,6 @@ pub(crate) struct CaptureTlsHandshakeOptions<'a> {
 }
 
 fn comparison_ech_query_name(server_name: &str, port: u16) -> Cow<'_, str> {
-    // RFC 9460 section 9.1 prefixes HTTPS query names for non-default ports.
     if port == 443 { Cow::Borrowed(server_name) } else { Cow::Owned(format!("_{port}._https.{server_name}")) }
 }
 
@@ -133,7 +131,6 @@ pub(crate) fn capture_tls_handshake(
     };
     let mut connection = ClientConnection::new(config, server_name).map_err(|error| {
         if matches!(options.profile, TlsClientProfile::ComparisonEch) && matches!(error, rustls::Error::Other(_)) {
-            // The provider can reject the published key when preparing HPKE for the first ClientHello.
             ech_setup_error(EchLookupFailure::InvalidConfig(error.to_string()), ech_config_source)
         } else {
             CaptureTlsError { ech_config_source, ..error.to_string().into() }
@@ -152,7 +149,6 @@ pub(crate) fn capture_tls_handshake(
                 administrative_error_after_io(should_abort).unwrap_or_else(|| err.to_string())
             };
             let version = connection.protocol_version();
-            // rustls sets the version and cipher suite while processing HelloRetryRequest too.
             let server_hello_received = match version {
                 Some(rustls::ProtocolVersion::TLSv1_3) => connection.negotiated_key_exchange_group().is_some(),
                 _ => connection.negotiated_cipher_suite().is_some(),
@@ -253,7 +249,6 @@ fn capture_real_ech_config(
     let (bytes, source) = if let Some(configs) = options.ech_retry_configs {
         (configs.to_vec(), EchConfigSource::RetryConfigs)
     } else {
-        // A comparison needs the config published for this origin. The peer-IP fallback is legacy-only.
         let fallback_peer = if options.profile.is_comparison() { None } else { connected_addr };
         let origin_name = server_name.to_str();
         let query_name = if options.profile.is_comparison() {
@@ -320,10 +315,6 @@ fn administrative_error_after_io(should_abort: &dyn Fn() -> Option<&'static str>
     }
 }
 
-/// Handshake socket I/O that checks cancellation and the scan deadline before every read and
-/// write. `complete_io` loops until the handshake ends, and a socket timeout only bounds one
-/// read, so a peer that sends a few bytes within every timeout would otherwise hold the probe
-/// past the deadline and past a user cancel.
 struct BoundedHandshakeIo<'a> {
     recording: &'a mut RecordingStream<TcpStream>,
     should_abort: &'a dyn Fn() -> Option<&'static str>,
@@ -335,14 +326,11 @@ impl BoundedHandshakeIo<'_> {
         set_timeout: impl Fn(&TcpStream, Option<Duration>) -> io::Result<()>,
         mut operation: impl FnMut(&mut RecordingStream<TcpStream>) -> io::Result<T>,
     ) -> io::Result<T> {
-        // A short socket wait observes cancellation on a silent peer. Retry the same
-        // read or write up to its original idle budget, also limited by the scan deadline.
         const CANCEL_POLL: Duration = Duration::from_millis(50);
         let timeout =
             bounded_scan_io_timeout(IO_TIMEOUT).map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))?;
         let deadline = Instant::now() + timeout;
         loop {
-            // Avoid Interrupted because rustls retries it internally.
             if let Some(reason) = (self.should_abort)() {
                 return Err(io::Error::other(format!("probe_aborted:{reason}")));
             }
@@ -477,9 +465,6 @@ mod tests {
         assert!(super::first_tls_record(&[0x16, 0x03, 0x03, 0xff, 0xff]).is_none());
     }
 
-    /// Accepts one client, reads its ClientHello, then sends a TLS record header and one byte
-    /// of the record every 100 ms for `drip_for`: each read returns well within the socket
-    /// timeout, but the handshake never completes.
     fn slow_drip_server(drip_for: Duration) -> (u16, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
@@ -501,7 +486,6 @@ mod tests {
         (port, server)
     }
 
-    /// Answers the ClientHello with `reply(client_hello)` and closes.
     fn scripted_server(reply: impl FnOnce(&[u8]) -> Vec<u8> + Send + 'static) -> (u16, std::thread::JoinHandle<()>) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let port = listener.local_addr().unwrap().port();
@@ -521,10 +505,7 @@ mod tests {
 
     const HANDSHAKE_FAILURE_ALERT: [u8; 7] = [0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x28];
 
-    /// A TLS 1.2 ServerHello (RFC 5246 section 7.4.1.3) for the first ECDHE cipher suite the
-    /// client offered, followed by a handshake_failure alert instead of the Certificate message.
     fn server_hello_then_alert(client_hello: &[u8]) -> Vec<u8> {
-        // Record header (5) + handshake header (4) + version (2) + random (32).
         let session_id_len = usize::from(client_hello[43]);
         let suites_len_at = 44 + session_id_len;
         let suites_len =
@@ -641,7 +622,6 @@ mod tests {
 
     #[test]
     fn failure_before_tls_has_no_server_hello_flag() {
-        // Bind then drop a listener: the port refuses the TCP connect.
         let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap().local_addr().unwrap().port();
 
         let observation = probe_tls12(port);

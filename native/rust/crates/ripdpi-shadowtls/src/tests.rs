@@ -45,10 +45,6 @@ async fn clean_record_boundary_eof_stays_clean() {
     assert_eq!(stream.read(&mut [0u8; 1]).await.unwrap(), 0);
 }
 
-/// A VLESS request header is written with `write_all` and no flush. Server-
-/// first protocols (SMTP, IMAP) send nothing more, so the frame must reach
-/// the carrier on the write itself.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: the test owns both in-memory halves and bounds the read.
@@ -67,8 +63,6 @@ async fn write_reaches_the_carrier_without_flush() {
     assert_eq!(usize::from(u16::from_be_bytes([header[3], header[4]])), HMAC_LEN + b"vless request".len());
 }
 
-/// A carrier whose first `poll_write` returns `Pending` (with a wake), so the
-/// write-through leaves the whole frame queued.
 struct PendingOnceCarrier {
     inner: tokio::io::DuplexStream,
     write_pending_once: bool,
@@ -112,10 +106,6 @@ impl tokio::io::AsyncWrite for PendingOnceCarrier {
     }
 }
 
-/// After a write-through that hit `Pending`, a caller that only reads next
-/// (VLESS to a server-first protocol) must still send the queued frame, or
-/// the server never answers.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: the test owns both in-memory halves and bounds every wait.

@@ -1,16 +1,11 @@
 use super::*;
 
-// A UDP association is one UoT byte stream on its own session. The carrier
-// reader waits for a slow consumer (backpressure) rather than dropping
-// datagrams, since dropping bytes mid-stream would break the UoT framing.
 impl AnyTlsUdpOverTcp {
     /// # Cancel safety
     /// Not cancel-safe: earlier PSH chunks may already be queued. After a
     /// cancelled send the caller must discard this UDP-over-TCP association.
     pub async fn send_datagram(&mut self, target: TargetAddr, port: u16, payload: &[u8]) -> Result<(), AnyTlsError> {
         let mut packet = encode_target(&target, port)?;
-        // UoT's datagram serializer has a different address-family registry
-        // from the SOCKS serializer used by the initial request.
         packet[0] = match target {
             TargetAddr::Ipv4(_) => 0,
             TargetAddr::Ipv6(_) => 1,
@@ -42,7 +37,6 @@ impl AnyTlsUdpOverTcp {
     }
 }
 
-// domain: ATYP + length + 255 bytes + port + payload length + u16 payload.
 const MAX_DATAGRAM_BYTES: usize = 261 + u16::MAX as usize;
 enum Parsed {
     Need(usize),

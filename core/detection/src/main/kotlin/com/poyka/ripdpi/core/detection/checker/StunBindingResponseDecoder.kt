@@ -3,11 +3,6 @@ package com.poyka.ripdpi.core.detection.checker
 import java.net.InetAddress
 import java.nio.ByteBuffer
 
-/**
- * Reads the reflexive address from a STUN Binding success response (RFC 8489 s14.1, s14.2).
- * Validates the complete message before returning an address. Legacy MAPPED-ADDRESS is an
- * extraction-only compatibility fallback; a valid Binding response still requires XOR-MAPPED-ADDRESS.
- */
 internal object StunBindingResponseDecoder {
     fun reflexiveAddress(
         message: ByteArray,
@@ -79,12 +74,8 @@ internal object StunBindingResponseDecoder {
     ): Boolean =
         when (type) {
             XorMappedAddress, MappedAddress -> validAddressLength(bytes, offset, length)
-
-            // These known attributes do not provide authentication in this unauthenticated probe.
             MessageIntegrity -> length == Sha1Bytes
-
             MessageIntegritySha256 -> length == Sha256Bytes
-
             else -> type >= FirstOptionalAttribute
         }
 

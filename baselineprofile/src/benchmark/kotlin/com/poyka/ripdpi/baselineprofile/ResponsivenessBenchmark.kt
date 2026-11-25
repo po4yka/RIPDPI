@@ -26,7 +26,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.regex.Pattern
 
-/** Same production screens and inputs on both revisions; no network or service actions. */
 @RunWith(AndroidJUnit4::class)
 @OptIn(ExperimentalMetricApi::class)
 class ResponsivenessBenchmark {
@@ -99,9 +98,7 @@ class ResponsivenessBenchmark {
     private fun MacrobenchmarkScope.exerciseCatalog(size: Int) {
         val search = requireNode("profile_utility_search-query")
         val label = "Profile ${(size - 1).toString().padStart(5, '0')}"
-        // Accessibility text input does not open the keyboard.
         search.text = label
-        // The text field also contains the query, so assert the actual result row's identity.
         requireNode("profile_utility_native:benchmark-${size - 1}_row")
         requireNode("profile_utility_search-clear").click()
         requireNode("profile_utility_native:benchmark-0_row")
@@ -128,7 +125,6 @@ class ResponsivenessBenchmark {
                             .toSet()
                             .takeIf { it.isNotEmpty() }
                     } catch (_: StaleObjectException) {
-                        // Retry the complete snapshot after Compose replaces accessibility nodes.
                         null
                     }
                 },

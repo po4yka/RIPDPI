@@ -10,7 +10,6 @@ use super::hmac::{HMAC_LEN, ShadowTlsHmac};
 
 const SESSION_ID_LEN: usize = 32;
 
-/// The fixed `random` value that marks a ServerHello as a HelloRetryRequest (RFC 8446 section 4.1.3).
 const HELLO_RETRY_REQUEST_RANDOM: [u8; 32] = [
     0xCF, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11,
     0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C,
@@ -27,7 +26,6 @@ pub(crate) fn build_rustls_config() -> Arc<RustlsClientConfig> {
     let builder = RustlsClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("shadowtls rustls versions");
-    // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
     Arc::new(
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
             .expect("bundled webpki roots are non-empty")

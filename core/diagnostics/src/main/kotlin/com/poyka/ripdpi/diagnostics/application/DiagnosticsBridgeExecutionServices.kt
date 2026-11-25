@@ -243,9 +243,6 @@ class BridgePollingService
                             }
                         }
                         val progress = pollProgress(handle)
-                        // A null poll means "no fresh engine progress yet"; publishing it
-                        // would erase the seeded preparing state before the first real
-                        // progress arrives.
                         if (progress != null && prepared.exposeProgress) {
                             activeScanRegistry.updateProgress(prepared.sessionId, progress)
                         }

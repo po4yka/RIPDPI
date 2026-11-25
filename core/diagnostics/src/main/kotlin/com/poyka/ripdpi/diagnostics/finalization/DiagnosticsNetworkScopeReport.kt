@@ -42,7 +42,6 @@ internal enum class DiagnosticsScopeLoss(
     ),
 }
 
-/** Preserve measurements, but do not let history or Home consumers apply mixed-network advice. */
 internal fun EngineScanReportWire.withoutNetworkScopeAuthority(): EngineScanReportWire =
     withoutScopeAuthority(DiagnosticsScopeLoss.NETWORK)
 
@@ -87,7 +86,6 @@ internal fun ScanReport.withoutNetworkScopeAuthority(): ScanReport = withoutScop
 internal fun ScanReport.withoutScopeAuthority(loss: DiagnosticsScopeLoss): ScanReport =
     toEngineScanReportWire().withoutScopeAuthority(loss).toScanReport()
 
-/** Invalid JSON cannot carry actionable evidence and must not escape a failed finalization. */
 internal fun PreparedDiagnosticsScan?.scopeReportJson(
     reportJson: String,
     json: Json,
@@ -103,7 +101,6 @@ internal fun PreparedDiagnosticsScan?.scopeReportJson(
         }.getOrNull()
     }
 
-/** Revoke staged advice without inserting the measurement rows and native events a second time. */
 internal suspend fun revokePersistedNetworkScope(
     sessionId: String,
     scanRecordStore: DiagnosticsScanRecordStore,

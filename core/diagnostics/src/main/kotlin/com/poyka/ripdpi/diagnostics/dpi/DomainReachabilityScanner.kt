@@ -265,8 +265,6 @@ class DomainReachabilityScanner(
         }
     }
 
-    // A protocol_version or handshake_failure alert is the origin declining that version or its
-    // ciphers (RFC 8446 s6.2), not a middlebox; only other failures point at version blocking.
     private fun AttemptResult.isVersionInterference(): Boolean =
         status == AttemptStatus.ERROR && error !in ServerTlsRejections
 
@@ -350,7 +348,6 @@ class OkHttpDomainReachabilityAttemptRunner(
         return try {
             client.newCall(request).execute().use { response ->
                 stage.set(ProbeStage.READING_DATA)
-                // Count as bytes arrive, so a mid-body timeout reports how far the stream got (TCP16 band).
                 val body = response.body.byteStream()
                 val buffer = ByteArray(HttpReadBufferSize)
                 var read = body.read(buffer)
@@ -412,7 +409,6 @@ class OkHttpDomainReachabilityAttemptRunner(
                 stubIps = stubIps,
                 response = response,
                 stage = stage,
-                // readHttpResponse() did not return, so only the buffer knows how many bytes arrived.
                 bytesRead = response.size(),
                 startedAt = startedAt,
                 error = error,

@@ -1,14 +1,5 @@
 package com.poyka.ripdpi.core
 
-// === Section models ======================================================
-//
-// Each model groups one concern's slice of the flat [ResolvedRipDpiRelayConfig]
-// field set. Field names mirror the wire DTO 1:1 so [toSections] /
-// [RelayConfigSections.toResolvedConfig] are a flat, auditable mapping with no
-// renaming. They are a construction- and inspection-time structuring aid; only
-// [ResolvedRipDpiRelayConfig] is serialized onto the JNI wire.
-
-/** Listener, transport-agnostic identity, and shared QUIC / TLS knobs. */
 data class RelayCommonSection(
     val enabled: Boolean,
     val kind: String,
@@ -28,7 +19,6 @@ data class RelayCommonSection(
     val socketProtection: RelaySocketProtection = RelaySocketProtection.Inactive,
 )
 
-/** VLESS Reality identity and transport (`reality_tcp` / `xhttp`). */
 data class RelayVlessSection(
     val realityPublicKey: String,
     val realityShortId: String,
@@ -45,20 +35,6 @@ data class RelayVlessSection(
     val vlessUuid: String?,
 )
 
-/**
- * Chain-relay hops as an ordered, bounded list ([RelayChainMinHops] ..
- * [RelayChainMaxHops]). Hop 0 is the entry, the last hop is the exit; today the
- * list is always length 2, matching the flat wire DTO's `chainEntry*` /
- * `chainExit*` field pair, but the model is the seam through which N-hop runtime
- * composition lands in the next task.
- *
- * The constructor enforces the bound and raises [RelayChainHopCountException] on
- * an out-of-range count — there is no silent truncation. The `off`/non-chain
- * placeholder section (a config that is not a chain relay) is the one exemption:
- * an empty hop list is allowed so a default [ResolvedRipDpiRelayConfig] can still
- * be regrouped into sections; only chain-relay configs ever carry a non-empty
- * list, and those always satisfy the bound.
- */
 data class RelayChainSection(
     val hops: List<ResolvedChainRelayHopRef>,
 ) {
@@ -68,24 +44,19 @@ data class RelayChainSection(
         }
     }
 
-    /** The entry (first) hop, or `null` when the section carries no hops. */
     val entry: ResolvedChainRelayHopRef?
         get() = hops.firstOrNull()
 
-    /** The exit (last) hop, or `null` when the section carries no hops. */
     val exit: ResolvedChainRelayHopRef?
         get() = hops.lastOrNull()
 
-    /** The entry hop, or the empty placeholder when no hops are present. */
     val entryHop: ResolvedChainRelayHopRef
         get() = entry ?: EmptyChainHopRef
 
-    /** The exit hop, or the empty placeholder when no hops are present. */
     val exitHop: ResolvedChainRelayHopRef
         get() = exit ?: EmptyChainHopRef
 }
 
-/** Empty (no-chain) placeholder hop for non-chain-relay configs. */
 private val EmptyChainHopRef =
     ResolvedChainRelayHopRef(
         config = null,
@@ -100,7 +71,6 @@ private val EmptyChainHopRef =
         uuid = null,
     )
 
-/** MASQUE endpoint, auth, and Privacy Pass fields. */
 data class RelayMasqueSection(
     val masqueUrl: String,
     val masqueTcpProtocol: String = "http2",
@@ -116,7 +86,6 @@ data class RelayMasqueSection(
     val masqueRootCertificatePem: String? = null,
 )
 
-/** TUIC v5 transport tuning and credentials. */
 data class RelayTuicSection(
     val tuicZeroRtt: Boolean,
     val tuicCongestionControl: String,
@@ -126,26 +95,22 @@ data class RelayTuicSection(
     val tuicPassword: String?,
 )
 
-/** ShadowTLS v3 inner-profile reference, resolved inner config, and credential. */
 data class RelayShadowTlsSection(
     val shadowTlsInnerProfileId: String,
     val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig?,
     val shadowTlsPassword: String?,
 )
 
-/** Trojan TLS root pin and credential. */
 data class RelayTrojanSection(
     val trojanPassword: String?,
     val trojanRootCertificatePem: String?,
 )
 
-/** Shadowsocks method and credential. */
 data class RelayShadowsocksSection(
     val shadowsocksMethod: String?,
     val shadowsocksPassword: String?,
 )
 
-/** Hysteria2 credentials. */
 data class RelayHysteria2Section(
     val hysteriaPassword: String?,
     val hysteriaSalamanderKey: String?,
@@ -160,7 +125,6 @@ data class RelayHysteria2Section(
     val hysteriaRealmStunServers: List<String> = emptyList(),
 )
 
-/** Mieru outbound endpoint, username/password credentials, transport protocol, multiplexing, and MTU. */
 data class RelayMieruSection(
     val mieruUsername: String?,
     val mieruPassword: String?,
@@ -171,12 +135,6 @@ data class RelayMieruSection(
     val mieruTrafficPattern: com.poyka.ripdpi.data.MieruTrafficPattern? = null,
 )
 
-/**
- * SSH outbound endpoint, auth selector, password/private-key/passphrase
- * credentials, and the host-key TOFU fields (pinned fingerprint plus the
- * strict-host-key toggle). The endpoint reuses the common relay server/port;
- * [sshAuthType] selects whether [sshPassword] or [sshPrivateKey] is required.
- */
 data class RelaySshSection(
     val sshHost: String,
     val sshPort: Int,
@@ -189,19 +147,16 @@ data class RelaySshSection(
     val sshStrictHostKey: Boolean,
 )
 
-/** Snell v4 pre-shared key and optional user key. */
 data class RelaySnellSection(
     val snellPsk: String?,
     val snellUserKey: String?,
 )
 
-/** AnyTLS credential. */
 data class RelayAnyTlsSection(
     val anyTlsPassword: String?,
     val anyTlsPinSha256: String? = null,
 )
 
-/** Subprocess relay fields: NaiveProxy plus obfs4 / WebTunnel / Snowflake. */
 data class RelayPluggableTransportSection(
     val naivePath: String,
     val naiveUsername: String?,
@@ -216,7 +171,6 @@ data class RelayPluggableTransportSection(
     val naiveConcurrency: Int = 1,
 )
 
-/** Arti Tor state/cache directories and managed pluggable transport config. */
 data class RelayTorSection(
     val torStateDir: String,
     val torCacheDir: String,
@@ -224,7 +178,6 @@ data class RelayTorSection(
     val torTransports: List<ResolvedTorPluggableTransportConfig>,
 )
 
-/** Cloudflare Tunnel mode, publish origin, and credential references. */
 data class RelayCloudflareSection(
     val cloudflareTunnelMode: String,
     val cloudflarePublishLocalOriginUrl: String,
@@ -233,7 +186,6 @@ data class RelayCloudflareSection(
     val cloudflareTunnelCredentialsJson: String?,
 )
 
-/** Google Apps Script relay routing fields. */
 data class RelayAppsScriptSection(
     val appsScriptScriptIds: List<String>,
     val appsScriptGoogleIp: String,

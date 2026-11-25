@@ -6,7 +6,6 @@ use crate::http::{HttpRequestError, HttpResponse};
 use crate::transport::{TargetAddress, direct_transport};
 
 const BLOCKPAGE: &[u8] = b"<html>This website has been blocked by your internet service provider</html>";
-// Python's gzip.compress(BLOCKPAGE, mtime=0), decoded independently for this fixture.
 const GZIP_BLOCKPAGE: &[u8] = b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\x13\x1d\xcc\x81\x09\x80\x30\x0c\x04\xc0\x55\x7e\x03\x17\x10\xa7\x70\x01\xd3\x3e\x34\x58\x5b\x49\x62\xa5\xdb\x0b\xde\x00\xb7\x96\xb8\xea\xb6\x17\x75\xbc\x14\xd7\x20\xca\xe1\x10\xb2\x41\x6a\x4f\x27\x33\x64\x62\xf6\xc7\xa0\x2d\x68\x8d\x01\xa7\x0d\x4d\xc4\x6d\x7d\x68\xa6\xad\xcb\xbf\x7c\x8e\x5b\x67\x09\x4c\x00\x00\x00";
 
 fn request(reply: Vec<u8>, accept: &str) -> (Result<HttpResponse, HttpRequestError>, String) {
@@ -22,7 +21,6 @@ fn request(reply: Vec<u8>, accept: &str) -> (Result<HttpResponse, HttpRequestErr
             assert!(count > 0 && request.len() + count <= 4096);
             request.extend_from_slice(&bytes[..count]);
         }
-        // The client can reject a response from its head and close before all bytes are sent.
         let _ = socket.write_all(&reply);
         String::from_utf8(request).unwrap()
     });

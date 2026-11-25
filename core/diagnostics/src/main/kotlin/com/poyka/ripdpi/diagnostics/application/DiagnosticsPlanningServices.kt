@@ -276,7 +276,6 @@ private fun planQuicTargets(
             if (intent.kind == ScanKind.CONNECTIVITY) {
                 target.copy(
                     host = target.host.canonicalQuicProbeHostOrNull() ?: target.host,
-                    // A port outside the wire's u16 range would reject the whole request.
                     port = target.port.takeIf { it in 1..IpProbeMaxPort } ?: 0,
                 )
             } else {
@@ -367,7 +366,6 @@ internal fun String.canonicalQuicProbeHostOrNull(): String? =
                     .host(this)
                     .build()
                     .host
-                    // Keep an explicit root label for the lookup. Native removes it for SNI.
                     .takeIf { isAsciiDnsHost(it.removeSuffix(".")) }
             } catch (_: IllegalArgumentException) {
                 null

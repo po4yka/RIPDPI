@@ -61,11 +61,8 @@ data class DiagnosticScanSession(
     val finishedAt: Long?,
     val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
     val launchTrigger: DiagnosticsScanLaunchTrigger? = null,
-    /** Hashed key of the network the scan started on; null when it was not recorded. */
     val networkScopeKey: String? = null,
-    /** Transport label of the network the scan started on, such as `wifi`; null when it was not recorded. */
     val networkTransport: String? = null,
-    /** Selective matrix pairing revisions; null for other scans and for matrix scans saved before schema 16. */
     val matrixRevisions: SelectiveMatrixRevisions? = null,
 ) {
     constructor(

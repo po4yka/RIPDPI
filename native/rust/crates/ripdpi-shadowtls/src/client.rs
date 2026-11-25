@@ -15,13 +15,6 @@ use crate::hmac::ShadowTlsHmac;
 use crate::stream::ShadowTlsStream;
 use crate::{ShadowTlsFailureKind, ShadowTlsHandshakeError, classify_failure_payload};
 
-/// Protect a freshly created outbound socket via the registered
-/// `VpnService.protect()` callback before it connects to a non-loopback peer.
-///
-/// No-op for loopback. Fails closed for a non-loopback target when no callback
-/// is registered (under a live TUN there is no other per-socket mechanism to
-/// keep the socket out of the tunnel). Mirrors the `ripdpi-vless` gold-standard
-/// helper. REL-1.
 fn protect_outbound_socket<T: AsRawFd>(
     socket: &T,
     target: SocketAddr,
@@ -32,27 +25,15 @@ fn protect_outbound_socket<T: AsRawFd>(
         .map_err(|error| io::Error::new(error.kind(), format!("protect ShadowTLS outbound socket: {error}")))
 }
 
-/// Connect budget for one server address except the last. A blackholed address
-/// would otherwise wait for the kernel connect timeout, which is longer than the
-/// relay connect deadline, and the next address would never be tried.
 const PER_ADDRESS_CONNECT_TIMEOUT: Duration =
     if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(8) };
 
-/// Result of one failed address attempt.
 #[derive(Debug)]
 enum Attempt {
-    /// The address is unusable; try the next one.
     Next(io::Error),
-    /// A policy failure (socket protection); stop and report it.
     Abort(io::Error),
 }
 
-/// Run `attempt` on each address in order and return the first success.
-///
-/// Every attempt except the last gets `per_address` before the next address is
-/// tried. [`Attempt::Abort`] stops at once. When every attempt fails, the last
-/// error is returned.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: holds no state besides the pending attempt future, which is
@@ -105,9 +86,6 @@ impl ShadowTlsClient {
         &self.config
     }
 
-    /// Resolve `server`, connect to the first usable address, and run the
-    /// ShadowTLS v3 handshake over it.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: each attempt's socket and the handshake state are owned by
@@ -136,12 +114,6 @@ impl ShadowTlsClient {
         self.connect_over(stream).await
     }
 
-    /// Open a protected, optionally bound TCP connection to one candidate address.
-    ///
-    /// A protection failure is a policy failure, not an unreachable peer: it
-    /// returns [`Attempt::Abort`], which stops the whole connect instead of
-    /// trying the next address.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the socket is owned by this future and closes on drop.
@@ -159,15 +131,6 @@ impl ShadowTlsClient {
     ///
     /// cancel-safe: the socket is owned by this future and closes on drop.
     async fn bind_and_connect(&self, socket: TcpSocket, address: SocketAddr) -> io::Result<TcpStream> {
-        // PROTECT INVARIANT: the carrier socket is protected before connect via the
-        // in-process VpnService.protect registry (loopback-skipped, fail-closed under
-        // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
-        // pattern. ShadowTLS is a standalone relay kind (transport_descriptor.rs
-        // build_shadowtls), reachable under a live TUN; own-UID exclusion via
-        // computeAppRoutingPlan remains the second layer. `connect_over` carries no
-        // OS socket of its own. REL-1 / REL-3. See
-        // .claude/rules/vpnservice-protect-invariant.md. `connect_address` protects
-        // the socket before it calls this function.
         if let Some(bind_ip) = self.config.outbound_bind_ip {
             socket.bind(SocketAddr::new(bind_ip, 0))?;
         }
@@ -251,20 +214,6 @@ where
                 ));
             }
             Some(_) => {
-                // Version-mismatch seam: at this switch point a v3 server sends the
-                // HMAC-authenticated TLS_APPLICATION_DATA (0x17) frame. A raw TLS
-                // handshake record (0x16 0x03 ..) here is classified as a v2-framing
-                // signal. Upstream v2 relays the cover TLS flight unchanged
-                // (server.rs relay_v2 @02dd0bc7), so with a TLS 1.3 cover a real v2
-                // server sends 0x14/0x17 records here, never 0x16, and surfaces as the
-                // HMAC failure in `verify_handshake_frame` instead. A TLS 1.2 cover,
-                // whose plaintext Certificate records would also start 0x16 0x03, is
-                // rejected earlier by `parse_validated_server_hello` (strict TLS 1.3).
-                // So in practice only the synthetic `ShadowTlsV2RejectLoopback`
-                // reaches this branch. The ServerHello is also 0x16 0x03 but is read and validated
-                // BEFORE this loop. A bad-password reject sends a 0x17 frame whose
-                // HMAC fails and classifies as `Other`, so auth failures are not
-                // false-positived.
                 if classify_failure_payload(&frame) == ShadowTlsFailureKind::VersionMismatch {
                     return Err(io::Error::other(ShadowTlsHandshakeError::version_mismatch()));
                 }
@@ -310,8 +259,6 @@ mod connect_tests {
         })
     }
 
-    /// A refused first address falls through to the live second address.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the test owns the server and the client stream.
@@ -334,8 +281,6 @@ mod connect_tests {
         server.shutdown().await;
     }
 
-    /// A policy failure stops the walk; later addresses are not tried.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the attempts are in-memory futures.
@@ -351,9 +296,6 @@ mod connect_tests {
         assert_eq!(*tried.lock().expect("lock"), vec![addr(1)]);
     }
 
-    /// A blackholed address is bounded by the per-address budget, so the
-    /// next address still gets its turn.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the attempts are in-memory futures.
@@ -369,8 +311,6 @@ mod connect_tests {
         assert_eq!(result.expect("second address"), addr(2));
     }
 
-    /// When every address fails, the caller sees the last error.
-    ///
     /// # Cancel safety
     ///
     /// cancel-safe: the attempts are in-memory futures.

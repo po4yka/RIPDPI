@@ -36,7 +36,6 @@ data class Tcp16ProbeResult(
     val connectionCount: Int,
     val tlsClientState: DiagnosticsTlsClientState? = null,
     val requestedHosts: List<String>? = null,
-    // X-Pad value bytes from successful requests on one connection, excluding the failed request.
     val completedPaddingBytes: Int = 0,
     val httpStatus: Int? = null,
     val failedStage: Tcp16Stage? = null,

@@ -90,7 +90,6 @@ class RuntimeSessionCoordinator
                                 finalizeActiveUsageSession(serviceStateStore.telemetry.value)
                             }
                         } finally {
-                            // The finalize flush can throw on a stuck outbox; the reconnect must still be recorded.
                             reconnectInProgress = true
                             deviceStateEventRecorder.beginServiceStart(mode)
                             if (!hadActiveSession) {
@@ -115,7 +114,6 @@ class RuntimeSessionCoordinator
                         }
                     }
                 val failure = entered.exceptionOrNull()
-                // A stuck outbox blocks the new session; no later event retries it while the service stays Running.
                 if (failure is Exception && failure !is CancellationException && runningRetryJob?.isActive != true) {
                     runningRetryJob =
                         scope.launchRunningStartRetry(
@@ -130,7 +128,6 @@ class RuntimeSessionCoordinator
 
             stopSampling()
             stateMutex.withLock {
-                // A stuck outbox must not keep this run open, or the next start reuses it.
                 try {
                     persistPendingTerminalSession()
                 } finally {
@@ -262,9 +259,6 @@ class RuntimeSessionCoordinator
         }
 
         private suspend fun startSampling() {
-            // Serialize the check-and-launch so two concurrent service-running
-            // events cannot both observe an inactive job and start duplicate
-            // sampler loops.
             stateMutex.withLock {
                 if (samplingJob?.isActive == true) {
                     return
@@ -287,7 +281,6 @@ class RuntimeSessionCoordinator
                                     }
                                     settings.diagnosticsSampleIntervalSeconds
                                 }
-                            // The application scope has no handler: a failed tick must not kill the process.
                             when (val failure = tick.exceptionOrNull()) {
                                 null -> {
                                     intervalSeconds = tick.getOrNull() ?: break
@@ -542,7 +535,6 @@ class RuntimeSessionCoordinator
         }
     }
 
-/** Bounded retry of a blocked session start; the application scope has no handler, so failures are logged. */
 private fun CoroutineScope.launchRunningStartRetry(
     stillRunning: () -> Boolean,
     attempt: suspend () -> Unit,

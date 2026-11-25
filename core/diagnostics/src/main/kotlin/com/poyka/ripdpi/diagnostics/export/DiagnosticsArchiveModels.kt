@@ -58,7 +58,6 @@ internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
 
-    // Version 12 adds exact semantic-event and post-redaction logcat completeness accounting.
     const val schemaVersion = 12
     const val privacyMode = "redacted_unlinkable_v2"
     const val scope = "hybrid"

@@ -13,23 +13,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Consolidated service-lifecycle regression matrix for the Xray provider.
- *
- * Where [RipDpiXrayRuntimeTest] checks the runtime in isolation and
- * [XrayProviderOrchestratorTest] checks individual handover edges, this suite
- * walks the *service-level* matrix end to end against the task-3/4 fakes:
- *
- * | Scenario               | Expected terminal state                       |
- * |------------------------|-----------------------------------------------|
- * | Startup failure        | Failed, nothing left running                  |
- * | Readiness timeout      | Failed, both halves torn down                 |
- * | Clean stop             | Stopped, idempotent                           |
- * | Restart (stop->start)  | Fresh session, linear state machine each time |
- * | Handover (route change)| Both halves restarted in order                |
- *
- * Each row is a named test so a regression points at the exact lifecycle edge.
- */
 class XrayServiceLifecycleMatrixTest {
     private val renderedConfig =
         """{"outbounds":[{"protocol":"vless","settings":{"vnext":[{"users":[""" +
@@ -41,9 +24,6 @@ class XrayServiceLifecycleMatrixTest {
     ): XrayProviderOrchestrator =
         XrayProviderOrchestrator(
             xrayRuntimeFactory = { cfg ->
-                // Unconfined native-stop dispatcher: the fake bridge's stop runs
-                // inline on the test thread rather than racing the runTest virtual
-                // clock against a real Dispatchers.IO worker (production uses IO).
                 RipDpiXrayRuntime(
                     XrayRuntimeOwner(bridge, Dispatchers.Unconfined),
                     cfg,
@@ -58,7 +38,6 @@ class XrayServiceLifecycleMatrixTest {
     @Test
     fun `startup failure leaves no running session`() =
         runTest {
-            // libXray rejects the start (non-zero code).
             val bridge = FakeXrayNativeBridge(startCode = 9)
             val tunnel = FakeManagedTunnel()
             val orch = orchestrator(bridge, tunnel)
@@ -75,11 +54,6 @@ class XrayServiceLifecycleMatrixTest {
     @Test
     fun `readiness timeout tears down both halves`() =
         runTest {
-            // start() is accepted (code 0) but the listener never comes up:
-            // readyAfterPolls is huge and the runtime's awaitReady is bounded.
-            // The listener never becomes ready; under runTest the runtime's
-            // awaitReady delay is virtual-time-skipped, so the bounded timeout
-            // fires deterministically without burning wall time.
             val bridge = FakeXrayNativeBridge(readyAfterPolls = Int.MAX_VALUE)
             val tunnel = FakeManagedTunnel()
             val orch = orchestrator(bridge, tunnel)
@@ -87,10 +61,8 @@ class XrayServiceLifecycleMatrixTest {
             val outcome = orch.start(ProviderRoute(VpnProviderKind.Xray))
 
             assertTrue("readiness timeout must fail the session", outcome is HandoffOutcome.Failed)
-            // Tunnel was never pointed at a not-ready inbound.
             assertEquals(0, tunnel.startCount)
             assertNull(orch.currentRoute)
-            // The runtime tore itself down on the timeout path.
             assertTrue("xray stopped on timeout", bridge.stopCount >= 1)
         }
 
@@ -107,7 +79,6 @@ class XrayServiceLifecycleMatrixTest {
             assertEquals(VpnProviderState.Stopped, orch.xrayState)
             val stopsAfterFirst = bridge.stopCount
 
-            // Second stop: clean no-op, no extra native stop.
             assertEquals(HandoffOutcome.Stopped, orch.stop())
             assertEquals(stopsAfterFirst, bridge.stopCount)
         }
@@ -119,8 +90,6 @@ class XrayServiceLifecycleMatrixTest {
             val tunnel = FakeManagedTunnel()
             val orch = orchestrator(bridge, tunnel)
 
-            // Cycle start -> stop -> start. Each start observes a linear
-            // Stopped -> Starting -> Running machine (a fresh runtime per start).
             orch.start(ProviderRoute(VpnProviderKind.Xray))
             assertEquals(VpnProviderState.Running, orch.xrayState)
             orch.stop()
@@ -129,7 +98,6 @@ class XrayServiceLifecycleMatrixTest {
             val outcome = orch.start(ProviderRoute(VpnProviderKind.Xray))
             assertTrue(outcome is HandoffOutcome.Running)
             assertEquals(VpnProviderState.Running, orch.xrayState)
-            // Two distinct start requests reached the bridge.
             assertEquals(2, bridge.startCount)
         }
 
@@ -155,8 +123,6 @@ class XrayServiceLifecycleMatrixTest {
     @Test
     fun `process crash during readiness fails fast without waiting out the timeout`() =
         runTest {
-            // start accepted, but the process is not alive — awaitReady must
-            // surface a crash cause quickly rather than blocking the timeout.
             val bridge = FakeXrayNativeBridge(readyAfterPolls = Int.MAX_VALUE, aliveDuringStartup = false)
             val tunnel = FakeManagedTunnel()
             val orch = orchestrator(bridge, tunnel)

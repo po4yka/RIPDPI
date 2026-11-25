@@ -1,8 +1,3 @@
-//! Paired control/test SNI TTL ladder (OpenSpec change `tls-interference-hop-comparison`).
-//!
-//! Each attempt opens a fresh protected TCP connection at the default TTL, sets the outbound TTL to k,
-//! sends one ClientHello, and records the first reaction inside a fixed window. Without root, the probe
-//! never sees router addresses: the result is a hop interval, never an identified device.
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -20,9 +15,7 @@ use crate::util::CONNECT_TIMEOUT;
 pub const MAX_LADDER_TTL: u8 = 32;
 pub const REPETITIONS: u8 = 2;
 pub const ATTEMPT_WINDOW: Duration = Duration::from_millis(1000);
-/// A silent k costs four windows plus connects, so this reaches k of about 30 on a fast-connecting path.
 pub const TOTAL_DEADLINE: Duration = Duration::from_secs(150);
-/// Cancellation latency inside one attempt window.
 const READ_SLICE: Duration = Duration::from_millis(50);
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,20 +24,15 @@ pub enum SniRole {
     Test,
 }
 
-/// First reaction to one TTL-limited ClientHello. Below the path length an RST, FIN or alert cannot come from
-/// the server, because the ClientHello never reached it.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AttemptOutcome {
     Rst,
     Fin,
     TlsAlert,
     ServerHello,
-    /// Non-TLS bytes or a socket error other than reset.
     Other,
     Silence,
-    /// The default-TTL TCP handshake failed, so no ClientHello was sent.
     HandshakeFailed,
-    /// A local socket option failed after the ClientHello; says nothing about the path.
     LocalError,
 }
 
@@ -53,7 +41,6 @@ impl AttemptOutcome {
         !matches!(self, Self::Silence | Self::HandshakeFailed | Self::LocalError)
     }
 
-    /// A reaction that did not come from the server answering the ClientHello.
     fn is_interference(self) -> bool {
         self.is_reaction() && self != Self::ServerHello
     }
@@ -65,7 +52,6 @@ pub struct LadderAttempt {
     pub role: SniRole,
     pub repetition: u8,
     pub outcome: AttemptOutcome,
-    /// Local history only; the ordinary export must not carry per-attempt timings.
     pub elapsed_ms: u64,
 }
 
@@ -73,15 +59,11 @@ pub struct LadderAttempt {
 pub enum LadderLimit {
     ControlNeverReachedServer,
     ControlReactsLikeTest,
-    /// ServerHello at k of 1 or 2: a local proxy or interception answers.
     ServerHelloNearClient,
     NetworkChanged,
-    /// Reactions vary across repetitions, or the test reaches the server at a smaller k than the control
-    /// (load balancing or asymmetric paths).
     InconsistentRepetitions,
 }
 
-/// The socket step that failed and made the ladder unsupported.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UnsupportedReason {
     Protect,
@@ -100,11 +82,7 @@ pub enum LadderStop {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LadderVerdict {
-    /// The test SNI draws a reaction between these hops (inclusive) while the control is silent.
-    Divergence {
-        first_hop: u8,
-        last_hop: u8,
-    },
+    Divergence { first_hop: u8, last_hop: u8 },
     Inconclusive,
     Unsupported(UnsupportedReason),
 }
@@ -136,7 +114,6 @@ pub enum AttemptError {
     Aborted,
 }
 
-/// One TTL-limited ClientHello on a fresh connection to the selected endpoint.
 pub trait LadderProbe {
     fn attempt(
         &mut self,
@@ -146,14 +123,11 @@ pub trait LadderProbe {
         should_abort: &dyn Fn() -> bool,
     ) -> Result<AttemptOutcome, AttemptError>;
 
-    /// True once the network under the probe changed since the first attempt.
     fn network_changed(&self) -> bool {
         false
     }
 }
 
-/// Run the ladder: ascending k up to [`MAX_LADDER_TTL`], [`REPETITIONS`] rounds per k, control and test
-/// alternating inside each round. Stops after the k at which the control first gets a ServerHello.
 pub fn run_ladder(probe: &mut dyn LadderProbe, config: LadderConfig, should_abort: &dyn Fn() -> bool) -> LadderReport {
     let started = Instant::now();
     let mut attempts = Vec::new();
@@ -206,7 +180,6 @@ fn silent(attempts: &[LadderAttempt], ttl: u8, role: SniRole) -> bool {
     cell.peek().is_some() && cell.all(|outcome| outcome == AttemptOutcome::Silence)
 }
 
-/// Derive the interval and limits from recorded attempts. Pure, so a cancelled or partial run keeps its attempts.
 fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
     if let LadderStop::Unsupported(reason) = stop {
         return LadderReport {
@@ -222,7 +195,6 @@ fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
     let server_hello_at = |role| {
         ttls.iter().copied().find(|&ttl| outcomes(&attempts, ttl, role).any(|o| o == AttemptOutcome::ServerHello))
     };
-    // Measurements from before a network change do not describe the current path.
     let path_length = server_hello_at(SniRole::Control).filter(|_| stop != LadderStop::NetworkChanged);
     let divergence = ttls
         .iter()
@@ -243,7 +215,6 @@ fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
     };
 
     let mut limits = Vec::new();
-    // A deadline stop is visible as `stop`; only a run over every k proves the control never got through.
     if path_length.is_none() && stop == LadderStop::Completed {
         limits.push(LadderLimit::ControlNeverReachedServer);
     }
@@ -263,7 +234,6 @@ fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
             cell.next().is_some_and(|first| cell.any(|outcome| outcome != first))
         })
     });
-    // The test reaching the server at a k where the control does not means the two flows take different paths.
     let test_path_shorter =
         server_hello_at(SniRole::Test).is_some_and(|test| server_hello_at(SniRole::Control).is_none_or(|c| test < c));
     if repetitions_differ || test_path_shorter {
@@ -273,22 +243,15 @@ fn analyze(attempts: Vec<LadderAttempt>, stop: LadderStop) -> LadderReport {
     LadderReport { verdict, path_length, limits, attempts, stop }
 }
 
-/// Real probe against the one endpoint the user selected, through the protected direct connector that the TLS
-/// probe uses.
 pub struct SocketLadderProbe {
     target: SocketAddr,
     control_hello: Vec<u8>,
     test_hello: Vec<u8>,
     local_ip: Option<IpAddr>,
-    /// Set once an attempt connects from a different local address than the first one.
-    // shortcut: a new local address is the only network-change signal; a switch that keeps the address goes
-    // unnoticed. Upgrade to the Android network handle if the engine ever passes one down.
     network_changed: bool,
 }
 
 impl SocketLadderProbe {
-    /// Fails with [`UnsupportedReason::Protect`] when a registered protect callback rejects a socket for
-    /// `target`. Callback-free RAW_PATH runs stay supported.
     pub fn new(target: SocketAddr, control_sni: &str, test_sni: &str) -> Result<Self, LadderSetupError> {
         let config = build_standard_client_config_with_key_log(
             TlsClientProfile::Auto,
@@ -306,11 +269,8 @@ impl SocketLadderProbe {
     }
 }
 
-/// The ClientHello flight for `sni`; built once per role, because one ClientHello per connection is all the
-/// ladder sends.
 fn client_hello(config: &Arc<ClientConfig>, sni: &str) -> Result<Vec<u8>, LadderSetupError> {
     let invalid = || LadderSetupError::InvalidSni(sni.to_owned());
-    // An IP literal parses as a ServerName, but rustls then sends no SNI.
     let Ok(name @ ServerName::DnsName(_)) = ServerName::try_from(sni.to_owned()) else {
         return Err(invalid());
     };
@@ -349,7 +309,6 @@ impl LadderProbe for SocketLadderProbe {
         }) {
             Ok(stream) => stream,
             Err(_) if should_abort() => return Err(AttemptError::Aborted),
-            // The connector fails closed on protect; tell a protect failure apart from an unreachable server.
             Err(_) if protected_tcp_socket(self.target).is_err() => {
                 return Err(AttemptError::Unsupported(UnsupportedReason::Protect));
             }
@@ -362,13 +321,11 @@ impl LadderProbe for SocketLadderProbe {
                 Some(_) => {}
             }
         }
-        // Every exit below drops `stream` after this, so each close is abortive and no socket is reused.
         set_abortive_close(&stream).map_err(|_| AttemptError::Unsupported(UnsupportedReason::Linger))?;
         set_outbound_ttl(&stream, ttl).map_err(|_| AttemptError::Unsupported(UnsupportedReason::TtlSetter))?;
         if let Err(error) = stream.write_all(hello) {
             return Ok(classify_io_error(&error));
         }
-        // TCP retransmits the ClientHello at the same TTL inside the window; that is expected.
         let deadline = Instant::now() + window;
         let mut received = Vec::new();
         let mut chunk = [0u8; 512];
@@ -411,7 +368,6 @@ fn classify_io_error(error: &io::Error) -> AttemptOutcome {
     }
 }
 
-/// Classify once the record header and the first fragment byte are in; `None` asks for more bytes.
 fn classify_response(received: &[u8]) -> Option<AttemptOutcome> {
     const RECORD_ALERT: u8 = 0x15;
     const RECORD_HANDSHAKE: u8 = 0x16;

@@ -8,15 +8,6 @@ use crate::util::active_scan_io_deadline;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
-/// Run blocking I/O and shut `socket` down once `cancel` is set or the scan deadline of the
-/// calling thread passes.
-///
-/// A socket timeout bounds one read only. Loops such as rustls `StreamOwned::read` or an HTTP
-/// body read continue while a peer sends a byte within every timeout. The shutdown makes their
-/// next read or write fail, which bounds the whole operation. `socket` is a clone of the socket
-/// that `operation` uses. The caller decides from the deadline or the flag whether a failure
-/// came from the shutdown. Without a deadline and without a flag, or when the OS refuses the
-/// watchdog thread, `operation` runs directly.
 pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool>, operation: impl FnOnce() -> T) -> T {
     let deadline = active_scan_io_deadline();
     if deadline.is_none() && cancel.is_none() {
@@ -25,8 +16,6 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
     watch_socket(socket, deadline, &|| cancel.is_some_and(|flag| flag.load(Ordering::Acquire)), |_| operation())
 }
 
-/// Shut down the socket at cancellation or the scan deadline. Do not start the operation
-/// if the watchdog cannot start. The caller checks its control state after the operation.
 pub fn run_with_socket_abort_watchdog<T>(
     socket: TcpStream,
     should_abort: &(dyn Fn() -> bool + Sync),
@@ -45,7 +34,6 @@ fn watch_socket<T>(
     operation: impl FnOnce(io::Result<()>) -> T,
 ) -> T {
     std::thread::scope(|scope| {
-        // Drop the sender before the scope joins, including when the operation panics.
         let (done_tx, done_rx) = mpsc::channel::<()>();
         let watchdog =
             std::thread::Builder::new().name("ripdpi-socket-watchdog".to_string()).spawn_scoped(scope, move || {

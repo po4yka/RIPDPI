@@ -1,4 +1,3 @@
-//! Verified HTTP/3 control request. QUIC Initial evidence remains a separate probe.
 pub(crate) mod socket;
 use bytes::Buf;
 use ripdpi_diagnostics_contracts::util::active_scan_io_deadline;
@@ -12,8 +11,6 @@ use std::sync::{
 };
 use std::time::{Duration, Instant};
 
-/// Run a bounded GET using certificate-verified TLS 1.3 and the h3 protocol.
-/// The optional verifier is the existing internal test seam, never wire input.
 pub fn probe_http3(
     config: &Http3ProbeConfig,
     transport: &TransportConfig,
@@ -24,8 +21,6 @@ pub fn probe_http3(
     probe(config, transport, raw_path, cancel, verifier, None)
 }
 
-/// Stream the bounded body of a pinned RAW download to its integrity checker.
-/// The receiver gets body bytes only. It does not receive headers or trailers.
 pub fn probe_http3_download(
     config: &Http3ProbeConfig,
     transport: &TransportConfig,
@@ -54,7 +49,6 @@ fn probe(
     let started = Instant::now();
     let mut evidence = Http3Evidence::default();
     let own_deadline = started + Duration::from_millis(config.timeout_ms.min(15000));
-    // Capture the synchronous scan context before entering the Tokio runtime.
     let scan_deadline = active_scan_io_deadline();
     let deadline = scan_deadline.map_or(own_deadline, |value| value.min(own_deadline));
     if !raw_path || !matches!(transport, TransportConfig::Direct { .. }) {
@@ -63,7 +57,6 @@ fn probe(
     } else if config.validate().is_err() {
         fail(&mut evidence, "INVALID", "invalid_config");
     } else if cancel.load(Ordering::Acquire) {
-        // Acquire observes the scan owner's published cancellation flag.
         fail(&mut evidence, "CANCELLED", "cancelled");
     } else if Instant::now() >= deadline {
         fail(&mut evidence, "TIMEOUT", "deadline_exceeded");
@@ -81,8 +74,6 @@ fn probe(
                 if let Err((status, reason)) = result {
                     fail(&mut evidence, status, reason);
                 }
-                // Runtime drop aborts all Quinn tasks after the request future and its
-                // endpoint are dropped. There are no detached blocking tasks here.
             }
             Err(_) => fail(&mut evidence, "FAILED", "io_error"),
         }
@@ -107,7 +98,6 @@ fn elapsed(started: Instant) -> u64 {
 /// cancel-safe: sleep is the only await. Drop removes the timer; the borrowed flag is unchanged.
 async fn cancelled(cancel: &AtomicBool) {
     loop {
-        // Acquire observes the owner's cancellation publication.
         if cancel.load(Ordering::Acquire) {
             return;
         }
@@ -160,7 +150,6 @@ async fn execute(
     attempt_addresses(config, verifier, addresses, started, deadline, evidence, receive_body).await
 }
 
-/// Minimum QUIC handshake budget of an attempt that is not the last one.
 const MIN_HANDSHAKE_SHARE: Duration = Duration::from_secs(2);
 
 /// # Cancel safety:
@@ -182,7 +171,6 @@ async fn attempt_addresses(
     let count = addresses.len();
     let mut last = Err(("NOT_OBSERVED", "no_addresses"));
     for (index, address) in addresses.into_iter().enumerate() {
-        // Evidence belongs to one peer; never combine failed-peer TLS with another peer's response.
         let attempts = evidence.attempt_count;
         let dns_status = evidence.dns_status.clone();
         *evidence = Http3Evidence { attempt_count: attempts, dns_status, ..Http3Evidence::default() };
@@ -196,8 +184,6 @@ async fn attempt_addresses(
     last
 }
 
-/// An equal share of the remaining time for the QUIC handshake, so a black-holed address (often
-/// the first, IPv6 one) cannot use the whole probe budget. The last attempt gets all of it.
 fn handshake_deadline(deadline: Instant, remaining_attempts: usize) -> Instant {
     let now = Instant::now();
     let Some(divisor) = u32::try_from(remaining_attempts).ok().filter(|count| *count > 1) else {
@@ -308,7 +294,6 @@ async fn attempt(
         while let Some(data) = stream.recv_data().await.map_err(|_| ("FAILED", "http3_error"))? {
             record_body_data(evidence, config.max_response_bytes, started, data, receive_body)?;
         }
-        // Trailers, if any, must also be drained so a body FIN is confirmed.
         stream.recv_trailers().await.map_err(|_| ("FAILED", "http3_error"))?;
         if expected_length.is_some_and(|length| length != evidence.response_bytes)
             || (status == 204 && (evidence.response_bytes != 0 || expected_length.is_some()))

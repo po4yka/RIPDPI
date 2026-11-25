@@ -8,7 +8,6 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion
 import org.gradle.jvm.toolchain.JavaToolchainService
 import org.gradle.process.CommandLineArgumentProvider
 
-/** Configure the Android SDK and JVM access for host unit tests. */
 internal fun Project.configureRipDpiRobolectric() {
     configureRobolectricNativeResources()
     val toolchains = extensions.getByType(JavaToolchainService::class.java)
@@ -20,7 +19,6 @@ internal fun Project.configureRipDpiRobolectric() {
         )
         javaLauncher.set(toolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
         systemProperty("robolectric.looperMode", "PAUSED")
-        // Each fork is a Robolectric JVM; half the cores keeps Gradle, the compiler and the other forks responsive.
         maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
         jvmArgs(
             "--add-opens=java.base/java.lang=ALL-UNNAMED",

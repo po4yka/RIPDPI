@@ -54,12 +54,6 @@ class DefaultDiagnosticsTimelineSource
                 }.distinctUntilChanged()
                 .stateIn(
                     scope = scope,
-                    // The Room flow is owned by diagnostics subscribers, not by the process. This
-                    // avoids keeping a DAO invalidation observer alive after a UI/test database is
-                    // closed. Replay expires with the last subscriber so a returning UI cannot
-                    // briefly query live artifacts for a stale prior session before Room refreshes
-                    // the current one. The tradeoff is an initial null/loading state and one
-                    // database read whenever diagnostics collection resumes.
                     started =
                         SharingStarted.WhileSubscribed(
                             stopTimeoutMillis = 0,
@@ -77,8 +71,6 @@ class DefaultDiagnosticsTimelineSource
                 sessions.map(mapper::toDiagnosticScanSession)
             }
 
-        // Decodes up to 200 stored reports and re-runs on every usage-session upsert while the
-        // service runs; keep it off the collector's (often Main) dispatcher.
         override val approachStats: Flow<List<BypassApproachSummary>> =
             combine(
                 scanRecordStore.observeRecentScanSessions(limit = 200),

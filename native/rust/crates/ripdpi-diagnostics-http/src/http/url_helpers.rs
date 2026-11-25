@@ -13,7 +13,6 @@ pub fn extract_path_from_url(url: &str) -> String {
     }
 }
 
-/// A validated HTTPS authority and the origin-form request target to send to it.
 pub struct HttpsEndpoint {
     pub host: String,
     pub port: u16,
@@ -21,11 +20,6 @@ pub struct HttpsEndpoint {
     pub request_target: String,
 }
 
-/// Parse one HTTPS endpoint without credentials or a fragment.
-///
-/// # Errors
-///
-/// Returns an error for a malformed URI, authority, port, or percent escape.
 pub fn parse_https_endpoint(url: &str) -> Result<HttpsEndpoint, &'static str> {
     let invalid = "invalid_https_endpoint";
     if url.contains('#') || !url.is_ascii() {
@@ -114,7 +108,6 @@ mod tests {
     }
 }
 
-/// Build a vendor JSON query without changing endpoint parameters or the query name.
 pub fn build_doh_json_query_url(endpoint: &str, query_host: &str) -> Result<String, &'static str> {
     let name = ripdpi_diagnostics_contracts::util::encode_doh_json_query_name(query_host)
         .ok_or("invalid DNS JSON query name")?;
@@ -134,7 +127,6 @@ pub fn build_doh_json_query_url(endpoint: &str, query_host: &str) -> Result<Stri
         Some(scheme) if scheme.eq_ignore_ascii_case("http") && loopback => {}
         _ => return Err("DNS JSON endpoint requires HTTPS"),
     }
-    // Apply the shared authority, port and escape checks to HTTPS and local HTTP fixtures.
     let checked_endpoint = format!("https://{authority}{}", uri.path_and_query().map_or("/", |target| target.as_str()));
     parse_https_endpoint(&checked_endpoint).map_err(|_| "invalid DNS JSON endpoint")?;
     let mut has_content_type = false;

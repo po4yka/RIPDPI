@@ -25,7 +25,6 @@ pub fn relay_udp_payload_observed(
     relay_udp_payload_matching_observed(targets, port, transport, payload, &|_| true)
 }
 
-/// Ignore rejected peer payloads within each exchange's original receive deadline.
 pub fn relay_udp_payload_matching_observed(
     targets: &[TargetAddress],
     port: u16,
@@ -36,9 +35,6 @@ pub fn relay_udp_payload_matching_observed(
     relay_udp_with_cancel(targets, port, transport, payload, accept_response, None)
 }
 
-/// Run a cancellable UDP probe. Prepare a new context for every socket or association.
-/// Plain Direct can send the second datagram in the same context before the receive deadline.
-/// The matcher and returned request use the first datagram as the context for both sends.
 pub fn relay_quic_probe_observed(
     targets: &[TargetAddress],
     port: u16,
@@ -227,7 +223,6 @@ fn relay_udp_direct_exchange(
 }
 
 pub(super) fn cancellation_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
-    // Acquire observes the flag published by the scan owner.
     cancel.is_some_and(|flag| flag.load(Ordering::Acquire)).then_some("cancelled")
 }
 
@@ -317,7 +312,6 @@ pub(super) fn recv_udp_matching(
     cancel: Option<&AtomicBool>,
     saw_unmatched: &mut bool,
 ) -> Result<Vec<u8>, TransportError> {
-    // A valid UDP datagram can exceed the path MTU after IP reassembly.
     let mut bytes = [0; u16::MAX as usize];
     loop {
         let remaining = udp_remaining(deadline, cancel)?;

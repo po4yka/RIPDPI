@@ -11,11 +11,6 @@ pub fn tls_key_log_callback_for_path(path: impl Into<PathBuf>) -> TlsKeyLogCallb
     Arc::new(TlsKeyLogFile::new(path))
 }
 
-/// Appends SSLKEYLOGFILE lines to `path`.
-///
-/// Many instances can write the same file at once (one per probe or candidate worker). Each line
-/// is therefore emitted with one `write` on an `O_APPEND` handle, which the kernel appends
-/// atomically, instead of a lock that only orders the writers of one instance.
 #[derive(Debug)]
 pub struct TlsKeyLogFile {
     path: PathBuf,
@@ -91,7 +86,6 @@ mod tests {
         assert_eq!(content, "CLIENT_RANDOM abcd 0123\n");
     }
 
-    /// Counts `write` calls, which are the syscalls on a real file.
     struct CountingWriter {
         writes: usize,
         bytes: Vec<u8>,

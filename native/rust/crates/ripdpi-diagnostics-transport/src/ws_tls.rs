@@ -56,10 +56,7 @@ pub struct WsOverTlsTarget {
     pub port: u16,
     pub path: String,
     pub resolved_addr: Option<SocketAddr>,
-    /// Maximum elapsed time from target validation through the Upgrade.
     pub connect_timeout: Option<Duration>,
-    /// The scan's path to the host. A SOCKS5 transport sends the host name to the proxy, which
-    /// resolves and connects it; a direct transport resolves with the bounded system resolver.
     pub transport: TransportConfig,
     require_binary_subprotocol: bool,
 }
@@ -366,7 +363,6 @@ fn upgrade_websocket<S: io::Read + io::Write>(
     socket: TcpStream,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<WebSocket<S>> {
-    // rustls can keep reading while a peer sends part of the Upgrade response.
     let (ws, _) = control.watch_socket(socket, || {
         tungstenite::client(request, stream).map_err(|error| {
             let (kind, failure) = match error {
@@ -392,7 +388,6 @@ fn default_tls_config(key_log: Option<WsTlsKeyLogCallback>) -> Arc<ClientConfig>
     let builder = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("ring provider supports default TLS versions");
-    // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
     let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
         .expect("bundled webpki roots are non-empty")
         .with_no_client_auth();
@@ -532,7 +527,6 @@ mod tests {
         let server = std::thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
             let _ = socket.read(&mut [0u8; 4096]);
-            // A record header, then one byte of the record every 100 ms: no read times out.
             let mut chunks = std::iter::once(vec![0x16, 0x03, 0x03, 0x40, 0x00]).chain(std::iter::repeat(vec![0x00]));
             let started = Instant::now();
             while started.elapsed() < Duration::from_secs(4) {
@@ -561,7 +555,6 @@ mod tests {
     fn proxied_connect_sends_the_host_name_to_the_socks5_proxy() {
         use std::io::{Read, Write};
 
-        // A SOCKS5 proxy fixture (RFC 1928) that records the CONNECT destination.
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let proxy_port = listener.local_addr().unwrap().port();
         let proxy = std::thread::spawn(move || {
@@ -630,10 +623,6 @@ mod tests {
         assert_eq!(steps.calls, ["tcp"]);
     }
 
-    // DIAG-1 regression: pre-fix WSS connected without protecting the
-    // fd. A registered protect callback must be invoked BEFORE connect, and a
-    // protect denial must fail the connect (fail-closed) — not proceed
-    // unprotected into the TUN.
     #[test]
     fn non_loopback_connect_attempts_protect_and_fails_closed() {
         let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

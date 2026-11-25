@@ -117,7 +117,6 @@ class DnsIntegrityCheckerTest {
                 ).check(domains)
 
             assertTrue(result.domains.all { it.verdict == DnsIntegrityVerdict.UDP_UNAVAILABLE })
-            // 16 domains, 8 at a time, 10 s UDP budget each: two rounds, not 16 sequential waits.
             assertEquals(20_000L, currentTime)
         }
 

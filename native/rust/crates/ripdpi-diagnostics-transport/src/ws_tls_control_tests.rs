@@ -160,7 +160,6 @@ fn run_fixture_upgrade(target: &WsOverTlsTarget, response: &[u8]) -> io::Result<
     let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     client.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let mut request = build_ws_request(target)?;
-    // RFC 6455 section 1.3 example, paired with the fixed Accept value above.
     request.headers_mut().insert(
         tungstenite::http::header::SEC_WEBSOCKET_KEY,
         tungstenite::http::HeaderValue::from_static("dGhlIHNhbXBsZSBub25jZQ=="),

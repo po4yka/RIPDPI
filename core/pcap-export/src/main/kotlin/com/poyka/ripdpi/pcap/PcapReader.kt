@@ -7,14 +7,6 @@ import java.io.File
 import java.io.IOException
 import java.io.InputStream
 
-/**
- * Mirror of `ripdpi_pcap::PcapRecord` (the reader-side type in
- * native/rust/crates/ripdpi-pcap/src/reader.rs).
- *
- * Kept module-internal-typed (not the UI's `PcapPacket`) so
- * `:core:pcap-export` stays UI-agnostic; callers translate to the
- * UI shape at the presentation boundary.
- */
 data class PcapReaderRecord(
     val index: Int,
     val tsMicros: Long,
@@ -43,12 +35,6 @@ data class PcapReaderRecord(
     }
 }
 
-/**
- * Reads classic PCAP 2.4 little-endian raw IP captures with microsecond timestamps.
- *
- * The constructor consumes the 24-byte global header and validates
- * the format before reading records. A partial record throws [EOFException].
- */
 class PcapReader(
     private val inputStream: InputStream,
 ) : AutoCloseable {
@@ -84,7 +70,6 @@ class PcapReader(
             }
     }
 
-    /** Read every remaining record into an immutable list. */
     fun read(): ImmutableList<PcapReaderRecord> =
         buildList {
             while (true) {
@@ -93,7 +78,6 @@ class PcapReader(
             }
         }.toPersistentList()
 
-    /** Read one record, or null at a record boundary at EOF. */
     fun readOne(): PcapReaderRecord? {
         val header = ByteArray(PACKET_HEADER_LEN)
         val firstByte = inputStream.read()

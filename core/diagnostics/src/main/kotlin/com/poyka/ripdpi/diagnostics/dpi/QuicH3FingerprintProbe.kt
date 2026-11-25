@@ -67,7 +67,6 @@ enum class QuicProbeStartFailure {
 enum class QuicProbeOutcome(
     internal val nativeCode: Int? = null,
 ) {
-    // Keep these wire values paired with the Rust JNI result codes.
     INITIAL_CRYPTO(1),
     INITIAL_ACK(2),
     INITIAL_OTHER(3),

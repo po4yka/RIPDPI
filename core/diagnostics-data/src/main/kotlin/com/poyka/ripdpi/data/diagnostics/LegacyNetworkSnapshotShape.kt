@@ -9,7 +9,6 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.longOrNull
 
-/** Reject values that the version 13 network snapshot model could not decode. */
 internal fun requireLegacyNetworkSnapshotShape(snapshot: JsonObject) {
     snapshot.requireShape(rootFields, requiredRootFields)
 }

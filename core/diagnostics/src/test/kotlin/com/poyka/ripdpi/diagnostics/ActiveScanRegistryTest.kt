@@ -56,8 +56,6 @@ class ActiveScanRegistryTest {
             registry.registerBridge(bridge, "session-window", registerActiveBridge = false)
 
             val cancellation = async { registry.cancelScan("session-window") }
-            // cancelScan parks inside destroy() waiting for releaseDestroy; virtual
-            // time idles once every scheduled task has run.
             repeat(10) {
                 advanceUntilIdle()
                 if (bridge.destroyEntered?.isCompleted == true) {
@@ -67,8 +65,6 @@ class ActiveScanRegistryTest {
             }
             assertTrue(bridge.destroyEntered?.isCompleted == true)
 
-            // The cancellation claimed the bridge and is parked inside destroy();
-            // startup landing in this window must not start an execution on it.
             assertFalse(registry.registerExecution("session-window", Job(), registerActiveBridge = false))
 
             bridge.releaseDestroy?.complete(Unit)

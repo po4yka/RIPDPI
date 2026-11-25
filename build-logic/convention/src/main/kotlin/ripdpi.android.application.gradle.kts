@@ -121,7 +121,6 @@ extensions.configure<ApplicationAndroidComponentsExtension> {
                 VariantOutputConfiguration.OutputType.SINGLE,
                 VariantOutputConfiguration.OutputType.UNIVERSAL,
                 -> {
-                    // Universal / single APK — keep base version code.
                     val artifactBaseName = "RIPDPI-$versionName-$baseVersionCode-$buildTypeName-universal"
                     val bundleTaskName = variant.computeTaskName("sign", "Bundle")
                     project.tasks.withType(FinalizeBundleTask::class.java).configureEach {
@@ -135,7 +134,6 @@ extensions.configure<ApplicationAndroidComponentsExtension> {
                 }
 
                 VariantOutputConfiguration.OutputType.ONE_OF_MANY -> {
-                    // Per-ABI APK — assign distinct version code.
                     val abiName =
                         output.filters
                             .firstOrNull { it.filterType == FilterConfiguration.FilterType.ABI }

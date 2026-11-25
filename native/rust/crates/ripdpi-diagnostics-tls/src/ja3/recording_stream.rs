@@ -1,6 +1,5 @@
 use std::io::{self, Read, Write};
 
-/// Wraps a `Read + Write` stream and records all bytes successfully written.
 pub struct RecordingStream<S> {
     inner: S,
     recorded_writes: Vec<u8>,

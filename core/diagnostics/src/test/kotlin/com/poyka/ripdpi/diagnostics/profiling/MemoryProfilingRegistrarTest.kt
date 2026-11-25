@@ -6,8 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-// The ProfilingManager registration is API 37 / device-only; the event-building
-// logic delivered into the result callback is verified here as a pure function.
 class MemoryProfilingRegistrarTest {
     @Test
     fun `a successful capture is an info event pointing at the artifact path`() {

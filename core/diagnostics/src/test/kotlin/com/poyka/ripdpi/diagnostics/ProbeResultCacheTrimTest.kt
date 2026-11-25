@@ -50,7 +50,6 @@ class ProbeResultCacheTrimTest {
             val cache = newCache()
             cache.store(outcome("fp-1"))
 
-            // Shedding the in-memory map must not lose the persisted entry.
             cache.trimToBackground()
 
             val reloaded = cache.lookup("fp-1")
@@ -60,7 +59,6 @@ class ProbeResultCacheTrimTest {
 
     @Test
     fun `trimToBackground before any load is safe`() {
-        // Must not throw when there is nothing loaded yet.
         newCache().trimToBackground()
     }
 

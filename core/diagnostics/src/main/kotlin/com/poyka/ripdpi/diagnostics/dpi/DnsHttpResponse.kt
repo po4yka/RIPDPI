@@ -34,14 +34,12 @@ private fun Response.readDnsBody(
     val mediaType = body.contentType()?.let { "${it.type}/${it.subtype}" }
     if (mediaType !in acceptedMediaTypes) throw MalformedDnsHttpResponse("Unexpected DNS response media type")
     val source = body.source()
-    // Inspect the decoded stream as Content-Length may be absent or describe the encoded body.
     if (body.contentLength() > maxBytes || source.request(maxBytes.toLong() + 1)) {
         throw MalformedDnsHttpResponse("DNS response body exceeds $maxBytes bytes")
     }
     return source.readByteArray()
 }
 
-// Keep cancellation attached until the reader closes the body, including a blocked source read.
 internal suspend fun <T> Call.readDnsResponse(read: (Response) -> T): T =
     suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation { cancel() }

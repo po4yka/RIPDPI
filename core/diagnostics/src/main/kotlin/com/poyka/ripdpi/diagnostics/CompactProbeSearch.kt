@@ -8,11 +8,9 @@ internal data class CompactProbe(
     val signals: Set<String>,
     val cost: Double,
     val mandatory: Boolean,
-    /** Targets this unit adds; a concurrency cohort is selected whole. */
     val size: Int = 1,
 )
 
-/** Bounded set-cover search. Scores and coverage come from prior observations only. */
 internal object CompactProbeSearch {
     private const val Iterations = 512
     private const val MaxTargets = 32

@@ -1,4 +1,3 @@
-// The manual upload starts with no endpoint. The user supplies it for each scan.
 internal fun verifiedHttpsUploadProfile() =
     DiagnosticsProfileDefinition(
         id = "verified-https-upload",

@@ -1,4 +1,4 @@
-@file:Suppress("DEPRECATION") // Robolectric's NetworkInfo controls the calling UID's default network.
+@file:Suppress("DEPRECATION")
 
 package com.poyka.ripdpi.diagnostics
 

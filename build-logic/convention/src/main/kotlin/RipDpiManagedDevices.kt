@@ -51,24 +51,6 @@ internal val ripDpiManagedDeviceSpecs =
         ),
     )
 
-/**
- * Shared Gradle Managed Device (GMD) registry.
- *
- * Applied to `:app` (via `ripdpi.android.application`) and `:baselineprofile` (via
- * `ripdpi.android.test`) so instrumented tests and macrobenchmarks run on the same
- * declarative, version-pinned emulators instead of shell-provisioned AVDs.
- *
- *  - pixel6Api27Aosp    Pixel 6, API 27, AOSP          minSdk compatibility smoke
- *  - pixel6Api33Google  Pixel 6, API 33, Google APIs   runtime and software IME smoke
- *  - pixel6Api34Atd     Pixel 6, API 34, aosp-atd      pinned macrobenchmark device
- *  - pixel6Api35Google  Pixel 6, API 35, Google APIs   previous-target compatibility smoke
- *  - pixel6Api36Google  Pixel 6, API 36, Google APIs   Android 16 runtime smoke
- *  - pixel6Api37Google  Pixel 6, API 37, Google APIs   targetSdk compatibility smoke
- *  - ciDevices          API 27/33/35/36/37 smoke matrix
- *
- * GMD generates one task per device, e.g. `:app:pixel6Api27AospGithubDebugAndroidTest`,
- * plus `:app:ciDevicesGroup<Variant>AndroidTest` for the group.
- */
 internal fun CommonExtension.configureRipDpiManagedDevices(includeCiDevices: Boolean = true) {
     val devices = testOptions.managedDevices.localDevices
     val selectedSpecs =

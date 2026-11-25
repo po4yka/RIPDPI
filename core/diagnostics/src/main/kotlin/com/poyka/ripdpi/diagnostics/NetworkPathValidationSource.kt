@@ -34,7 +34,6 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Current coarse VPN and non-VPN path state. Contains no network identifiers or addresses. */
 interface NetworkPathValidationSource {
     val evidence: StateFlow<NetworkPathValidationEvidence>
 }
@@ -78,8 +77,6 @@ internal class AndroidNetworkPathValidationSource
                     return@callbackFlow
                 }
 
-                // Callbacks and both collectors publish concurrently. Capture and send under one lock
-                // so the last evidence sent is always the last captured, never an older capture.
                 val publishLock = Any()
                 val publishCurrentEvidence = { synchronized(publishLock) { trySend(captureEvidence()) } }
                 val callback =

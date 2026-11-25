@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.core.detection
 
-/** Missing data in selected checks prevents a clean measurement claim. Optional skipped probes stay optional. */
 fun DetectionCheckResult.hasIncompleteChecks(): Boolean =
     geoIp.executionStatus == CheckExecutionStatus.SKIPPED ||
         bypassResult.executionStatus in IncompleteStatuses ||

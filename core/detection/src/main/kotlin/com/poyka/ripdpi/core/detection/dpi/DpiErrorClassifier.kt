@@ -59,8 +59,6 @@ object DpiErrorClassifier {
             }
         }
 
-        // Android wraps ENETUNREACH, ECONNRESET and ECONNREFUSED alike in ConnectException, so the
-        // errno text decides first and the exception class is only the fallback.
         if (fullText.hasAny(CONNECTION_REFUSED_MESSAGES)) {
             return DpiProbeError.Refused
         }
@@ -98,8 +96,6 @@ object DpiErrorClassifier {
                     cause is CertificateException ||
                     cause is CertPathValidatorException
             }
-        // A TLS alert names the certificate the server rejected (bad_certificate, certificate_required);
-        // that is the server's answer, not an interception.
         val localCertificateFailure = !fullText.contains("alert") && fullText.hasAny(TLS_CERTIFICATE_MESSAGES)
         return if (hasTlsVerificationException || localCertificateFailure) {
             DpiProbeError.TlsMitm

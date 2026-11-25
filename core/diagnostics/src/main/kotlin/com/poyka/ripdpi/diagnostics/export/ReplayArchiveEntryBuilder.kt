@@ -10,15 +10,6 @@ import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
 
-/**
- * Maps recent in-memory [ReplayProbeResult] aggregates to the
- * `replay-results.json` archive entry. Each event's
- * `detail` string is run through [ReplayArchiveRedactor] before
- * serialization, so resolver IPs from the DNS step never reach disk.
- *
- * Returns `null` when [results] is empty so the renderer can omit the
- * entry entirely (avoiding a misleading empty-array file in the zip).
- */
 class ReplayArchiveEntryBuilder
     @Inject
     constructor(

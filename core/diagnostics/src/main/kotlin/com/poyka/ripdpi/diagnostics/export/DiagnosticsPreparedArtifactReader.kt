@@ -4,7 +4,6 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.security.MessageDigest
 
-/** Checks a delayed URI read using only the committed private journal; never starts Room or Hilt. */
 class DiagnosticsPreparedArtifactReader(
     filesDir: File,
     private val clock: PreparedExportClock,

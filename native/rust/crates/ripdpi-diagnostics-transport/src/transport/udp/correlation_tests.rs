@@ -99,7 +99,6 @@ fn dpi24_socks_udp_filter_waits_for_matching_encapsulated_payload() {
         stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, port[0], port[1]]).unwrap();
         let mut frame = [0; 256];
         let (size, peer) = relay.recv_from(&mut frame).unwrap();
-        // A fragment, wrong peer and wrong payload must leave the association waiting.
         frame[2] = 1;
         relay.send_to(&frame[..size], peer).unwrap();
         frame[2] = 0;
@@ -109,7 +108,6 @@ fn dpi24_socks_udp_filter_waits_for_matching_encapsulated_payload() {
         frame[size - 5..size].copy_from_slice(b"stale");
         relay.send_to(&frame[..size], peer).unwrap();
 
-        // The textual address is still the selected numeric peer.
         let mut valid = vec![0, 0, 0, 3, 9];
         valid.extend_from_slice(b"192.0.2.1");
         valid.extend_from_slice(&443u16.to_be_bytes());
@@ -211,8 +209,6 @@ fn socks_udp_control_shares_scan_deadline_across_fragmented_reads() {
         thread::sleep(Duration::from_millis(100));
         control.write_all(&[5]).unwrap();
         thread::sleep(Duration::from_millis(100));
-        // The server is still preparing the second byte. The client must have closed its control
-        // stream by the shared deadline, even though every individual read could still wait.
         assert_eq!(control.read(&mut greeting).unwrap(), 0);
     });
     let started = Instant::now();
@@ -321,7 +317,6 @@ fn standard_socks_association_ends_when_control_closes() {
         stream.write_all(&[5, 0, 0, 1, 127, 0, 0, 1, port[0], port[1]]).unwrap();
         relay.recv_from(&mut [0; 32]).unwrap();
         drop(stream);
-        // Keep the UDP socket open. Only closure of the TCP association wakes the client.
         thread::sleep(Duration::from_millis(450));
         drop(relay);
     });
@@ -352,7 +347,6 @@ fn candidate_fallback_preserves_the_matching_peer_failure() {
         let (size, client) = first.recv_from(&mut request).unwrap();
         assert_eq!(&request[..size], b"probe");
         first.send_to(b"invalid", client).unwrap();
-        // Keep the first receiver open until the exchange has genuinely waited for a reply.
         first.recv_from(&mut request).unwrap();
         thread::sleep(Duration::from_millis(700));
     });

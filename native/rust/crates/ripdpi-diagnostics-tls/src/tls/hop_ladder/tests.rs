@@ -8,12 +8,10 @@ use SniRole::{Control, Test};
 
 type Script = dyn Fn(SniRole, u8, u8) -> Result<AttemptOutcome, AttemptError>;
 
-/// Answers from a script keyed by (role, ttl, nth attempt in that cell) and records the call order.
 struct FakeProbe<'a> {
     script: &'a Script,
     calls: RefCell<Vec<(SniRole, u8)>>,
     cells: HashMap<(u8, bool), u8>,
-    /// Report a network change once this many attempts ran.
     network_change_after: Option<usize>,
 }
 
@@ -43,7 +41,6 @@ impl LadderProbe for FakeProbe<'_> {
     }
 }
 
-/// Spec scenario: test RST from k = 5, both silent at k = 4, control ServerHello at k = 9.
 fn spec_path(role: SniRole, ttl: u8, _nth: u8) -> Result<AttemptOutcome, AttemptError> {
     Ok(match (role, ttl) {
         (Control, 9..) => ServerHello,
@@ -65,7 +62,6 @@ fn test_reaction_before_the_server_gives_the_spec_interval() {
     assert_eq!(report.path_length, Some(9));
     assert!(report.limits.is_empty(), "{:?}", report.limits);
     assert_eq!(report.stop, LadderStop::Completed);
-    // 9 TTLs x 2 repetitions x 2 SNIs, ending after the TTL at which the control reached the server.
     assert_eq!(report.attempts.len(), 36);
     assert_eq!(&probe.calls.borrow()[..5], &[(Control, 1), (Test, 1), (Control, 1), (Test, 1), (Control, 2)]);
     assert_eq!(report.attempts.last().map(|attempt| (attempt.ttl, attempt.repetition)), Some((9, 1)));
@@ -89,7 +85,6 @@ fn reaction_first_seen_at_the_path_length_is_inconclusive() {
 
 #[test]
 fn network_change_withdraws_the_interval_and_keeps_the_attempts() {
-    // The last attempt of the spec scenario, after the control reached the server at k = 9.
     let mut probe = FakeProbe { network_change_after: Some(36), ..FakeProbe::new(&spec_path) };
     let report = run_ladder(&mut probe, LadderConfig::default(), &|| false);
 
@@ -141,7 +136,6 @@ fn abort_inside_an_attempt_drops_only_that_attempt() {
     let report = run(&mut probe);
 
     assert_eq!(report.stop, LadderStop::Cancelled);
-    // Two full TTLs plus the control attempt at k = 3.
     assert_eq!(report.attempts.len(), 9);
 }
 
@@ -235,7 +229,6 @@ fn deadline_that_cannot_fit_one_window_records_nothing() {
     assert!(report.limits.is_empty());
 }
 
-/// Run one real attempt against a loopback peer; `respond` gets the accepted socket after the ClientHello.
 fn loopback_attempt(
     window: Duration,
     should_abort: &dyn Fn() -> bool,
@@ -276,7 +269,6 @@ fn loopback_responses_are_classified() {
     assert_eq!(rst, Ok(Rst));
 }
 
-/// Silence lasts the whole window; the close afterwards is abortive (the peer sees a reset, not a FIN).
 #[test]
 fn silent_peer_gets_an_abortive_close_after_the_window() {
     let window = Duration::from_millis(200);

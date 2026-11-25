@@ -654,8 +654,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // Detection stage (detection_signals) runs via HomeDetectionStageRunner,
-            // not DiagnosticsScanController — so startedRequests lists only profile-scan stages.
             assertEquals(
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
@@ -672,7 +670,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
-            // Detection and active path comparison are unavailable without paired evidence.
             assertEquals(9, outcome.completedStageCount)
             assertEquals(2, outcome.failedStageCount)
         }
@@ -740,7 +737,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
 
             assertEquals(9, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
-            // Path comparison is unavailable because there is no paired raw-path evidence to compare.
             assertEquals(8, outcome.completedStageCount)
             assertEquals(3, outcome.failedStageCount)
             assertEquals(
@@ -1026,7 +1022,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         attemptCounts[selectedProfileId ?: ""] = count
                         startedRequests += pathMode to selectedProfileId
 
-                        // First attempt at "default" returns RequiresHiddenProbeResolution
                         if (selectedProfileId == "default" && count == 1) {
                             return DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution(
                                 requestId = "req-retry",
@@ -1119,10 +1114,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // Path comparison is unavailable without paired raw-path evidence; default still retries once.
             assertEquals(9, outcome.completedStageCount)
             assertEquals(2, outcome.failedStageCount)
-            // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])
         }
 

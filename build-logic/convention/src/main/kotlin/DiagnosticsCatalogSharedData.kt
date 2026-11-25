@@ -3,7 +3,6 @@ internal object DiagnosticsCatalogSharedData {
 
     val defaultWhitelist = listOf("vk.com", "dzen.ru", "2gis.com")
 
-    // Both providers publish the HTTPS hostname for these resolver addresses.
     val tcpTlsControls =
         listOf(
             TcpTargetDefinition(
@@ -22,8 +21,6 @@ internal object DiagnosticsCatalogSharedData {
             ),
         )
 
-    // Primary production IPv4 addresses from TDLib 691cb6a775d25d79ef1aea4e9fdd334f12a607be,
-    // td/telegram/net/ConnectionCreator.cpp. Keep coverage bounded to two explicit TCP ports.
     private val telegramPrimaryDcEndpoints =
         listOf(
             TelegramDcEndpointDefinition(ip = "149.154.175.50", label = "DC1", port = 443),

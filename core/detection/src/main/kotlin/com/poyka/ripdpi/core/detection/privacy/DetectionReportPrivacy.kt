@@ -13,7 +13,6 @@ internal fun DetectionCheckResult.redactAppIdentities(privacyModeEnabled: Boolea
         copy(
             directSigns = directSigns.redactAppIdentities(),
             indirectSigns = indirectSigns.redactAppIdentities(),
-            // Rebuild narrative rows from the private view. The cached rows can contain app identities.
             verdictNarrative = null,
         )
     } else {

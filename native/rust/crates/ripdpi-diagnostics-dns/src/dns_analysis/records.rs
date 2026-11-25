@@ -5,7 +5,6 @@ use hickory_proto::rr::RData;
 
 use super::wire_header::parse_header;
 
-/// A single DNS resource record for cross-resolver comparison.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DnsRecord {
     pub rtype: u16,
@@ -14,7 +13,6 @@ pub struct DnsRecord {
     pub ttl: u32,
 }
 
-/// Structured representation of DNS response sections.
 #[derive(Debug, Clone, Default)]
 pub struct DnsRecordSet {
     pub answers: Vec<DnsRecord>,
@@ -24,7 +22,6 @@ pub struct DnsRecordSet {
     pub has_edns0: bool,
 }
 
-/// Result of comparing UDP vs encrypted DNS responses.
 #[derive(Debug, Clone, Default)]
 pub struct DnsComparisonResult {
     pub record_type_mismatch: bool,
@@ -36,7 +33,6 @@ pub struct DnsComparisonResult {
     pub comparison_score: u32,
 }
 
-/// Parse a raw DNS response into a structured [`DnsRecordSet`].
 pub fn parse_record_set(packet: &[u8]) -> DnsRecordSet {
     let mut record_set = DnsRecordSet::default();
 
@@ -64,7 +60,6 @@ pub fn parse_record_set(packet: &[u8]) -> DnsRecordSet {
     record_set
 }
 
-/// Compare two DNS record sets (typically UDP vs encrypted resolver).
 pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> DnsComparisonResult {
     let mut result = DnsComparisonResult::default();
 
@@ -76,8 +71,6 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         result.comparison_score += 20;
     }
 
-    // Two caches see rotating pools and geo-steered CDN names, so a different answer count or
-    // CNAME chain is divergence only when the two answers share no address.
     let udp_addresses = address_values(udp);
     let encrypted_addresses = address_values(encrypted);
     let addresses_disjoint = udp_addresses.is_disjoint(&encrypted_addresses);
@@ -92,8 +85,6 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         udp.answers.iter().filter(|record| is_address_record(record.rtype)).map(|record| record.ttl).collect();
     let encrypted_ttls: Vec<u32> =
         encrypted.answers.iter().filter(|record| is_address_record(record.rtype)).map(|record| record.ttl).collect();
-    // Kept as evidence only: a TTL is the remaining cache time (RFC 1035 section 3.2.1), so two
-    // caches of one long-TTL record differ by their cache age.
     if let (Some(&udp_ttl), Some(&encrypted_ttl)) = (udp_ttls.first(), encrypted_ttls.first()) {
         let diff = udp_ttl.abs_diff(encrypted_ttl);
         if diff > 0 {
@@ -107,7 +98,6 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         result.comparison_score += 10;
     }
 
-    // DNS names compare case-insensitively (RFC 4343).
     let encrypted_cnames: BTreeSet<String> = encrypted
         .answers
         .iter()

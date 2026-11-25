@@ -79,7 +79,6 @@ data class IpConsensusResult(
     val channelConflicts: List<ChannelConflict>,
     val crossChannelMismatches: List<CrossChannelMismatch>,
     val foreignIps: List<String>,
-    /** Legacy name for an ASN difference. It does not prove WARP or an underlay route. */
     val warpIndicator: Boolean,
     val asnByIp: Map<String, IpAsnInfo> = emptyMap(),
 ) {
@@ -185,7 +184,6 @@ object IpConsensusBuilder {
         callTransport: CallTransportResult? = null,
         asnResolver: SuspendingIpAsnResolver,
     ): IpConsensusResult {
-        // The GeoIP check already fetched this IP's ASN data; do not query the providers again.
         val known = geoIp.asnInfoFromFindings()?.takeIf { it.asn != null || it.countryCode != null }
         return buildResolved(
             observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling, callTransport),
@@ -260,7 +258,6 @@ object IpConsensusBuilder {
             }.groupBy(IpObservation::channel, IpObservation::ip)
             .mapValues { (_, ips) -> ips.distinct().sorted() }
 
-    /** Resolves all IPs at once; an IP not resolved within [AsnResolutionBudgetMs] gets no ASN data. */
     private suspend fun resolveConcurrently(
         ips: List<String>,
         asnResolver: SuspendingIpAsnResolver,
@@ -393,7 +390,6 @@ object IpConsensusBuilder {
 
     private const val CloudflareAsn = "13335"
 
-    // Matches the per-request GeoIP timeout, so one slow provider round does not cut a normal lookup.
     private const val AsnResolutionBudgetMs = 10_000L
     private val COUNTRY_CODE_REGEX = Regex("""\(([A-Z]{2})\)""")
 }

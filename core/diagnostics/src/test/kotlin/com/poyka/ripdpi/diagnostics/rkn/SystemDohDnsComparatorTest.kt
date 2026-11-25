@@ -53,7 +53,6 @@ class SystemDohDnsComparatorTest {
     @Test
     fun systemServfailOrUnknownCauseIsNotReportedAsDnsBlock() =
         runTest {
-            // EAI_AGAIN is what bionic returns for SERVFAIL, an upstream timeout or no network.
             val failures =
                 listOf(
                     noSuchHost("EAI_AGAIN"),
@@ -225,10 +224,6 @@ class SystemDohDnsComparatorTest {
             override suspend fun resolve(host: String): Set<String> = answer(host)
         }
 
-    /**
-     * What Android's getAllByName throws: an UnknownHostException whose cause is a GaiException (hidden API,
-     * so an IOException stands in) with the libcore message format "<function> failed: <EAI name> (<text>)".
-     */
     private fun noSuchHost(code: String): UnknownHostException =
         UnknownHostException("Unable to resolve host \"example.org\"").apply {
             initCause(IOException("android_getaddrinfo failed: $code (resolver message)"))

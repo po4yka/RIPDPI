@@ -197,7 +197,6 @@ class DiagnosticsTargetOptimizerTest {
             )
             assertEquals(listOf("www.youtube.com", "discord.com", "speed.cloudflare.com"), plannedHosts(retained))
         }
-        // A dropped cohort does not shrink the budget for ordinary targets.
         val plain = listOf("a.example", "b.example", "c.example")
         val mixed = shipped.copy(domainTargets = shipped.domainTargets.take(3) + plain.map(::DomainTarget))
         assertEquals(3, plannedHosts(compacted(outcomes("healthy", hosts = cohortHosts + plain), mixed)).size)

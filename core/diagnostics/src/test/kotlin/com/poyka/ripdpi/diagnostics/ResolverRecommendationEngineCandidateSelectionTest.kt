@@ -186,7 +186,6 @@ class ResolverRecommendationEngineCandidateSelectionTest {
 
     @Test
     fun `compute avoids reset ipv6 bootstrap and names it blocked by DPI`() {
-        // Different spellings of one IPv6 address must match the bootstrap entry.
         for (target in listOf("[2606:4700::1111]:443", "2606:4700::1111", "[2606:4700:0:0:0:0:0:1111]:443")) {
             val report =
                 ScanReport(

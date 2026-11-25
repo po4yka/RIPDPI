@@ -18,14 +18,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Compare the same workloads before dependency changes, after dependency changes,
- * and after the Styles migration. Keep this harness identical in all three APKs.
- *
- * Frame tests use real screen composables with fixed local data. They do not
- * measure product navigation, storage, network, or service behavior. Production
- * Application initialization still runs outside the frame measurement blocks.
- */
 @RunWith(AndroidJUnit4::class)
 class ComposeStylesBenchmark {
     @get:Rule
@@ -77,7 +69,6 @@ class ComposeStylesBenchmark {
         }
     }
 
-    /** Product startup is a separate result from controlled screen rendering. */
     @Test
     fun startupCold() {
         benchmarkRule.measureRepeated(

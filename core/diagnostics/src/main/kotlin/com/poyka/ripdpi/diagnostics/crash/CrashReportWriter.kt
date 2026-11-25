@@ -10,12 +10,6 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/**
- * Synchronous crash report writer installed as the default [Thread.UncaughtExceptionHandler].
- *
- * This class has no Hilt dependencies -- it is instantiated manually in
- * [com.poyka.ripdpi.RipDpiApp.onCreate] before DI is available.
- */
 class CrashReportWriter private constructor(
     private val crashDir: File,
     private val appVersionName: String,

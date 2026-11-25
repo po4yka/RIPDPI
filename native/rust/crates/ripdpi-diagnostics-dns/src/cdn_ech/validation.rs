@@ -1,6 +1,5 @@
 use crate::cdn_ech::source::EchSourceError;
 
-/// Parse the complete ECHConfigList and require at least one supported entry.
 pub fn validate_ech_config_list_bytes(bytes: &[u8]) -> Result<usize, EchSourceError> {
     if bytes.len() < 4 {
         return Err(EchSourceError::InvalidConfig(format!("ECHConfigList too short: {} bytes", bytes.len())));

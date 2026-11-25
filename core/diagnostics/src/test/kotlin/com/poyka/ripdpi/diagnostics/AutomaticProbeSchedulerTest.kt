@@ -45,8 +45,6 @@ class AutomaticProbeSchedulerTest {
             advanceTimeBy(100L)
             runCurrent()
 
-            // A new delivery for the same fingerprint must not launch while the
-            // freshly started probe owns the cooldown.
             env.scheduler.schedule(handoverEvent(classification = "link_refresh"))
             advanceTimeBy(300L)
             runCurrent()

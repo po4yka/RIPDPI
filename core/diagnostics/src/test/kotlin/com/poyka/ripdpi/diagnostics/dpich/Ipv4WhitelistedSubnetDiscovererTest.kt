@@ -135,7 +135,6 @@ class Ipv4WhitelistedSubnetDiscovererTest {
                 val startedAt = System.nanoTime()
                 val result =
                     kotlinx.coroutines.runBlocking {
-                        // A host:port literal points the HTTPS probe at a server that accepts and never answers.
                         OkHttpSubnetAliveProbe().probe("127.0.0.1:${server.localPort}", timeoutMs = 300)
                     }
 

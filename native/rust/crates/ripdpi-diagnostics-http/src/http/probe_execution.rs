@@ -114,8 +114,6 @@ fn observe_http_result(result: Result<HttpResponse, String>) -> HttpObservation 
     }
 }
 
-/// Classify with the bundled blockpage fingerprint database, so known ISP pages (non-English, or
-/// a redirect to a block host) stay `http_blockpage` on every HTTP path.
 fn classify_with_bundled_fingerprints(response: &HttpResponse) -> String {
     classify_http_response_with_fingerprints(response, ripdpi_failure_classifier::bundled_blockpage_fingerprints()).0
 }
@@ -184,7 +182,6 @@ pub fn execute_http_request_targets_with_key_log(
     .map_err(|error| error.to_string())
 }
 
-/// Issue a verified HTTPS GET for a vendor JSON DoH endpoint.
 pub fn execute_doh_json_request(
     target: &TargetAddress,
     transport: &TransportConfig,
@@ -247,11 +244,6 @@ fn execute_http_request_targets_with_accept(
     Ok(response)
 }
 
-/// Run one request/response exchange that stops at the scan deadline or on `cancel`.
-///
-/// The response loops read until EOF, a socket timeout or the size cap. A peer that sends a byte
-/// within every socket timeout would keep them going, so a watchdog shuts the socket down at
-/// the deadline or on cancel. A failure after that reports the abort reason.
 fn run_with_abort<T>(
     stream: &mut ConnectionStream,
     cancel: Option<&AtomicBool>,
@@ -281,7 +273,6 @@ fn abort_error(reason: &'static str) -> HttpRequestError {
 }
 
 fn abort_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
-    // Acquire observes the scan owner's published cancellation flag.
     if cancel.is_some_and(|flag| flag.load(Ordering::Acquire)) {
         Some("scan_cancelled")
     } else if active_scan_io_deadline().is_some_and(|value| Instant::now() >= value) {
@@ -397,7 +388,6 @@ mod tests {
         let server = std::thread::spawn(move || {
             let (mut socket, _) = listener.accept().unwrap();
             let _ = socket.read(&mut [0u8; 1024]);
-            // One header byte every 100 ms: every read returns well within the socket timeout.
             let started = Instant::now();
             for byte in b"HTTP/1.1 200 OK\r\nX-Slow: ".iter().chain(std::iter::repeat(&b'a')) {
                 if started.elapsed() > Duration::from_secs(4) || socket.write_all(&[*byte]).is_err() {

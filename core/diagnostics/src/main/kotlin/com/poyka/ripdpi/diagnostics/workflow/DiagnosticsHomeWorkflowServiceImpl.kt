@@ -39,7 +39,6 @@ internal class DiagnosticsHomeRecommendationApplier
                 return null
             }
             var appliedSettings: com.poyka.ripdpi.proto.AppSettings? = null
-            // Validate and apply against one current value, so concurrent settings changes are preserved.
             appSettingsRepository.update {
                 appliedSettings = DiagnosticsScanWorkflow.validatedRecommendationSettings(strategyProbe, build())
                 appliedSettings?.let { clear().mergeFrom(it) }
@@ -375,8 +374,6 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 val strategyProbe = report.strategyProbeReport
                 val resolverRecommendation = report.resolverRecommendation
                 val strategyRecommendation = report.strategyRecommendation
-                // Settings measured on one network must not be applied on another; an old row without its
-                // network key cannot show where it was measured.
                 val networkChanged = !isMeasuredOn(session.networkScopeKey, currentFingerprintHash())
                 val applicable = session.hasCompleteHomeReport(sessionId, report) && !networkChanged
                 val strategyApplied =

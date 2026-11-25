@@ -6,7 +6,6 @@ import okhttp3.OkHttpClient
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Owns DoH HTTP calls because the upstream DNS cache keeps queries running after subscriber cancellation. */
 internal class OwnedDohDns(
     private val bootstrapClient: OkHttpClient,
     private val createDns: (OkHttpClient) -> Dns,

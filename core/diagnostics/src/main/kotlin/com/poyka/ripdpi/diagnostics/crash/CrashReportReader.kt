@@ -55,8 +55,6 @@ class CrashReportReader(
     }
 }
 
-// Exception messages can carry proxy links, tokens and addresses. Skip the logcat
-// host-name rule here: it would also erase package names from the stack frames.
 private val AnySchemeUriRegex = Regex("\\b[a-z][a-z0-9+.-]*://\\S+", RegexOption.IGNORE_CASE)
 
 internal fun redactCrashText(value: String): String =

@@ -20,7 +20,6 @@ import java.io.IOException
 import java.net.Inet6Address
 import java.security.SecureRandom
 
-/** DNS wire parsing belongs to dnsjava; network selection belongs to the caller. */
 object DnsMessages {
     const val MAX_MESSAGE_BYTES = 65_535
 
@@ -97,7 +96,6 @@ object DnsMessages {
         }
     }
 
-    /** Android rawQuery owns its transaction ID; the caller still owns the expected question. */
     @Throws(IOException::class)
     fun systemResponse(
         bytes: ByteArray,
@@ -118,7 +116,6 @@ object DnsMessages {
             false
         }
 
-    /** Follow only the answer aliases rooted at the question, without accepting unrelated records. */
     @Throws(IOException::class)
     fun answerChain(message: Message): List<Name> {
         checkWire(!message.header.getFlag(Flags.TC.toInt()), "Truncated DNS answer")
@@ -200,14 +197,12 @@ object DnsMessages {
     private const val MaxNameLength = 253
     private const val MaxLabelLength = 63
 
-    // RFC 7830 6 forbids the Padding option (12) on cleartext DNS, so size probes use a local-use code (RFC 6891 9).
     private const val SizingOption = 65001
     private const val SizingOverhead = 15
     private const val AdvertisedUdpBytes = 1232
     private const val MaxAliasNames = 16
 }
 
-/** Preserve the AAAA family when the RDATA contains an IPv4-mapped address. */
 fun AAAARecord.ipv6Address(): Inet6Address = Inet6Address.getByAddress(name.toString(), rdataToWireCanonical(), -1)
 
 private fun checkWire(

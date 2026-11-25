@@ -7,7 +7,6 @@ data class PmtuDiagnosis(
     val minimumIpPacketBytes: Int? = null,
 )
 
-/** Outbound packet lower bound only; never a tunnel setting or an exact path maximum. */
 fun PmtuProbeEvidence?.diagnosePmtu(networkScopeUnverified: Boolean = false): PmtuDiagnosis {
     val evidence = this?.validatedPmtuProbeEvidence()
     val payload = evidence?.acknowledgedUdpPayloadLowerBoundBytes

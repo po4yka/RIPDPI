@@ -15,13 +15,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Fuzz-style redaction tests for [DiagnosticsArchiveRedactor].
- *
- * Each test constructs a model with non-default sensitive field values and asserts
- * that no verbatim original value reaches the encoded JSON output.
- * This guards the diagnostics archive privacy boundary.
- */
 class DiagnosticsArchiveRedactorTest {
     private val json =
         Json {

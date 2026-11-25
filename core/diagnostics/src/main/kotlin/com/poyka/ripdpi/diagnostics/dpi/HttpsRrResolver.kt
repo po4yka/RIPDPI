@@ -284,7 +284,6 @@ class AndroidSystemHttpsRrQuery(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return HttpsRrResponse(HttpsRrOutcome.PLATFORM_UNSUPPORTED)
         }
-        // TODO(author): DnsResolver.getInstance() deprecated; needs Context plumbing
         @Suppress("DEPRECATION")
         val resolver = resolverProvider?.invoke() ?: DnsResolver.getInstance()
         return suspendCancellableCoroutine { continuation ->

@@ -38,7 +38,6 @@ internal enum class CatalogDiagnosticProfileFamily {
     AUTOMATIC_AUDIT,
 }
 
-// Where a control lives: one blocked provider or a broken international link must not read as a broken network.
 internal enum class CatalogControlTier(
     val wireName: String,
 ) {

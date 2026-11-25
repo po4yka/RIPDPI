@@ -18,11 +18,6 @@ class XrayProviderOrchestratorTest {
         """{"outbounds":[{"protocol":"vless","settings":{"vnext":[{"users":[
            {"id":"d0c0ffee-dead-beef-cafe-000000000001","flow":"xtls-rprx-vision"}]}]}}]}"""
 
-    /**
-     * A protect controller that records the order of its invocations into a
-     * shared event log, so a test can prove protect was wired before any
-     * outbound. Always returns success.
-     */
     private class RecordingProtect(
         private val events: MutableList<String>,
     ) : XrayProtectController {
@@ -115,7 +110,6 @@ class XrayProviderOrchestratorTest {
 
             assertEquals(HandoffOutcome.Running(TunnelUpstream.Native), outcome)
             assertEquals(TunnelUpstream.Native, tunnel.lastUpstream)
-            // Native path must not start Xray at all.
             assertEquals(0, bridge.startCount)
             assertEquals(VpnProviderState.Stopped, orch.xrayState)
         }
@@ -150,7 +144,6 @@ class XrayProviderOrchestratorTest {
                         super.start(upstream)
                     }
                 }
-            // Bridge that records registerProtect + start into the shared event log.
             val recordingBridge =
                 object : FakeXrayNativeBridge() {
                     override fun registerProtect(controller: XrayProtectController) {
@@ -178,8 +171,6 @@ class XrayProviderOrchestratorTest {
 
             orch.start(ProviderRoute(VpnProviderKind.Xray))
 
-            // registerProtect must strictly precede xray.start (protect-first),
-            // and xray.start must precede tunnel.start (inbound-ready-first).
             val protectIdx = events.indexOf("registerProtect")
             val xrayStartIdx = events.indexOf("xray.start")
             val tunnelStartIdx = events.indexOf("tunnel.start")
@@ -200,8 +191,6 @@ class XrayProviderOrchestratorTest {
             orch.start(ProviderRoute(VpnProviderKind.Xray))
 
             val upstream = tunnel.lastUpstream as TunnelUpstream.Xray
-            // Single source of truth: tunnel owns DNS; Xray's DNS outbound is not
-            // used for the tunnelled path, so DNS cannot loop back into the TUN.
             assertEquals(DnsLoopOwner.Tunnel, upstream.dnsOwner)
         }
 
@@ -222,13 +211,11 @@ class XrayProviderOrchestratorTest {
                 )
 
             assertTrue(outcome is HandoffOutcome.Running)
-            // BOTH restarted: xray stopped + restarted, tunnel stopped + restarted.
             assertEquals(1, bridge.stopCount)
             assertEquals(startsBefore + 1, bridge.startCount)
             assertTrue(tunnel.quiesceCount >= 1)
             assertEquals(0, tunnel.stopCount)
             assertEquals(tunnelStartsBefore + 1, tunnel.startCount)
-            // Tunnel now points at the new inbound port.
             assertEquals(20808, (tunnel.lastUpstream as TunnelUpstream.Xray).port)
         }
 
@@ -314,7 +301,6 @@ class XrayProviderOrchestratorTest {
             val outcome = orch.handover(route)
 
             assertTrue(outcome is HandoffOutcome.Running)
-            // No restart: counts unchanged.
             assertEquals(startsBefore, bridge.startCount)
             assertEquals(tunnelStartsBefore, tunnel.startCount)
             assertEquals(0, bridge.stopCount)
@@ -345,7 +331,6 @@ class XrayProviderOrchestratorTest {
             val outcome = orch.start(ProviderRoute(VpnProviderKind.Xray))
 
             assertTrue(outcome is HandoffOutcome.Failed)
-            // Xray was started then stopped; no half session is left.
             assertEquals(1, bridge.startCount)
             assertEquals(1, bridge.stopCount)
             assertNull(orch.currentRoute)
@@ -390,7 +375,6 @@ class XrayProviderOrchestratorTest {
             assertEquals(HandoffOutcome.Stopped, orch.stop())
             assertFalse(tunnel.isRunning)
             assertEquals(VpnProviderState.Stopped, orch.xrayState)
-            // Second stop is a clean no-op.
             assertEquals(HandoffOutcome.Stopped, orch.stop())
         }
 

@@ -13,17 +13,16 @@ import java.io.IOException
 class PcapReaderTest {
     @Test
     fun globalHeader_validatesMagicAndLinktype() {
-        // Wrong magic.
         val wrongMagic =
             byteArrayOfInts(
                 0xde,
                 0xad,
                 0xbe,
-                0xef, // magic (invalid)
+                0xef,
                 0x02,
                 0x00,
                 0x04,
-                0x00, // version
+                0x00,
                 0x00,
                 0x00,
                 0x00,
@@ -43,7 +42,6 @@ class PcapReaderTest {
             )
         assertThrows(IOException::class.java) { PcapReader(ByteArrayInputStream(wrongMagic)) }
 
-        // Right magic, wrong linktype (1 = Ethernet, we require 101 = RAW).
         val wrongLinktype = headerBytes(linktype = 1)
         assertThrows(IOException::class.java) { PcapReader(ByteArrayInputStream(wrongLinktype)) }
     }
@@ -87,9 +85,9 @@ class PcapReaderTest {
 
     @Test
     fun readsOnePacket_writtenByWriterContract() {
-        val payload = byteArrayOfInts(0x45, 0x00, 0x00, 0x14) // truncated IPv4 sniff
+        val payload = byteArrayOfInts(0x45, 0x00, 0x00, 0x14)
         val tsSec = 0x6645_0001L
-        val tsUsec = 0x0001_e240L // 123,456
+        val tsUsec = 0x0001_e240L
         val pcap =
             headerBytes() +
                 packetRecord(
@@ -111,7 +109,6 @@ class PcapReaderTest {
 
     @Test
     fun distinguishesTruncatedHeaderFromCleanEof() {
-        // Full header + one good packet + a partial packet header (8 bytes).
         val payload = byteArrayOfInts(0x45, 0x00, 0x00, 0x14)
         val full =
             headerBytes() +
@@ -132,26 +129,24 @@ class PcapReaderTest {
 
     @Test
     fun rejectsTruncatedPayload() {
-        // Valid 16-byte record header claiming a 4-byte payload, but the
-        // payload bytes are missing.
         val recordHeaderOnly =
             byteArrayOfInts(
                 0x01,
                 0x00,
                 0x00,
-                0x00, // ts_sec
                 0x00,
                 0x00,
                 0x00,
-                0x00, // ts_usec
+                0x00,
+                0x00,
                 0x04,
                 0x00,
                 0x00,
-                0x00, // incl_len = 4
+                0x00,
                 0x04,
                 0x00,
                 0x00,
-                0x00, // orig_len = 4
+                0x00,
             )
         val bytes = headerBytes() + recordHeaderOnly
         val reader = PcapReader(ByteArrayInputStream(bytes))
@@ -186,24 +181,19 @@ class PcapReaderTest {
         }
     }
 
-    // -- helpers --------------------------------------------------------
-
     private fun headerBytes(
         linktype: Int = PcapReader.LINKTYPE_RAW,
         snaplen: Int = 65_535,
     ): ByteArray =
         byteArrayOfInts(
-            // magic (LE 0xa1b2c3d4)
             0xd4,
             0xc3,
             0xb2,
             0xa1,
-            // version_major=2, version_minor=4
             0x02,
             0x00,
             0x04,
             0x00,
-            // thiszone, sigfigs
             0x00,
             0x00,
             0x00,

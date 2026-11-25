@@ -9,12 +9,6 @@ import java.net.Socket
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * RFC 1929 username/password for an app-owned loopback SOCKS5 listener (native relay, Xray inbound).
- *
- * Android loopback is reachable by every installed app, so each runtime session gets a fresh pair from a
- * CSPRNG. The pair lives only in memory: it is never logged, persisted, exported, or put into telemetry.
- */
 data class LocalSocksCredentials(
     val username: String,
     val password: String,
@@ -38,7 +32,6 @@ data class LocalSocksCredentials(
     }
 }
 
-/** Joins the wire pair; a pair Kotlin did not write in full is no pair. */
 fun localSocksCredentialsOrNull(
     username: String?,
     password: String?,
@@ -51,13 +44,6 @@ fun localSocksCredentialsOrNull(
         null
     }
 
-/**
- * Process-local map from an app-owned loopback SOCKS5 listener to the credentials its owner issued.
- *
- * The owner registers a listener once it reports its address and unregisters it when it stops. In-app clients
- * that know only the listener address (probes driven by relay telemetry) read the credentials here, so the
- * secret never travels through telemetry or settings.
- */
 object LocalSocksCredentialRegistry {
     private val entries = ConcurrentHashMap<String, LocalSocksCredentials>()
 
@@ -69,7 +55,6 @@ object LocalSocksCredentialRegistry {
         entries[key(host, port)] = credentials
     }
 
-    /** Removes the entry only while it still holds [credentials], so a newer listener on the port keeps its own. */
     fun unregister(
         host: String,
         port: Int,
@@ -89,19 +74,11 @@ object LocalSocksCredentialRegistry {
     ): String = "${host.trim().removeSurrounding("[", "]").lowercase()}:$port"
 }
 
-/** The listener answered a CONNECT with the RFC 1928 failure [reply]. */
 class LocalSocksConnectRejectedException(
     val reply: Int,
 ) : ProtocolException("SOCKS CONNECT was rejected")
 
-/** Minimal SOCKS5 client for app-owned loopback listeners (RFC 1928 with RFC 1929 authentication). */
 object LocalSocks5Client {
-    /**
-     * Negotiates the method and, with [credentials], authenticates. Only the method that matches
-     * [credentials] is offered, so a listener that requires authentication never gets a NO-AUTH session.
-     *
-     * @throws ProtocolException when the listener refuses the method or the credentials.
-     */
     fun authenticate(
         input: InputStream,
         output: OutputStream,
@@ -127,12 +104,6 @@ object LocalSocks5Client {
         }
     }
 
-    /**
-     * Authenticates on the already connected [socket] and opens a CONNECT tunnel to [target]. An unresolved
-     * [target] is sent as a domain name, so the listener resolves it, as `java.net` SOCKS does.
-     *
-     * @throws ProtocolException when the listener refuses the handshake or the CONNECT.
-     */
     fun connect(
         socket: Socket,
         target: InetSocketAddress,

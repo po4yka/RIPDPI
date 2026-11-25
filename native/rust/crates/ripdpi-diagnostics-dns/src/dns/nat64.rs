@@ -35,14 +35,11 @@ fn is_global_ipv4(address: Ipv4Addr) -> bool {
 }
 
 impl Nat64Prefix {
-    /// RFC 6052 places the reserved u octet at byte 8 for non-/96 prefixes.
     pub fn synthesize(self, address: Ipv4Addr) -> Option<Ipv6Addr> {
         let offset = usize::from(self.length / 8);
         if ![32, 40, 48, 56, 64, 96].contains(&self.length) {
             return None;
         }
-        // RFC 6052 section 3.1: the Well-Known Prefix never represents non-global IPv4. The RFC 7050
-        // discovery sentinels are the one exception.
         if self.address == WELL_KNOWN_PREFIX
             && self.length == 96
             && !matches!(address.octets(), [192, 0, 0, 170 | 171])
@@ -51,7 +48,6 @@ impl Nat64Prefix {
             return None;
         }
         let mut bytes = self.address.octets();
-        // RFC 6052 section 2.2: bits 64 to 71 are the reserved u octet, zero also for /96.
         if self.length == 96 && bytes[8] != 0 {
             return None;
         }
@@ -70,8 +66,6 @@ impl Nat64Prefix {
     }
 }
 
-/// A bounded ordered prefix interpretation of query-bound ipv4only.arpa AAAA data.
-/// Ambiguous individual embeddings and non-sentinel addresses do not authorize a TCP probe.
 pub fn discover_nat64_prefixes(addresses: &[String]) -> Result<Vec<Nat64Prefix>, &'static str> {
     if addresses.len() > 16 {
         return Err("invalid_dns64_response");
@@ -136,8 +130,6 @@ pub struct Nat64Discovery {
     pub attempts: u32,
 }
 
-/// Uses captured network resolver literals only, with at most three requests.
-/// Blocking I/O inherits the caller's scan deadline; cancellation is checked before and after each request.
 pub fn discover_network_nat64(servers: &[String], cancel: &AtomicBool) -> Nat64Discovery {
     discover_with(servers, cancel, |server, query| {
         relay_udp_direct(server, query).map(|(reply, _)| reply).map_err(|error| match error {
@@ -160,7 +152,6 @@ fn discover_with(
     let total = targets.len();
     for (index, server) in targets.into_iter().enumerate() {
         if let Some(reason) = interrupted(cancel) {
-            // An expired budget keeps a clean negative answer already received; cancellation always wins.
             if reason != "cancelled" && clean_negative {
                 break;
             }
@@ -180,14 +171,11 @@ fn discover_with(
             };
         };
         attempts += 1;
-        // Each resolver waits for a fair share of the remaining time, so a silent one leaves time for the next.
         let share = active_scan_io_deadline().map(|deadline| {
             let now = Instant::now();
             now + deadline.saturating_duration_since(now) / u32::try_from(total - index).unwrap_or(1)
         });
         let response = with_scan_io_deadline(share, || exchange(server, &query));
-        // Only cancellation discards this reply. A deadline that expired during the exchange is
-        // judged after the reply is classified, so an earlier clean negative answer is not lost.
         if cancel.load(Ordering::Acquire) {
             return Nat64Discovery { prefixes: vec![], status: "CANCELLED", reason: Some("cancelled"), attempts };
         }
@@ -207,7 +195,6 @@ fn discover_with(
         };
         match outcome {
             DnsResponseOutcome::Answer => {
-                // The general semantics parser sorts addresses. Preserve DNS response order here.
                 let Ok(message) = hickory_proto::op::Message::from_vec(&response) else {
                     failure = Some("dns_error");
                     continue;
@@ -224,16 +211,13 @@ fn discover_with(
                     Ok(prefixes) if !prefixes.is_empty() => {
                         return Nat64Discovery { prefixes, status: "DISCOVERED", reason: None, attempts };
                     }
-                    // An Answer always carries AAAA data, so an empty prefix list is not a clean negative.
                     Ok(_) => failure = Some("dns_error"),
-                    // A well-formed answer that fails the Pref64 heuristic is a verdict, not a resolver fault.
                     Err(reason) => {
                         return Nat64Discovery { prefixes: vec![], status: "INVALID", reason: Some(reason), attempts };
                     }
                 }
             }
             DnsResponseOutcome::Nodata | DnsResponseOutcome::Nxdomain => clean_negative = true,
-            // One resolver's fault: try the next.
             DnsResponseOutcome::Servfail
             | DnsResponseOutcome::Refused
             | DnsResponseOutcome::OtherRcode
@@ -249,7 +233,6 @@ fn discover_with(
     }
     Nat64Discovery {
         prefixes: vec![],
-        // A clean negative answer from any resolver outranks another resolver's transport fault.
         status: if failure.is_some() && !clean_negative { "FAILED" } else { "NO_PREFIX" },
         reason: Some(match (clean_negative, failure) {
             (false, Some(reason)) => reason,
@@ -259,8 +242,6 @@ fn discover_with(
         attempts,
     }
 }
-/// Usable resolver endpoints in input order, deduplicated, limited to three.
-/// Unusable literals are skipped before the limit so they do not use the budget.
 fn resolver_targets(servers: &[String]) -> Vec<SocketAddr> {
     let mut targets = Vec::new();
     for address in servers.iter().filter_map(|server| resolver_endpoint(server)) {
@@ -271,8 +252,6 @@ fn resolver_targets(servers: &[String]) -> Vec<SocketAddr> {
     targets.truncate(3);
     targets
 }
-/// Accepts IP literals and IPv6 literals with a numeric or interface-name zone. A link-local IPv6
-/// address needs a zone because the kernel cannot pick an interface without one.
 fn resolver_endpoint(literal: &str) -> Option<SocketAddr> {
     let (host, zone) = match literal.split_once('%') {
         Some((host, zone)) => (host, Some(zone)),

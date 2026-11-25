@@ -151,7 +151,6 @@ impl ClientSettings {
     }
 }
 
-/// The `v` setting of a cmdServerSettings payload, if present and numeric.
 pub fn server_settings_version(data: &[u8]) -> Option<u8> {
     parse_settings(data).ok()?.get("v")?.parse().ok()
 }

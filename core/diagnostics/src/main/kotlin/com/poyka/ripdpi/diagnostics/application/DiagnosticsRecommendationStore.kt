@@ -17,7 +17,6 @@ class DiagnosticsRecommendationStore
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
-        /** The session's recommendation, only when the session was measured on [networkScopeKey]. */
         suspend fun loadResolverRecommendation(
             sessionId: String,
             networkScopeKey: String,

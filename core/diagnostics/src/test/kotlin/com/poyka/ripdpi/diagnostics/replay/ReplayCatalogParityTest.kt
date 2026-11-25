@@ -4,20 +4,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/**
- * Build-time parity gate: every `recommendationKey` referenced by the
- * JSON catalog at `assets/diagnostics/replay_recommendations.json`
- * MUST resolve to an `R.string.<key>` in the app's `values/strings*.xml` files.
- * Per-locale parity is already enforced at compile time by
- * `lint.xml` `MissingTranslation severity="error"`, so this test only
- * needs to verify the canonical `values/strings*.xml` files.
- *
- * Locating the strings file: this test walks up from the JVM working
- * directory until it finds the workspace root (the directory containing
- * `settings.gradle.kts`), then resolves the canonical paths from there.
- * If the test breaks due to a module re-layout, the file lookup is
- * the thing to update.
- */
 class ReplayCatalogParityTest {
     private val rootDir: File =
         run {
@@ -37,7 +23,6 @@ class ReplayCatalogParityTest {
                 "core/diagnostics/src/main/assets/diagnostics/replay_recommendations.json",
             ).readText()
         val catalog = ReplayRecommendationCatalogParser.parse(catalogJson)
-        // String resources are grouped by feature across several strings_*.xml files.
         val stringsXml =
             File(rootDir, "app/src/main/res/values")
                 .listFiles { file -> file.name.startsWith("strings") && file.extension == "xml" }

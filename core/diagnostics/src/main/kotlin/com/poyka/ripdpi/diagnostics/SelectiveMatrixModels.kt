@@ -79,7 +79,6 @@ data class SelectiveMatrixConfig(
     }
 }
 
-/** Syntax validation only. The native runner resolves and rejects non-public destinations before connecting. */
 fun normalizeSelectiveMatrixHost(input: String): String {
     val host = IDN.toASCII(input.trim(), IDN.USE_STD3_ASCII_RULES).lowercase(Locale.ROOT)
     require(host.length in 1..MatrixMaxHostnameLength && !host.endsWith('.')) { "Enter a public hostname" }

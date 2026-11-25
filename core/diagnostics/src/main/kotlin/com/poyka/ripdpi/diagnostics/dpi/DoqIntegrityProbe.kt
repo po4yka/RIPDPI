@@ -106,7 +106,6 @@ class DoqIntegrityProbe(
             results
         }
 
-    /** Returns null when [domain] is not a DNS name, so it has no DoQ query to send. */
     private suspend fun probe(
         provider: DoqProvider,
         domain: String,

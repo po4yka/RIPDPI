@@ -8,9 +8,6 @@ private const val MaxHostLength = 253
 private val HostLabel = Regex("[A-Za-z0-9_-]{1,63}")
 private val SchemePrefix = Regex("^[A-Za-z][A-Za-z0-9+.-]*://")
 
-/**
- * Reduces a probe target entry to the DNS host name used by the DNS and reachability probes.
- */
 fun dpiTargetHostOrNull(entry: String): String? {
     val authority = SchemePrefix.replaceFirst(entry.trim(), "").targetAuthority()
     if (authority.count { it == ':' } > 1) return null
@@ -19,7 +16,6 @@ fun dpiTargetHostOrNull(entry: String): String? {
     return host.takeIf { valid }
 }
 
-/** Parse a DNS name or IP literal for the QUIC Initial/VN probe. The probe always uses UDP port 443. */
 internal fun quicTargetHostOrNull(entry: String): String? {
     val input = entry.trim()
     val addressAndPath = SchemePrefix.replaceFirst(input, "")
@@ -45,7 +41,6 @@ private fun dnsNameOrIpv4(authority: String): String? {
     val host = authority.substringBefore(':')
     if (!authority.substring(host.length).validPortSuffix()) return null
     val name = host.removeSuffix(".").lowercase()
-    // Some resolvers treat noncanonical numeric names as abbreviated IPv4 literals.
     return NumericIp.parseAddress(name)?.toCanonicalString()
         ?: name.takeIf { isAsciiDnsHost(it) && it.any { char -> char !in '0'..'9' && char != '.' } }
 }

@@ -20,7 +20,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Current user-visible state of a live tunnel PCAP capture. */
 sealed interface PcapCaptureRuntimeState {
     data object Idle : PcapCaptureRuntimeState
 
@@ -37,7 +36,6 @@ sealed interface PcapCaptureRuntimeState {
         val code: String,
     ) : PcapCaptureRuntimeState
 
-    /** Safe native or lifecycle code; never a filesystem path or exception message. */
     data class Failed(
         val receipt: PcapCaptureCompletionReceipt? = null,
         val code: String,
@@ -58,11 +56,6 @@ sealed interface PcapCaptureLeaseAcquisition {
     ) : PcapCaptureLeaseAcquisition
 }
 
-/**
- * Process-wide coordinator between the diagnostics UI and the active VPN
- * tunnel. The VPN runtime binds its live bridge and retires it before native
- * teardown; the UI only ever observes a successful native start as recording.
- */
 @Singleton
 class PcapCaptureRuntimeController
     internal constructor(
@@ -88,8 +81,6 @@ class PcapCaptureRuntimeController
         private var terminalCaptureSetId: Long? = null
         private var terminalState: PcapCaptureRuntimeState? = null
 
-        // Diagnostic acquisitions own receipts until their run settles. Manual
-        // captures only use the last visible outcome and do not accumulate.
         private val ownedReceipts = mutableMapOf<Long, PcapCaptureRuntimeState?>()
         private var completionMonitor: Job? = null
 
@@ -101,8 +92,6 @@ class PcapCaptureRuntimeController
         val state: StateFlow<PcapCaptureRuntimeState> = mutableState
 
         /**
-         * Called by the VPN runtime only after a native tunnel has started.
-         *
          * # Cancel safety:
          * Binding is non-cancellable once entered, so a live bridge is either
          * published under the mutex or the call has not started.
@@ -120,10 +109,6 @@ class PcapCaptureRuntimeController
         }
 
         /**
-         * Finalizes capture before [bridge] is stopped or destroyed. This keeps
-         * the writer result observable instead of letting native retirement
-         * discard it during session teardown.
-         *
          * # Cancel safety:
          * Retirement and terminal receipt publication execute in
          * [NonCancellable] while holding the lifecycle mutex.
@@ -133,7 +118,6 @@ class PcapCaptureRuntimeController
                 mutex.withLock {
                     if (activeBridge === bridge) {
                         val stopped = stopLocked(bridge)
-                        // StopFailed keeps the lease for a retry, but this bridge is about to be destroyed.
                         if (stopped is PcapCaptureRuntimeState.StopFailed) retireFailedStopLocked(stopped)
                     }
                     if (boundTunnel?.bridge === bridge) {

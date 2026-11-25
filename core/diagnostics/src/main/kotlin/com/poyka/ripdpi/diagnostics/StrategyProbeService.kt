@@ -198,8 +198,6 @@ class DefaultStrategyProbeService
         private val resultInjector: StrategyProbeResultInjector,
         private val runGuard: StrategyProbeRunGuard,
     ) : StrategyProbeService {
-        // One run at a time: an overlapping run would capture the other run's candidate as the original.
-        // A second run fails at once instead of waiting: a collector that starts a run would deadlock.
         override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> =
             flow {
                 check(runGuard.tryAcquire()) { "A strategy probe run is already active" }
@@ -309,7 +307,6 @@ class SettingsStrategyProbeActivator
 
         override suspend fun restore(snapshot: StrategyProbeActivationSnapshot) {
             val original = snapshot.settings ?: return
-            // Revert only the fields activate() wrote, so edits made during the probe survive.
             appSettingsRepository.update {
                 strategyChainYaml = original.strategyChainYaml
                 clearTcpChainSteps().addAllTcpChainSteps(original.tcpChainStepsList)

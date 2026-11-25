@@ -52,7 +52,6 @@ interface DiagnosticsProfileCatalog {
 interface DiagnosticsScanRecordStore {
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
-    /** The newest scan whose report holds a strategy test, at any age. */
     fun observeLatestStrategyProbeSession(): Flow<ScanSessionEntity?>
 
     suspend fun getLatestCompletedScanSession(): ScanSessionEntity?
@@ -63,7 +62,6 @@ interface DiagnosticsScanRecordStore {
 
     suspend fun upsertScanSession(session: ScanSessionEntity)
 
-    /** Atomically replaces a completed scan's canonical session and probe result projection. */
     suspend fun persistCompletedScan(
         session: ScanSessionEntity,
         results: List<ProbeResultEntity>,
@@ -659,7 +657,6 @@ class RoomNetworkDnsBlockedPathStore
         private val dao: DiagnosticsDao,
         private val clock: DiagnosticsHistoryClock,
     ) : NetworkDnsBlockedPathStore {
-        // A block observed during a short outage must not lower a resolver on this network forever.
         override suspend fun getBlockedPathKeys(fingerprintHash: String): Set<String> =
             dao.getBlockedPathKeys(fingerprintHash, clock.now() - BlockedDnsPathTtlMs).toSet()
 
@@ -741,9 +738,6 @@ class RoomDiagnosticsHistoryRetentionStore
             if (retentionDays <= 0) {
                 return
             }
-            // Legacy terminal markers live in native_session_events until the outbox store
-            // migrates them. Their JSON payload is intentionally opaque to SQL, so retention
-            // must fail closed rather than delete a marker or any potentially related evidence.
             if (
                 dao.countPendingTerminalOutboxes() > 0 ||
                 dao.getDiagnosticsDurableStateByPrefix(RawPathSettlementDurableStatePrefix, limit = 1).isNotEmpty()
@@ -759,7 +753,6 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteNativeEventsOlderThan(threshold)
             dao.deleteExportRecordsOlderThan(threshold)
             dao.deleteBypassUsageSessionsOlderThan(threshold)
-            // Under the policy lock, so a store update that read a row cannot write it back after this delete.
             rememberedNetworkPolicyWriteLock.withLock { dao.deleteRememberedNetworkPoliciesOlderThan(threshold) }
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
             dao.deleteBlockedPathsOlderThan(threshold)
@@ -776,7 +769,6 @@ class RoomDiagnosticsHistoryResetStore
         private val dao: DiagnosticsDao,
     ) : DiagnosticsHistoryResetStore {
         override suspend fun clearRuntimeHistory() {
-            // Lock before the transaction (the outbox order), so a policy update cannot undo the clear.
             rememberedNetworkPolicyWriteLock.withLock {
                 db.withTransaction {
                     dao.deleteAllProbeResults()

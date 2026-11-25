@@ -27,14 +27,9 @@ import javax.inject.Inject
 
 internal const val PluggableTransportManifestPath = "metadata/pluggable-transports.json"
 
-/** Helper executable name of the pinned upstream NaiveProxy client; the source file is `libnaive.so`. */
 internal const val NaiveChromiumHelperName = "ripdpi-naive-chromium"
 internal const val NaiveUpstreamFetchCommand = "python3 scripts/ci/fetch-naive-upstream.py"
 
-/**
- * Packaged jniLibs file name of an app-launched helper executable. The runtime resolves the same
- * name in `ApplicationInfo.nativeLibraryDir` (`helperExecutableLibraryFileName` in `:core:service`).
- */
 internal fun helperExecutableJniLibName(executableName: String): String {
     require(executableName.isNotBlank() && File(executableName).name == executableName) {
         "Unsafe helper executable name: $executableName"
@@ -42,21 +37,6 @@ internal fun helperExecutableJniLibName(executableName: String): String {
     return "lib$executableName.so"
 }
 
-/**
- * Stages every helper executable that the app process starts as `jniLibs/<abi>/lib<name>.so`.
- *
- * Android 10+ (targetSdk 29 and higher) denies exec() of files in the app home directory
- * (SELinux `execute_no_trans` on `app_data_file`), so helpers cannot be copied out of assets
- * and run. The package manager extracts jniLibs at install time into nativeLibraryDir, from
- * which an untrusted app may exec. jniLibs are also ABI-filtered by ABI splits and bundles.
- *
- * Direct helpers come from `<root>/<abi>/<name>`. Pluggable transports come from the PT asset
- * task output: the task stages each upstream binary named in `pluggable-transports.json` after it
- * verifies the recorded SHA-256, and republishes the manifest as the only PT asset. The upstream
- * NaiveProxy client comes from `<naiveUpstreamRoot>/<abi>/libnaive.so`, which
- * `scripts/ci/fetch-naive-upstream.py` writes; the task re-verifies its SHA-256 from
- * `native/naiveproxy-upstream/sources.json` and never downloads.
- */
 @CacheableTask
 abstract class HelperExecutableJniLibsTask
     @Inject

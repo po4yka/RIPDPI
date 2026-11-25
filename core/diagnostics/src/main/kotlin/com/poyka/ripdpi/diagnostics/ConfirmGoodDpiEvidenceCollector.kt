@@ -110,7 +110,6 @@ private fun probeRealityControl(
         Socket().use { socket ->
             socket.soTimeout = ConfirmGoodControlTimeoutMs
             socket.connect(relayAddress, ConfirmGoodControlTimeoutMs)
-            // The relay listener requires the session credentials its owner registered.
             LocalSocks5Client.connect(
                 socket,
                 InetSocketAddress.createUnresolved(target.host, target.httpsPort ?: DefaultHttpsPort),

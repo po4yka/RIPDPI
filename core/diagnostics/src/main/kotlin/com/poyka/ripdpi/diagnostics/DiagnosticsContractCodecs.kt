@@ -51,7 +51,6 @@ private fun validateDiagnosticsSchemaVersion(progress: EngineProgressWire) {
     }
 }
 
-// v11 only adds an optional request field, so v10 reports decode unchanged.
 private val StoredDiagnosticsReportSchemaVersions = setOf(8, 10, DiagnosticsEngineSchemaVersion)
 
 internal fun ProfileSpecWire.normalizedExecutionPolicy(): ProfileExecutionPolicyWire =

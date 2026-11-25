@@ -111,7 +111,6 @@ object DirectSignsChecker {
         return hasVpnTransport
     }
 
-    // ROADMAP-architecture-refactor Android can rethrow Binder failures as RuntimeException.
     @Suppress("TooGenericExceptionCaught")
     private fun defaultNetworkCapabilities(context: Context): NetworkCapabilities? =
         try {

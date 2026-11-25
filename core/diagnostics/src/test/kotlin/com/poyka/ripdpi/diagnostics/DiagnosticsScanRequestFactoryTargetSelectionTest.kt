@@ -275,9 +275,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
 
         assertEquals("all", selection.cohortId)
         assertEquals("All cohorts", selection.cohortLabel)
-        // 6 unique domain hosts (3+3, no overlap)
         assertEquals(6, selected.domainTargets.size)
-        // 3 unique QUIC hosts (discord.com appears in both cohorts)
         assertEquals(3, selected.quicTargets.size)
         assertEquals(6, selection.domainHosts.size)
         assertEquals(3, selection.quicHosts.size)
@@ -314,16 +312,12 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
 
         assertEquals("all", selection.cohortId)
         assertEquals("All cohorts", selection.cohortLabel)
-        // shared-a and shared-b appear in both cohorts but are deduplicated;
-        // unique-a and unique-b each appear once; total = 4 unique hosts
         val domainHosts = selected.domainTargets.map(DomainTarget::host)
         assertEquals(4, domainHosts.size)
         assertTrue(domainHosts.contains("shared-a.example"))
         assertTrue(domainHosts.contains("shared-b.example"))
         assertTrue(domainHosts.contains("unique-a.example"))
         assertTrue(domainHosts.contains("unique-b.example"))
-        // shared-quic.example appears in both cohorts but is deduplicated;
-        // unique-quic-a.example and unique-quic-b.example each appear once; total = 3 unique
         val quicHosts = selected.quicTargets.map(QuicTarget::host)
         assertEquals(3, quicHosts.size)
         assertTrue(quicHosts.contains("shared-quic.example"))
@@ -362,7 +356,6 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
 
         assertNotEquals("all", selection.cohortId)
         assertTrue(selection.cohortId in listOf("safe-default", "manual-sensitive"))
-        // Single cohort selected: exactly 3 domain and 2 QUIC targets
         assertEquals(3, selected.domainTargets.size)
         assertEquals(2, selected.quicTargets.size)
     }

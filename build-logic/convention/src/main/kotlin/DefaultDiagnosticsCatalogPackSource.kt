@@ -114,8 +114,6 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             TargetPackDefinition(
                 id = "neutral-control",
                 version = 6,
-                // Each control carries the in-path transfer check, which needs a small complete body. Controls
-                // come from independent providers, so one blocked provider (Cloudflare in Russia) leaves a baseline.
                 domainTargets =
                     domainTargets("proof.ovh.net", control = CatalogControlTier.GLOBAL, httpPath = "/robots.txt") +
                         domainTargets(
@@ -140,8 +138,6 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                         ),
                     ),
             ),
-            // Raw-path baseline for the local network: if these answer while every foreign control fails, the
-            // international link is the problem. Two providers, so one outage does not read as a broken network.
             TargetPackDefinition(
                 id = "domestic-control",
                 version = 1,

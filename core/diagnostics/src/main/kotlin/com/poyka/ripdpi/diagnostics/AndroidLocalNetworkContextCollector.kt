@@ -3,7 +3,6 @@ package com.poyka.ripdpi.diagnostics
 import android.content.Context
 import android.telephony.SubscriptionManager
 
-/** Captures settings without identifiers, network requests, or settings changes. */
 class AndroidLocalNetworkContextCollector internal constructor(
     private val platform: AndroidLocalNetworkPlatform,
     private val clock: () -> Long = System::currentTimeMillis,
@@ -26,7 +25,6 @@ class AndroidLocalNetworkContextCollector internal constructor(
         return if (after.scope == LocalSimScope.DEFAULT_DATA && before.id == after.id) {
             evidence
         } else {
-            // No part of a mixed-subscription observation may survive a selection change.
             LocalSimConstraints(scope = LocalSimScope.CHANGED)
         }
     }

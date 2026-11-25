@@ -13,7 +13,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class PreparePresetTaskTest {
-    // Shared with BackupEncryptionTest in :core:data, which decrypts the same archive with the app's code.
     private val fixtures = File("../../core/data/src/test/resources/backup").absoluteFile
 
     private fun run(
@@ -74,7 +73,6 @@ class PreparePresetTaskTest {
     @Test
     fun `encrypted export is decrypted before the bootstrap slot check`() =
         run(fixtures.resolve("preset-fixture.ripdpibackup")) { preset, prepare ->
-            // The shared fixture has no groups, so a correct decrypt reaches the slot check.
             assertTrue(assertFailsWith<GradleException> { prepare() }.message!!.contains("pending BOOTSTRAP"))
             assertFalse(preset.exists())
         }
@@ -82,7 +80,6 @@ class PreparePresetTaskTest {
     @Test
     fun `export without a pending bootstrap slot is rejected`() {
         assertRejected(export(groups = "[]"), "no group with a pending BOOTSTRAP")
-        // A SHARE export strips the subscription link, so its slot cannot be consumed.
         assertRejected(
             export(groups = "[${slotGroup.replace("https://relay.example/bootstrap/abc", "")}]"),
             "not a pending BOOTSTRAP slot",

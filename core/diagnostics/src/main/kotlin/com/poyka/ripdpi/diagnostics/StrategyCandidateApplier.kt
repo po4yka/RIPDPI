@@ -8,16 +8,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
-/** Applies a strategy that the user picked from the candidates of a strategy test. */
 class StrategyCandidateApplier
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
     ) {
-        /**
-         * The candidates of [session] that [apply] accepts on [currentNetworkScopeKey] and that would change the
-         * current settings.
-         */
         fun applicableIds(
             session: DiagnosticScanSession,
             currentNetworkScopeKey: String?,
@@ -34,10 +29,6 @@ class StrategyCandidateApplier
                 }.distinctUntilChanged()
         }
 
-        /**
-         * Returns false, and changes nothing, when the test did not complete normally, was measured on another
-         * network than [currentNetworkScopeKey], or the candidate is not in the test or did not pass.
-         */
         suspend fun apply(
             session: DiagnosticScanSession,
             currentNetworkScopeKey: String?,
@@ -47,7 +38,6 @@ class StrategyCandidateApplier
             val tcp = report?.tcpCandidates?.firstOrNull { it.id == candidateId }
             val candidate = tcp ?: report?.quicCandidates?.firstOrNull { it.id == candidateId } ?: return false
             var applied = false
-            // Validate and apply against one current value, so concurrent settings changes are preserved.
             appSettingsRepository.update {
                 DiagnosticsScanWorkflow.candidateStrategySettings(candidate, tcpLane = tcp != null, build())?.let {
                     clear().mergeFrom(it)
@@ -57,8 +47,6 @@ class StrategyCandidateApplier
             return applied
         }
 
-        // A partial test, or one from another network (or an old row that does not say which), shows nothing
-        // about the strategy this network needs.
         private fun DiagnosticScanSession.applicableReport(currentNetworkScopeKey: String?): StrategyProbeReport? =
             report
                 ?.strategyProbeReport

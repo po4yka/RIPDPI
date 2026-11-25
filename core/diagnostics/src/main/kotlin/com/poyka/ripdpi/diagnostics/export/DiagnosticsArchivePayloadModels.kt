@@ -78,7 +78,6 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
         DiagnosticsArchivePacketCaptureDisposition(false, DiagnosticsHomePacketCaptureOutcome.NOT_REQUESTED),
 )
 
-/** Redacted projection: raw-capture identifying fields never enter the archive. */
 @Serializable
 internal data class DiagnosticsArchivePacketCaptureDisposition(
     val requested: Boolean,

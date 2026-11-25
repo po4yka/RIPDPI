@@ -94,9 +94,6 @@ async fn tls_client_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch(
     stream.read_exact(&mut echoed_first_payload).await.expect("read first echoed payload");
     assert_eq!(echoed_first_payload, FIRST_PAYLOAD);
 
-    // A v6 bind IP against a v4-only resolved server must fail closed before
-    // any connect runs — silently ignoring the bind would route the carrier
-    // over the default interface instead of the pinned one.
     config.outbound_bind_ip = Some(IpAddr::V6("::1".parse().expect("v6 loopback")));
     let error = TrojanClient::connect_tcp(&config, &target, fixture.target_port(), FIRST_PAYLOAD)
         .await
@@ -107,7 +104,6 @@ async fn tls_client_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch(
     assert_eq!(io_error.kind(), std::io::ErrorKind::AddrNotAvailable);
 }
 
-/// Without a first payload, the request header goes out with the first write.
 #[tokio::test(flavor = "multi_thread")]
 async fn deferred_header_goes_out_with_the_first_write() {
     let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
@@ -147,8 +143,6 @@ fn loopback_config(fixture: &TrojanLoopback, root_certificate_pem: Option<String
     }
 }
 
-/// A `fullchain.pem` style bundle trusts every certificate, not only the first.
-///
 /// # Cancel safety:
 /// cancel-safe: cancellation during connect or partial I/O drops the test-owned streams;
 /// fixture Drop shuts down and joins the server threads, so no partial connection escapes the test.
@@ -179,7 +173,6 @@ async fn root_pem_bundle_trusts_a_certificate_after_the_first() {
 #[tokio::test(flavor = "multi_thread")]
 async fn root_pem_without_a_certificate_is_a_tls_config_error() {
     let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
-    // Port 1 would refuse a connection: the error must come before any network use.
     let mut config = loopback_config(&fixture, Some("no certificate here\n".to_owned()));
     config.server_port = 1;
     let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
@@ -191,8 +184,6 @@ async fn root_pem_without_a_certificate_is_a_tls_config_error() {
     assert!(matches!(error, TrojanError::TlsConfig(_)), "got {error:?}");
 }
 
-/// The UDP ASSOCIATE header rides with the first frame; the association works
-/// and the server sees command 0x03.
 #[tokio::test(flavor = "multi_thread")]
 async fn udp_associate_header_is_deferred_to_the_first_frame() {
     let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
@@ -212,8 +203,6 @@ async fn udp_associate_header_is_deferred_to_the_first_frame() {
     assert_eq!(fixture.observed().command, Some(0x03));
 }
 
-/// A server-first caller reads before it writes: the header goes out alone
-/// after the delay, and a later write still works.
 #[tokio::test(flavor = "multi_thread")]
 async fn udp_associate_read_first_sends_the_header_alone_then_echoes() {
     let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");

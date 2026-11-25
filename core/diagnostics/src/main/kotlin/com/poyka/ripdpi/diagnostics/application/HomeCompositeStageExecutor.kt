@@ -414,7 +414,6 @@ internal class HomeCompositeStageExecutor
                         targetOverrides = targetOverrides,
                     ) ?: return@run null
 
-                // A stage that settles as failed also yields null; only a missing settlement is a timeout.
                 val settlement =
                     withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
                         StageSettlement(awaitStageSignal(runId, stageIndex, spec, stageSessionId, progressState))

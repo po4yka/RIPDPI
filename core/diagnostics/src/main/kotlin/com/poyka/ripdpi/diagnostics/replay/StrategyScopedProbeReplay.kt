@@ -10,17 +10,6 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 
-/**
- * Runs [delegate] with the request's strategy active: activate, run, then restore in a finally block
- * that also runs on cancellation. A request with a scan session id (a native scan candidate) looks the
- * candidate's stored proxy config up in [configSource] and applies its strategy fields; any other
- * request activates the [candidateProvider] candidate with the same id. Fails the flow, without
- * touching settings, when the config is gone or invalid, the strategy id is unknown, or another
- * strategy run holds [StrategyProbeRunGuard]. Error messages never include config content.
- *
- * Like the strategy probe, this writes app settings and assumes the runtime picks them up; there is
- * no settings-to-runtime reload signal to await.
- */
 class StrategyScopedProbeReplay(
     private val delegate: ProbeReplayService,
     private val candidateProvider: StrategyProbeCandidateProvider,
@@ -41,7 +30,6 @@ class StrategyScopedProbeReplay(
             }
         }
 
-    /** Activates the request's strategy and returns the action that puts the original back. */
     private suspend fun activate(request: ReplayProbeRequest): suspend () -> Unit {
         val sessionId = request.sessionId
         return if (sessionId != null) {

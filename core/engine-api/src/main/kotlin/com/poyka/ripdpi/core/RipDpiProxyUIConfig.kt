@@ -64,7 +64,6 @@ data class RipDpiProtocolConfig(
     val desyncHttp: Boolean = true,
     val desyncHttps: Boolean = true,
     val desyncUdp: Boolean = false,
-    /** Master switch for SOCKS5 UDP ASSOCIATE; default-on preserves the historical always-on behaviour. */
     val udpAssociateEnabled: Boolean = true,
 )
 
@@ -210,12 +209,7 @@ data class RipDpiHostAutolearnConfig(
 data class RipDpiWsTunnelConfig(
     val enabled: Boolean = false,
     val mode: String? = null,
-    /** Cover domain for the WS-tunnel TLS SNI. Empty/null disables fake-SNI. */
     val fakeSni: String? = null,
-    /**
-     * Operator opt-in that [fakeSni] may disable TLS certificate verification.
-     * The native runtime refuses a fake-SNI cover unless this is true.
-     */
     val allowInsecureSni: Boolean = false,
     val cloudflareWorkerUrl: String? = null,
     val cloudflareWorkerCredentialRef: String? = null,
@@ -272,8 +266,6 @@ data class RipDpiRelayConfig(
     val chainExitPublicKey: String = "",
     val chainExitShortId: String = "",
     val chainExitProfileId: String = "",
-    // Ordered intermediate chain-relay hop profile IDs (positions strictly
-    // between entry and exit) for N-hop (3..4) chains. Empty for two-hop chains.
     val chainMiddleProfileIds: List<String> = emptyList(),
     val masqueUrl: String = "",
     val masqueTcpProtocol: String = "http2",
@@ -308,7 +300,6 @@ data class RipDpiRelayConfig(
     val ptSnowflakeFrontDomain: String = "",
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
-    /** Session credentials of the started relay listener; set only at runtime, never persisted. */
     @Transient val localSocksCredentials: LocalSocksCredentials? = null,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
@@ -351,23 +342,17 @@ data class RipDpiWarpAmneziaConfig(
     val s3: Int = 0,
     @Required
     val s4: Int = 0,
-    // AmneziaWG 3.1 I1..I5 signature programs. Empty = unset.
     val i1: String = "",
     val i2: String = "",
     val i3: String = "",
     val i4: String = "",
     val i5: String = "",
-    // Base64/hex 32-byte WireGuard preshared key ([Peer] PresharedKey); empty =
-    // none. WARP itself uses no PSK; a generic AmneziaWG peer may.
     val presharedKey: String = "",
-    // [Peer] PersistentKeepalive in seconds; 0 disables keepalive. Defaults to
-    // WARP's historical 25s pin.
     val persistentKeepalive: Int = 25,
 )
 
 @Serializable
 data class RipDpiWarpConfig(
-    /** Resolver authority captured from the active standalone AWG runtime request. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val awgDnsServers: List<String> = emptyList(),
     val enabled: Boolean = false,

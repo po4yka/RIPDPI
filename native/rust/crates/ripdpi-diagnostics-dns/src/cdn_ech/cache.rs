@@ -11,9 +11,6 @@ struct CachedEch {
     fetched_at_unix_ms: u64,
 }
 
-/// Persistable view of the cache, suitable for round-tripping through platform
-/// storage. Exposed by [`CdnEchUpdater::snapshot_for_persistence`] and consumed
-/// by [`CdnEchUpdater::seed_from_persisted`].
 #[derive(Debug, Clone)]
 pub struct CachedEchSnapshot {
     pub config: Vec<u8>,
@@ -24,8 +21,6 @@ pub(crate) fn now_unix_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO).as_millis() as u64
 }
 
-/// Reconstruct the monotonic anchor for a cache entry whose wall-clock fetch
-/// time is `fetched_at_unix_ms`.
 pub(crate) fn synthesize_instant_for_unix_ms(
     fetched_at_unix_ms: u64,
     now_instant: Instant,
@@ -38,7 +33,6 @@ pub(crate) fn synthesize_instant_for_unix_ms(
     now_instant.checked_sub(Duration::from_millis(age_ms)).unwrap_or(now_instant)
 }
 
-/// TTL-gated cache with primary -> fallback semantics.
 pub struct CdnEchUpdater<P, F> {
     primary: P,
     fallback: F,
@@ -47,18 +41,15 @@ pub struct CdnEchUpdater<P, F> {
 }
 
 impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
-    /// Create a new updater.
     pub fn new(primary: P, fallback: F, ttl: Duration) -> Self {
         Self { primary, fallback, cache: Mutex::new(None), ttl }
     }
 
-    /// Return fresh cached bytes without fetching on the caller's network path.
     pub fn cached_config(&self) -> Option<Vec<u8>> {
         let guard = self.cache.lock().ok()?;
         guard.as_ref().filter(|cached| cached.fetched_at.elapsed() < self.ttl).map(|cached| cached.config.clone())
     }
 
-    /// Return the current ECHConfigList bytes.
     pub fn current_config(&self) -> Vec<u8> {
         let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
 
@@ -92,7 +83,6 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         }
     }
 
-    /// Force a refresh regardless of TTL.
     pub fn refresh(&self) -> Result<(), EchSourceError> {
         let fresh = self.primary.fetch().or_else(|_| self.fallback.fetch())?;
         let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
@@ -100,7 +90,6 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         Ok(())
     }
 
-    /// Seed the cache from previously-persisted bytes.
     pub fn seed_from_persisted(&self, config: Vec<u8>, fetched_at_unix_ms: u64) -> Result<(), EchSourceError> {
         validate_ech_config_list_bytes(&config)?;
         let now_instant = Instant::now();
@@ -110,7 +99,6 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         Ok(())
     }
 
-    /// Snapshot of the current cache for persistence to platform storage.
     pub fn snapshot_for_persistence(&self) -> Option<CachedEchSnapshot> {
         let guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
         guard.as_ref().map(|cached| CachedEchSnapshot {

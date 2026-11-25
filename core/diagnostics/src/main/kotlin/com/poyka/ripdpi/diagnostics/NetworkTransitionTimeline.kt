@@ -46,7 +46,6 @@ internal enum class NetworkLosingDeadlineBand(
     Later("later"),
 }
 
-/** Privacy-safe callback fact. Network handles and link-layer values never cross this boundary. */
 internal data class NetworkTransitionEvent(
     val connectionSessionId: String,
     val generation: Long,
@@ -95,7 +94,6 @@ internal data class NetworkTransitionAdmission(
     val epoch: Long,
 )
 
-/** Serializes complete callback admission with terminal deactivation. */
 internal class NetworkTransitionSessionGate {
     private val lock = Any()
     private var nextEpoch = 0L
@@ -159,11 +157,6 @@ private sealed interface NetworkTransitionAdmissionState {
     ) : NetworkTransitionAdmissionState
 }
 
-/**
- * Single-consumer bounded callback lane. Callback producers use [Channel.trySend], so they never
- * block ConnectivityManager's callback thread. Terminal consumers can enqueue a barrier with a
- * bounded wait; later callback events cannot displace that barrier.
- */
 internal class NetworkTransitionTimeline(
     scope: CoroutineScope,
     private val clock: NetworkTransitionClock = AndroidNetworkTransitionClock,

@@ -189,7 +189,6 @@ mod tests {
 
     #[test]
     fn tls13_with_ech_uses_tls13_protocol_version() {
-        // The ECH profile is TLS 1.3-only, even before live ECH config discovery.
         let profile = TlsClientProfile::Tls13WithEch;
         let _builder = match profile {
             TlsClientProfile::Auto => {

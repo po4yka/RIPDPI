@@ -383,7 +383,6 @@ class DiagnosticsBootstrapperTest {
 
 private const val HandoverResubscribeWaitMillis = 1_001L
 
-/** The first subscription fails as a closed database would; later ones see the live events. */
 private class FailingOnceHandoverEventStore(
     private val delegate: FakePolicyHandoverEventStore,
 ) : PolicyHandoverEventStore by delegate {

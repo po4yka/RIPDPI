@@ -11,7 +11,6 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** Builds the disclosed developer-analytics surface from nested positive projections. */
 internal object DeveloperAnalyticsAllowListFilter {
     private val topLevelKeys =
         setOf(

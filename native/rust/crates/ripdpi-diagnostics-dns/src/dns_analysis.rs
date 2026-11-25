@@ -1,10 +1,3 @@
-//! DNS response analysis for tampering detection.
-//!
-//! Inspects raw DNS response bytes to extract protocol-level anomaly signals
-//! that indicate forged responses (middlebox injection, ISP DNS hijacking, etc.).
-//! Uses a two-layer approach: raw byte header parsing (always works) plus
-//! hickory-proto `Message` parsing (best-effort, graceful fallback).
-
 mod compression;
 mod records;
 mod response;

@@ -140,7 +140,6 @@ fn forged_response_scores_high() {
         ..Default::default()
     });
     let analysis = analyze_dns_response(&packet);
-    // 45 is the dns_response_anomaly threshold in the diagnosis layer.
     assert!(
         analysis.tampering_score >= 45,
         "forged response should score >= 45, got {} (signals: {:?})",
@@ -157,7 +156,6 @@ fn forged_response_scores_high() {
 
 #[test]
 fn ordinary_answer_to_an_opt_less_query_stays_below_the_anomaly_threshold() {
-    // A compliant resolver can answer an OPT-less client without OPT (RFC 6891 section 7).
     let packet = build_dns_response(&ResponseConfig {
         ra: true,
         answer_count: 1,
@@ -403,8 +401,6 @@ fn compare_ttl_divergence() {
 
 #[test]
 fn cache_age_case_and_cdn_steering_are_not_divergence() {
-    // ISP cache filled two hours ago, DoH cache fresh; the same CDN name in another case; the ISP
-    // resolver also gets a steered CNAME and a larger pool that share an address with DoH.
     let udp_packet = build_dns_response(&ResponseConfig {
         answer_count: 6,
         answers: vec![

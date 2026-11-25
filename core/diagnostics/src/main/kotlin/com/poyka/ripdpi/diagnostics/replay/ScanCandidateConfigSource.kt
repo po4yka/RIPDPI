@@ -4,7 +4,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsSessionQueries
 import kotlinx.serialization.json.Json
 
-/** Looks up the stored proxy config of one candidate of a saved scan. The config never leaves core. */
 fun interface ScanCandidateConfigSource {
     suspend fun proxyConfigJson(
         sessionId: String,

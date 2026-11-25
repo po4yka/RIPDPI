@@ -271,7 +271,6 @@ data class PtEndpoint(
 
     override fun toString(): String = if (':' in host) "[$host]:$port" else "$host:$port"
 
-    /** True for RFC 5737 documentation ranges. */
     fun isDocumentationAddress(): Boolean =
         DocumentationPrefixes.any { prefix -> host.startsWith(prefix) && host.count { it == '.' } == IPv4Dots }
 }

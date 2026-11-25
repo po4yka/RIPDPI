@@ -25,15 +25,8 @@ pub enum PaddingStep {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaddingAction {
     Payload(Vec<u8>),
-    /// The rest of the payload and a cmdWaste frame of `waste_len` padding
-    /// bytes, written together as one TLS record of the step's target size.
-    PayloadThenWaste {
-        payload: Vec<u8>,
-        waste_len: usize,
-    },
-    Waste {
-        len: usize,
-    },
+    PayloadThenWaste { payload: Vec<u8>, waste_len: usize },
+    Waste { len: usize },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,9 +60,6 @@ pub struct PaddingScheme {
 }
 
 impl PaddingScheme {
-    /// Parses a scheme as the reference does: keys that are not packet
-    /// indexes are ignored, invalid or oversized range parts are skipped, and
-    /// `stop=0` disables padding. Only a missing or non-numeric `stop` fails.
     pub fn parse(raw_scheme: &[u8]) -> Result<Self, PaddingError> {
         let text = std::str::from_utf8(raw_scheme).map_err(|_| PaddingError::InvalidUtf8)?;
         let mut stop = None;
@@ -113,13 +103,10 @@ impl PaddingScheme {
         &self.padding_md5
     }
 
-    /// Plans `packet_index` with one fixed `selector` for every range; for tests.
     pub fn plan_for_packet(&self, packet_index: u32, selector: u64) -> Result<PaddingPlan, PaddingError> {
         self.plan_for_packet_with(packet_index, || selector)
     }
 
-    /// Plans `packet_index`, calling `next_selector` once per size range, so
-    /// a random source draws every range independently.
     pub fn plan_for_packet_with(
         &self,
         packet_index: u32,
@@ -148,10 +135,6 @@ impl PaddingScheme {
             .collect()
     }
 
-    /// Length of the zero padding after the auth hash. As the reference client
-    /// does, it takes the first part of the packet-0 rule whatever `stop` is.
-    /// A leading `c` yields 0: the reference would send the check mark as a
-    /// 65535 length with no bytes behind it, which breaks the stream.
     pub fn auth_padding0_len(&self, selector: u64) -> Result<usize, PaddingError> {
         let Some(rules) = self.packet_rules.get(&0) else {
             return Ok(0);
@@ -162,7 +145,6 @@ impl PaddingScheme {
         })
     }
 
-    /// [`Self::write_plan_for_packet_with`] with one fixed `selector`; for tests.
     pub fn write_plan_for_packet(
         &self,
         packet_index: u32,
@@ -172,8 +154,6 @@ impl PaddingScheme {
         self.write_plan_for_packet_with(packet_index, payload, || selector)
     }
 
-    /// Splits `payload` into the records of `packet_index`; see
-    /// [`Self::plan_for_packet_with`] for `next_selector`.
     pub fn write_plan_for_packet_with(
         &self,
         packet_index: u32,
@@ -224,8 +204,6 @@ impl PaddingScheme {
     }
 }
 
-/// Skips a part that is not `c` or a positive range, or that would take the
-/// packet past one wire frame; the reference skips parts it cannot use.
 fn parse_packet_rule(value: &str) -> Vec<SizeRule> {
     let mut rules = Vec::new();
     let mut total_size: usize = 0;
@@ -258,8 +236,6 @@ fn parse_packet_rule(value: &str) -> Vec<SizeRule> {
     rules
 }
 
-/// Draws from `[min, max)` as the reference does (`rand.Int(max-min) + min`);
-/// `min < max` holds because equal bounds parse as `Fixed`.
 fn select_size(min: usize, max: usize, selector: u64) -> usize {
     let span = max - min;
     min + usize::try_from(selector % u64::try_from(span).expect("usize span fits u64"))

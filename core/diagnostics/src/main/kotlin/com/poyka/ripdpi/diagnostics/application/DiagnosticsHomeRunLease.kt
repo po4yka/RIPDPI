@@ -8,7 +8,6 @@ import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Serializes Home ownership with scan admission and profile changes. */
 @Singleton
 class DiagnosticsHomeRunLease
     @Inject

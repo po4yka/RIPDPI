@@ -129,7 +129,6 @@ class RipDpiXrayRuntimeTest {
 
             assertEquals(0, code)
             assertEquals(VpnProviderState.Starting, runtime.providerState)
-            // Protect-first invariant: registerProtect strictly precedes start.
             val registerIdx = bridge.callLog.indexOf("registerProtect")
             val startIdx = bridge.callLog.indexOf("start")
             assertTrue("registerProtect must be logged", registerIdx >= 0)
@@ -166,7 +165,6 @@ class RipDpiXrayRuntimeTest {
             } catch (e: XrayRuntimeException.StartupFailed) {
                 assertEquals(7, e.code)
             }
-            // Reset so a retry is possible.
             assertEquals(VpnProviderState.Stopped, runtime.providerState)
         }
 
@@ -185,8 +183,6 @@ class RipDpiXrayRuntimeTest {
     @Test
     fun `awaitReady times out and tears down when listener never becomes ready`() =
         runTest {
-            // Listener never ready (needs more polls than the timeout allows),
-            // but process stays alive so it is a timeout, not a crash.
             val bridge = FakeXrayNativeBridge(readyAfterPolls = Int.MAX_VALUE)
             val runtime =
                 RipDpiXrayRuntime(
@@ -202,7 +198,6 @@ class RipDpiXrayRuntimeTest {
                 assertNotNull(e.message)
             }
             assertEquals(VpnProviderState.Stopped, runtime.providerState)
-            // Timed-out start must be torn down.
             assertTrue("stop must run on readiness timeout", bridge.stopCount >= 1)
         }
 
@@ -240,10 +235,6 @@ class RipDpiXrayRuntimeTest {
             }
         }
 
-    // The stop-path tests use runBlocking (real time): stop() bounds a blocking
-    // native call on Dispatchers.IO, which does not compose with runTest's
-    // virtual clock. Readiness tests above keep runTest for fast virtual delays.
-
     @Test
     fun `stop returns Clean on normal teardown`() {
         val bridge = FakeXrayNativeBridge(readyAfterPolls = 0)
@@ -267,12 +258,10 @@ class RipDpiXrayRuntimeTest {
         val runtime = RipDpiXrayRuntime(XrayRuntimeOwner(bridge, kotlinx.coroutines.Dispatchers.Unconfined))
 
         runBlocking {
-            // Late / never-started stop.
             val first = runtime.stop()
             assertEquals(StopCause.AlreadyStopped, first)
             assertEquals(0, bridge.stopCount)
 
-            // Start, stop once cleanly, then stop again — second is AlreadyStopped.
             runtime.start(secretConfig, protect)
             runtime.awaitReady(timeoutMillis = 10_000)
             assertEquals(StopCause.Clean, runtime.stop())
@@ -370,7 +359,6 @@ class RipDpiXrayRuntimeTest {
                     config = XrayProviderConfig(localInboundPort = 10808),
                 )
 
-            // Stopped snapshot.
             val stopped = runtime.pollTelemetry()
             assertEquals("xray", stopped.source)
             assertEquals("xray", stopped.ptRuntimeKind)
@@ -387,7 +375,6 @@ class RipDpiXrayRuntimeTest {
             assertEquals("healthy", running.health)
             assertEquals("127.0.0.1:10808", running.listenerAddress)
 
-            // Secret-safety: no field of the snapshot leaks config secrets.
             val serialized = running.toString() + stopped.toString()
             assertFalse(
                 "telemetry must not contain the VLESS UUID",
@@ -427,7 +414,6 @@ class RipDpiXrayRuntimeTest {
 
             runtime.start(secretConfig, recording)
 
-            // Simulate libXray invoking the registered protect callback for an fd.
             val accepted = bridge.registeredProtectController?.protect(42) ?: false
             assertTrue(accepted)
             assertEquals(42, protectedFd)

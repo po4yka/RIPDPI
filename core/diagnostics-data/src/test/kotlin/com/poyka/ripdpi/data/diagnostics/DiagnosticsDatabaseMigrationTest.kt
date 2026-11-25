@@ -16,7 +16,6 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class DiagnosticsDatabaseMigrationTest {
-    /** Creates databases from the exported schema JSONs exposed as test assets; closes them after each test. */
     @get:Rule
     val schemaHelper: MigrationTestHelper =
         MigrationTestHelper(
@@ -24,12 +23,6 @@ class DiagnosticsDatabaseMigrationTest {
             DiagnosticsDatabase::class.java,
         )
 
-    /**
-     * Opens a fresh database through the production builder with allowDestructiveFallback = false.
-     * Room creates the database at the current schema version directly (no migration path needed
-     * for a brand-new DB). This proves the production builder does not throw when destructive
-     * fallback is disabled and the schema is in sync.
-     */
     @Test
     fun opensCurrentSchemaWithoutDestruction() {
         val dbName = "migration-test-open-${System.nanoTime()}.db"
@@ -43,7 +36,6 @@ class DiagnosticsDatabaseMigrationTest {
                 allowDestructiveFallback = false,
             )
         try {
-            // Opening writableDatabase triggers Room schema validation — must not throw.
             db.openHelper.writableDatabase
                 .query("SELECT COUNT(*) FROM scan_sessions")
                 .close()
@@ -53,12 +45,6 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
-    /**
-     * Guard test: DiagnosticsDatabaseMigrations.ALL must have one Migration object for every
-     * schema version from 4 (the first version under migration management). When a developer
-     * bumps @Database(version = N), they MUST append Migration(N-1, N) to ALL before this test
-     * will pass again. The correct fix is never to re-enable destructive fallback.
-     */
     @Test
     fun migrationRegistryCoversVersionGap() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -77,8 +63,6 @@ class DiagnosticsDatabaseMigrationTest {
             context.deleteDatabase(dbName)
         }
 
-        // Schema 4 shipped in v0.1.0 (the oldest public release) and must migrate in place.
-        // Only the pre-release schemas below it may take the scoped destructive path.
         val firstManagedVersion = 4
         assertEquals(
             "Only pre-release schemas below the first managed version may be recreated destructively",
@@ -94,10 +78,6 @@ class DiagnosticsDatabaseMigrationTest {
             DiagnosticsDatabaseMigrations.ALL.size,
         )
 
-        // Count alone is not enough: a mis-ranged Migration(5, 7) would satisfy the size
-        // check while leaving version 6 uncovered. Walk the sorted chain and assert each
-        // migration steps exactly one version, contiguously from firstManagedVersion to
-        // currentDbVersion, so any gap or overlap fails here.
         val sorted = DiagnosticsDatabaseMigrations.ALL.sortedBy { it.startVersion }
         var expected = firstManagedVersion
         for (migration in sorted) {
@@ -112,10 +92,6 @@ class DiagnosticsDatabaseMigrationTest {
         )
     }
 
-    /**
-     * v0.1.0 shipped diagnostics schema 4. Upgrading such an install must migrate in place
-     * through the production builder (no destructive fallback) and keep existing rows.
-     */
     @Test
     fun `deployed version 4 database migrates to current schema and keeps telemetry rows`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -147,7 +123,6 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
-    /** The v4 -> v5 step must produce exactly the exported schema 5 (checked by Room). */
     @Test
     fun `migration 4 to 5 matches the exported version 5 schema`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -167,11 +142,6 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
-    /**
-     * Pre-release schemas 1..3 (v0.0.8 and earlier) hold only disposable diagnostics data.
-     * They must open on the current version through the scoped destructive path instead of
-     * throwing "A migration from N to current was required but not found".
-     */
     @Test
     fun `pre-release version 1 to 3 databases are recreated on the current schema`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -616,7 +586,6 @@ class DiagnosticsDatabaseMigrationTest {
         }
     }
 
-    /** Inserts one telemetry row using only the columns that exist in schema 4. */
     private fun SupportSQLiteDatabase.insertVersion4TelemetrySample() {
         execSQL(
             "INSERT INTO telemetry_samples " +
@@ -677,7 +646,6 @@ class DiagnosticsDatabaseMigrationTest {
     }
 
     private companion object {
-        /** Current schema version; migrationRegistryCoversVersionGap ties the chain end to @Database. */
         val DIAGNOSTICS_DB_VERSION: Int = DiagnosticsDatabaseMigrations.ALL.maxOf { it.endVersion }
     }
 }

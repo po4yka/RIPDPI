@@ -747,7 +747,6 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     mode = "vpn",
                     status = RememberedNetworkPolicyStatusSuppressed,
                     lastValidatedAt = clock.now() - 50L,
-                    // A suppressed policy stays out after the old 24 h window; only a probe validates it again.
                     suppressedUntil = clock.now() - 1L,
                     updatedAt = clock.now() - 50L,
                 ),
@@ -761,7 +760,6 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     updatedAt = clock.now(),
                 ),
             )
-            // Older builds validated an ordinary session by its time and traffic; no probe measured it.
             store.upsertRememberedNetworkPolicy(
                 rememberedPolicy(
                     fingerprintHash = "fp-session",
@@ -772,7 +770,6 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     source = RememberedNetworkPolicySource.MANUAL_SESSION,
                 ),
             )
-            // Validated by a clock that ran ahead: the age bound must not keep it replayable forever.
             store.upsertRememberedNetworkPolicy(
                 rememberedPolicy(
                     fingerprintHash = "fp-future",
@@ -782,7 +779,6 @@ class DiagnosticsNetworkPolicyStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                     updatedAt = clock.now(),
                 ),
             )
-            // Nothing measured to replay: it must neither be replayed nor keep automatic probing away.
             store.upsertRememberedNetworkPolicy(
                 rememberedPolicy(
                     fingerprintHash = "fp-no-lane",

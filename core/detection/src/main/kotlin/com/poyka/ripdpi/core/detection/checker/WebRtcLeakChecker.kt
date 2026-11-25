@@ -82,7 +82,6 @@ object WebRtcLeakChecker {
                     socket.withStunCancellation {
                         socket.connect(InetSocketAddress(address, port))
 
-                        // STUN Binding Request: type=0x0001, length=0, magic=0x2112A442, txn=random
                         val request = ByteArray(20)
                         random.nextBytes(request)
                         request[0] = 0x00

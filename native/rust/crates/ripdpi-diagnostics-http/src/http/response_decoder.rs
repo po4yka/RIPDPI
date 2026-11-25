@@ -20,7 +20,6 @@ use super::HttpResponse;
 const INPUT_CAPACITY: usize = 8192;
 pub(super) const MAX_INFORMATIONAL: usize = 4;
 
-/// The source of the response body's completion boundary.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HttpBodyFraming {
     Length(u64),
@@ -28,7 +27,6 @@ pub enum HttpBodyFraming {
     Eof,
 }
 
-/// A library-decoded response event. Input is requested only between polls.
 #[derive(Debug)]
 pub enum HttpResponseEvent {
     NeedInput,
@@ -37,11 +35,6 @@ pub enum HttpResponseEvent {
     Complete,
 }
 
-/// Response-only HTTP/1 decoder for already-sent diagnostic requests.
-///
-/// The Hyper request supplies method context only. Its output goes to a sink,
-/// never to the network, so probes retain their exact request bytes. Drop ends
-/// decoding immediately; this type creates no tasks, runtimes, or threads.
 pub struct HttpResponseDecoder {
     input: mpsc::Sender<Bytes>,
     can_feed: bool,
@@ -84,7 +77,6 @@ impl HttpResponseDecoder {
         })
     }
 
-    /// Maximum bytes that the next feed can accept without unbounded buffering.
     pub fn input_capacity(&self) -> usize {
         if self.head_received { INPUT_CAPACITY } else { INPUT_CAPACITY.min(self.head_budget) }
     }
@@ -155,8 +147,6 @@ impl HttpResponseDecoder {
                 self.head_received |= matches!(event, HttpResponseEvent::Head(..));
                 return Ok(event);
             }
-            // All polling occurs on this thread. The flag only records a request
-            // to poll again; it publishes no data, so Relaxed is sufficient.
             if self.wake.notified.swap(false, Ordering::Relaxed) {
                 continue;
             }
@@ -205,7 +195,6 @@ impl Read for BufferedInput {
                 Poll::Ready(Some(bytes)) => self.bytes = bytes,
                 Poll::Ready(None) => return Poll::Ready(Ok(())),
                 Poll::Pending => {
-                    // Same-thread control signal only; payload ownership passes through the channel.
                     self.wake.needs_input.store(true, Ordering::Relaxed);
                     return Poll::Pending;
                 }
@@ -316,7 +305,6 @@ pub(super) fn response_framing(
             return Err("invalid_framing");
         }
         if method == Method::HEAD {
-            // RFC 9112 sections 6.1 and 6.3: transfer codings describe the hypothetical GET body.
             if version == Version::HTTP_10 || status < 200 || status == 204 || !valid_head_transfer_codings(headers) {
                 return Err("invalid_framing");
             }

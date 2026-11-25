@@ -16,19 +16,10 @@ pub struct ShadowTlsStream<S> {
     write_hmac: ShadowTlsHmac,
     handshake_hmac: Option<ShadowTlsHmac>,
     pending_plaintext: Vec<u8>,
-    // Read and write keep SEPARATE frame buffers. They were once a single
-    // shared `pending_frame`/`pending_frame_offset`, which serialized the duplex
-    // into a frame-by-frame ping-pong under `tokio::io::split` /
-    // `copy_bidirectional` (an inbound frame in progress and a queued outbound
-    // frame could not coexist), collapsing throughput onto the ~40ms delayed-ACK
-    // timer. Keeping them independent lets both directions pipeline.
     read_frame: Vec<u8>,
     read_frame_offset: usize,
     write_frame: Vec<u8>,
     write_frame_offset: usize,
-    /// Waker of a write, flush or shutdown waiting for the queued frame to
-    /// drain. A read that drains the frame wakes it too, so the carrier's
-    /// single write-readiness slot never loses the writer's wakeup.
     write_waker: Option<Waker>,
     eof: bool,
 }
@@ -60,7 +51,6 @@ impl<S> ShadowTlsStream<S>
 where
     S: AsyncWrite + Unpin,
 {
-    /// Writes the rest of the pending outbound frame to the carrier.
     fn poll_drain_write_frame(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         while self.write_frame_offset < self.write_frame.len() {
             let write_result = {
@@ -85,8 +75,6 @@ where
         Poll::Ready(Ok(()))
     }
 
-    /// [`Self::poll_drain_write_frame`] for a writer that waits on the result:
-    /// remembers its waker while the drain is pending.
     fn poll_drain_write_frame_for_writer(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let result = self.poll_drain_write_frame(cx);
         self.write_waker = if result.is_pending() { Some(cx.waker().clone()) } else { None };
@@ -94,7 +82,6 @@ where
     }
 }
 
-/// Wakes the reader and the waiting writer together.
 struct ReaderAndWriterWaker {
     reader: Waker,
     writer: Waker,
@@ -127,15 +114,11 @@ where
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
         let this = self.as_mut().get_mut();
 
-        // A write-through that hit Pending leaves a frame queued, and a caller
-        // that only reads next (a server-first protocol) would never send it.
         if this.write_frame_offset < this.write_frame.len() {
             let waker = reader_and_writer_waker(cx.waker(), this.write_waker.as_ref());
             match this.poll_drain_write_frame(&mut Context::from_waker(&waker)) {
                 Poll::Ready(Ok(())) => {}
-                // The carrier wakes this reader and any waiting writer when writable.
                 Poll::Pending => {}
-                // The frame stays queued; the next write, flush or shutdown retries it and reports the error.
                 Poll::Ready(Err(_)) => {}
             }
         }
@@ -250,14 +233,9 @@ where
         let write_len = buf.len().min(MAX_WRITE_PAYLOAD_LEN);
         let payload = &buf[..write_len];
         this.write_frame = frame_payload(&mut this.write_hmac, payload)?;
-        // Write through: callers (the VLESS request header) may never flush,
-        // and a server-first peer then waits forever. The payload is already
-        // accepted, so this call reports success in every case.
         match this.poll_drain_write_frame(cx) {
             Poll::Ready(Ok(())) => {}
-            // No writer waits now; the next read, write, flush or shutdown sends the rest.
             Poll::Pending => {}
-            // The frame stays queued; the next write, flush or shutdown retries it and reports the error.
             Poll::Ready(Err(_)) => {}
         }
         Poll::Ready(Ok(write_len))

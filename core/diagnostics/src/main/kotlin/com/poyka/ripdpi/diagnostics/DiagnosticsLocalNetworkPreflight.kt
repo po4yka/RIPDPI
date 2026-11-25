@@ -68,7 +68,6 @@ private class LocalNetworkScanFilter(
                 },
             quicTargets =
                 allowed(request.quicTargets, EngineProbeTaskFamily.QUIC, "quic_reachability", { it.host }) {
-                    // Native input validation reports malformed Initial targets without opening a socket.
                     val validInitialTarget =
                         it.port in 1..IpProbeMaxPort && it.host.canonicalQuicProbeHostOrNull() != null
                     if (request.kind != ScanKind.CONNECTIVITY || validInitialTarget) {
@@ -110,7 +109,6 @@ private class LocalNetworkScanFilter(
                 },
         )
 
-    /** Probes that carry one endpoint each; admitted after the target lists so deferred rows keep their order. */
     private suspend fun admitSingleEndpointProbes(
         request: EngineScanRequestWire,
         telegramMedia: URI?,
@@ -227,7 +225,6 @@ private suspend fun AndroidLocalNetworkAccess.requireHosts(
     host: String,
     port: Int,
 ) {
-    // Mirror native ordered_connect_targets: legacy address, preferred edges, then hostname fallback.
     val peers = (listOfNotNull(ip) + ips + host).filter(String::isNotBlank).distinct()
     peers.forEach { requireDirectEndpoint(it, port) }
 }
@@ -241,7 +238,6 @@ private fun URI.networkPort(): Int = port.takeIf { it > 0 } ?: if (scheme == "ht
 
 private val BracketedDnsServer = Regex("""^\[(.+)]:(\d+)$""")
 
-/** Catalog UDP servers are `host:port` or `[ipv6]:port`; a bare host or IPv6 address uses port 53. */
 private fun splitDnsServer(server: String): Pair<String, Int> {
     BracketedDnsServer.matchEntire(server)?.let { match ->
         return match.groupValues[1] to (match.groupValues[2].toIntOrNull() ?: DnsPort)

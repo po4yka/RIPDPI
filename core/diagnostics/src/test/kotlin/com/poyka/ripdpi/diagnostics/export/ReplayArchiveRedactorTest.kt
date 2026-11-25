@@ -82,9 +82,6 @@ class ReplayArchiveRedactorTest {
 
     @Test
     fun timestampWithColons_isNotRedacted() {
-        // Time strings like "12:34:56" carry only two colons and no "::"
-        // — the IPv6 pattern requires either 7 colons or "::" shorthand,
-        // so this must pass through unchanged.
         val original = "started at 12:34:56"
         assertEquals(original, redactor.redact(original))
     }

@@ -39,15 +39,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DefaultProbeReplayServiceTest {
-    /**
-     * HTTP-only harness per the spec's degradation clause: TLS steps are
-     * not emitted in the success path because the request is plain HTTP.
-     * Tests 1 and 3 assert the subset {DnsResolve, TcpOpen, FirstByte};
-     * test 2 (connection reset) uses HTTP because OkHttp reports the
-     * RST on the response read, exercising the ConnectionReset
-     * classification independently of TLS.
-     */
-
     private val recommendationEngine: ReplayRecommendationEngine =
         ReplayRecommendationEngine.forTesting(
             ReplayRecommendationCatalogParser.parse(
@@ -115,7 +106,6 @@ class DefaultProbeReplayServiceTest {
             try {
                 runCurrent()
                 releaseResponse.countDown()
-                // This executor barrier proves onResponse finished while coroutine dispatch is still paused.
                 executor.submit {}.get(3, TimeUnit.SECONDS)
                 assertFalse(closed.get())
                 collector.cancel()
@@ -153,7 +143,6 @@ class DefaultProbeReplayServiceTest {
                 val finished = events.filterIsInstance<ReplayStepEvent.Finished>().single()
                 assertEquals(ReplayVerdict.Success, finished.verdict)
                 assertEquals("", finished.recommendationKey)
-                // Terminal step on success is the last successful step (no in-flight step).
                 assertEquals(ReplayStepKind.FirstByte, finished.terminalStep)
                 assertEquals(1, server.requestCount)
             }
@@ -163,10 +152,6 @@ class DefaultProbeReplayServiceTest {
     fun connectionResetMidRequest_emitsStepFailedConnectionResetThenFinishedFailure() =
         runTest {
             MockWebServer().use { server ->
-                // Server accepts the TCP connection but slams the socket
-                // shut before responding, mimicking the RST-after-handshake
-                // pattern OkHttp surfaces as "unexpected end of stream" /
-                // "Connection reset".
                 server.enqueue(
                     MockResponse
                         .Builder()
@@ -187,11 +172,6 @@ class DefaultProbeReplayServiceTest {
 
                 val finished = events.filterIsInstance<ReplayStepEvent.Finished>().single()
                 assertEquals(ReplayVerdict.Failure, finished.verdict)
-                // TCP came up (we got past connectEnd), then the server
-                // closed the socket -- so the terminal step is whichever
-                // step OkHttp was in flight on, which is the next one
-                // after TcpOpen in our state machine. With HTTP (no TLS)
-                // that is the implicit FirstByte boundary.
                 assertNotNull("expected terminal step set on failure", finished.terminalStep)
                 assertEquals(events.filterIsInstance<ReplayStepEvent.StepFailed>().last().step, finished.terminalStep)
             }
@@ -229,8 +209,6 @@ class DefaultProbeReplayServiceTest {
     fun timeout_emitsFinishedFailureWithTerminalStep() =
         runTest {
             MockWebServer().use { server ->
-                // Server accepts connection but delays the response well
-                // past the client timeout, forcing a SocketTimeoutException.
                 server.enqueue(
                     MockResponse
                         .Builder()
@@ -255,14 +233,8 @@ class DefaultProbeReplayServiceTest {
 
     @Test
     fun flowCancellation_cancelsUnderlyingCall() =
-        // runBlocking, not runTest: the implementation does real I/O on
-        // Dispatchers.IO, and runTest's virtual scheduler reports
-        // UncompletedCoroutinesError when a real-dispatched task is in
-        // flight at the end of the block. Cancellation is what we're
-        // measuring here, not virtual time.
         runBlocking {
             MockWebServer().use { server ->
-                // Indefinite stall: connection is accepted, then nothing.
                 server.enqueue(
                     MockResponse
                         .Builder()
@@ -287,9 +259,6 @@ class DefaultProbeReplayServiceTest {
                             service
                                 .run(request)
                                 .test {
-                                    // Wait for the call to actually start the
-                                    // TCP open (proves the call was dispatched)
-                                    // then cancel.
                                     while (true) {
                                         val ev = awaitItem()
                                         if (ev is ReplayStepEvent.StepCompleted && ev.step == ReplayStepKind.TcpOpen) {
@@ -304,14 +273,10 @@ class DefaultProbeReplayServiceTest {
                                     cancelAndIgnoreRemainingEvents()
                                 }
                         }
-                    // Bounded wait so this test cannot hang the suite.
                     val finished = withTimeoutOrNull(10_000) { collector.await() }
                     assertNotNull("flow collector did not return after cancel", finished)
                 }
 
-                // Single request reached the server. If the call were not
-                // cancelled, the 60s delay would still be in flight, but
-                // the test would have hung at the await above.
                 assertEquals(1, server.requestCount)
             }
         }
@@ -333,8 +298,6 @@ class DefaultProbeReplayServiceTest {
                 assertEquals(ReplayStepKind.DnsResolve, (first as ReplayStepEvent.StepStarted).step)
             }
         }
-
-    // --- Test factory: routes the synthetic domain to MockWebServer over HTTP. ---
 
     private fun httpFactory(
         server: MockWebServer,

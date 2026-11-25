@@ -172,7 +172,6 @@ internal suspend fun resolveProbeAddress(
     NumericIp.parseAddress(target)?.let { return it.toInetAddress() }
     LookupSlots.acquire()
     val pending = lookupScope.async { resolveAddress(target) }
-    // Keep admission until the detached lookup finishes, including when its caller is cancelled.
     pending.invokeOnCompletion { LookupSlots.release() }
     return pending.await()
 }

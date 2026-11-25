@@ -50,7 +50,6 @@ class FileLogWriterTest {
         val filesDir = Files.createTempDirectory("file-log-partial").toFile()
         val writer = FileLogWriter(filesDir, maxFileSize = 102L)
         writer.log(Severity.Warn, "retained record", "Diagnostics", null)
-        // A non-empty directory at the previous log path blocks rotation.
         filesDir.resolve("logs/app_log.prev.txt").apply {
             mkdir()
             resolve("blocker").createNewFile()

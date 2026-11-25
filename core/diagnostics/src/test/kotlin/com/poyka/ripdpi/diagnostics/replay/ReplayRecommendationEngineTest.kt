@@ -3,14 +3,6 @@ package com.poyka.ripdpi.diagnostics.replay
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/**
- * Exercises [ReplayRecommendationEngine] against the production JSON
- * catalog. Loads the asset via the classpath copy under
- * `src/test/resources/diagnostics/replay_recommendations.json`, which
- * mirrors `src/main/assets/diagnostics/replay_recommendations.json`
- * byte-for-byte. This avoids the Android [android.content.Context]
- * dependency and keeps the test runnable in a plain JVM harness.
- */
 class ReplayRecommendationEngineTest {
     private val catalog =
         ReplayRecommendationCatalogParser.parse(
@@ -26,9 +18,6 @@ class ReplayRecommendationEngineTest {
     fun catalog_loadsExpectedVersionAndDefault() {
         assertEquals(1, catalog.version)
         assertEquals("vpn_replay_rec_generic_fallback", catalog.defaultRecommendationKey)
-        // Sanity check: every rule in the catalog parsed into the typed
-        // enum form, so an out-of-vocabulary step / errorKind in the
-        // JSON would fail this test fast rather than silently degrade.
         assertEquals(7, catalog.rules.size)
     }
 

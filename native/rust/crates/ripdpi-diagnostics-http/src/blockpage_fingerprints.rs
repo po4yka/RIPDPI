@@ -1,5 +1,3 @@
-//! Compatibility wrapper over the shared blockpage fingerprint matcher.
-
 use crate::http::HttpResponse;
 pub use ripdpi_failure_classifier::{BlockpageFingerprint, load_blockpage_fingerprints as load_fingerprints};
 

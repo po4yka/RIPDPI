@@ -7,10 +7,8 @@ const val TlsHopComparisonProfileId = "tls-hop-comparison"
 const val TlsHopEvidenceKey = "tlsHopEvidence"
 const val TlsHopComparisonPort = 443
 
-/** Local-history detail with the SNIs and per-attempt timings. The ordinary export drops it. */
 const val TlsHopLocalKey = "tlsHopLocal"
 
-/** One user-selected endpoint (port 443) probed with a control SNI and a test SNI. */
 @Serializable
 data class TlsHopComparisonConfig(
     val host: String = "",
@@ -26,7 +24,6 @@ data class TlsHopComparisonConfig(
     }
 }
 
-// An IP literal sends no SNI, so both names must be DNS names.
 private fun isTlsHopSni(value: String): Boolean = isHttp3Host(value) && !isIpProbeV4(value) && !isIpProbeV6(value)
 
 @Serializable
@@ -55,7 +52,6 @@ data class TlsHopComparisonEvidence(
             }
 }
 
-/** Local history only: the SNIs and per-attempt timings. */
 @Serializable
 data class TlsHopComparisonLocal(
     val controlSni: String = "",
@@ -100,13 +96,11 @@ private fun TlsHopComparisonEvidence.isConsistent(): Boolean {
         if (status == TlsHopStatus.DIVERGENCE) interval else firstHop == null && lastHop == null
 }
 
-/** Ordinary export keeps the summary only; [TlsHopLocalKey] is dropped by the archive redactor. */
 internal fun canonicalTlsHopComparisonEvidence(value: String?): String? =
     parseTlsHopComparisonEvidence(value)?.let {
         TlsHopJson.encodeToString(TlsHopComparisonEvidence.serializer(), it)
     }
 
-/** A network-scope change withdraws the interval and keeps the attempts. */
 internal fun List<ProbeDetail>.withoutTlsHopScopeAuthority(): List<ProbeDetail> {
     val evidence =
         parseTlsHopComparisonEvidence(this)?.let {

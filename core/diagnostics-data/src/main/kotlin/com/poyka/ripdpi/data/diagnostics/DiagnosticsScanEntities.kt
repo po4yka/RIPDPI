@@ -31,11 +31,8 @@ data class ScanSessionEntity(
     val triggerOccurredAt: Long? = null,
     val triggerPreviousFingerprintHash: String? = null,
     val triggerCurrentFingerprintHash: String? = null,
-    /** `NetworkFingerprint.scopeKey()` of the network the scan started on; null for rows older than schema 15. */
     val networkScopeKey: String? = null,
-    /** Transport label (for example `wifi` or `cellular`) of the network the scan started on; never an identifier. */
     val networkTransport: String? = null,
-    /** Selective matrix pairing revisions; null for other scans and for matrix scans older than schema 16. */
     val matrixTargetSetRevision: String? = null,
     val matrixProbeRevision: String? = null,
     val matrixConfigRevision: String? = null,

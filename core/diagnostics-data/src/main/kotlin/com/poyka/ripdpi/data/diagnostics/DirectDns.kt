@@ -129,7 +129,6 @@ internal class DirectDns(
                     try {
                         DnsMessages.response(packet.data.copyOf(packet.length), query)
                     } catch (_: IOException) {
-                        // Ignore unrelated or invalid datagrams within the original request deadline.
                         null
                     }
             }

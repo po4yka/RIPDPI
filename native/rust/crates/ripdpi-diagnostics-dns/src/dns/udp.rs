@@ -25,8 +25,6 @@ pub struct UdpDnsResolution {
     pub cache_hit: bool,
 }
 
-/// Resolve a domain via plain UDP DNS, returning both the parsed IP addresses
-/// and the raw response bytes for protocol-level tampering analysis.
 pub fn resolve_via_udp_with_raw(
     domain: &str,
     server: &str,
@@ -36,7 +34,6 @@ pub fn resolve_via_udp_with_raw(
     (resolution.result, resolution.raw_response)
 }
 
-/// Measure plain UDP DNS on the current path, without cross-scan result reuse.
 pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: &TransportConfig) -> UdpDnsResolution {
     let started = Instant::now();
     let mut last_error = None;

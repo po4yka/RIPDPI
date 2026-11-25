@@ -1,6 +1,3 @@
-//! The Trojan TCP CONNECT stream, which sends the request header together
-//! with the first payload.
-
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
@@ -10,36 +7,15 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::Sleep;
 
-/// How long a stream that is read but not written waits before it sends the
-/// header alone. trojan-go and Xray-core both use 100 ms.
 const HEADER_ALONE_DELAY: Duration = Duration::from_millis(100);
 
-/// A Trojan TCP CONNECT stream over `T` (the TLS stream).
-///
-/// The request header goes out in the same write as the first payload, as in
-/// trojan-go and Xray-core, so the first application-data record does not
-/// have a fixed header-only length that shows the target address type. A
-/// server-first protocol still works: when the stream is read and not written
-/// for [`HEADER_ALONE_DELAY`], the header goes out alone. A flush or a
-/// shutdown also sends it.
-///
-/// A first write that `T` cannot take at once still reports its length, and
-/// its bytes stay queued: the next write, flush, shutdown or read sends them,
-/// and a read parked on this stream is woken to do so. A caller that writes
-/// and then does none of these must flush, as with a buffered writer.
 pub struct TrojanStream<T> {
     inner: T,
-    /// The header, until a write, flush, shutdown or the delay queues it.
     header: Option<Vec<u8>>,
-    /// Queued bytes not yet written to `inner`.
     pending: Vec<u8>,
     written: usize,
     header_timer: Option<Pin<Box<Sleep>>>,
-    /// A writer that waits for `pending` to drain. A read that drains it may
-    /// take the write-readiness wake-up, so it wakes this writer.
     drain_waiter: Option<Waker>,
-    /// A read that waits on `inner`, woken when a first write leaves bytes
-    /// queued, so that it drives them out.
     read_waiter: Option<Waker>,
 }
 
@@ -68,7 +44,6 @@ impl<T> TrojanStream<T> {
         }
     }
 
-    /// The underlying TLS stream.
     pub fn get_ref(&self) -> &T {
         &self.inner
     }
@@ -128,9 +103,6 @@ impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TrojanStream<T> {
         }
         match this.poll_drain(cx) {
             Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
-            // This read now holds the write-readiness wake-up. A parked
-            // writer may never be woken by it (this read can end first), so
-            // wake the writer now and let it register itself again.
             Poll::Pending => {
                 if let Some(waiter) = this.drain_waiter.take() {
                     waiter.wake();
@@ -155,9 +127,6 @@ impl<T: AsyncWrite + Unpin> AsyncWrite for TrojanStream<T> {
         let this = self.get_mut();
         if this.header.is_some() {
             this.queue_header(buf);
-            // The payload is queued with the header; a write still waiting
-            // finishes on the next write, flush or read. This writer may not
-            // come back, so a parked read is woken to drive the drain.
             match this.poll_drain(cx) {
                 Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
                 Poll::Pending => {
@@ -194,8 +163,6 @@ mod tests {
 
     use super::*;
 
-    /// Records each write call (one TLS record each on a real TLS stream);
-    /// reads never complete.
     #[derive(Default)]
     struct Recorder {
         writes: Vec<Vec<u8>>,
@@ -228,8 +195,6 @@ mod tests {
         assert_eq!(stream.get_ref().writes, vec![b"HEADERhello".to_vec(), b"world".to_vec()]);
     }
 
-    /// A server-first protocol reads before it writes: the server waits for
-    /// the header, so it must go out alone after the delay.
     #[tokio::test(start_paused = true)]
     async fn a_stream_read_first_sends_the_header_alone_after_the_delay() {
         let mut stream = TrojanStream::with_deferred_header(Recorder::default(), b"HEADER".to_vec());
@@ -252,8 +217,6 @@ mod tests {
 
     const PIPE_CAPACITY: usize = 16;
 
-    /// A writer parked on a full pipe must not hang when the read half of a
-    /// split stream polls (and takes the write wake-up) and then ends.
     #[tokio::test]
     async fn a_read_that_ends_does_not_strand_a_parked_writer() {
         let (client, server) = tokio::io::duplex(PIPE_CAPACITY);
@@ -285,9 +248,6 @@ mod tests {
         writer_task.await.expect("writer task");
     }
 
-    /// A client-first caller writes its request once and never flushes, while
-    /// the read half waits for the response: the header and the request must
-    /// still reach the server.
     #[tokio::test]
     async fn a_first_write_that_never_flushes_still_reaches_the_server() {
         let (client, server) = tokio::io::duplex(PIPE_CAPACITY);
@@ -307,7 +267,6 @@ mod tests {
             reader.read_exact(&mut response).await.map(|_| response)
         });
         tokio::time::sleep(Duration::from_millis(10)).await;
-        // One write and no flush; the writer then waits on something else.
         let written = writer.write(&request).await.expect("request write");
         assert_eq!(written, request.len());
 

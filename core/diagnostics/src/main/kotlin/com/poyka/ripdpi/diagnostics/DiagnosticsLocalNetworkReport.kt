@@ -5,7 +5,6 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanCompletionKind
 import kotlinx.serialization.json.Json
 
-/** App preflight outcomes are capability omissions, never native probe execution or DPI evidence. */
 internal fun EngineScanReportWire.withLocalNetworkDeferrals(prepared: PreparedDiagnosticsScan): EngineScanReportWire {
     if (prepared.localNetworkDeferrals.isEmpty()) return this
     return copy(
@@ -16,7 +15,6 @@ internal fun EngineScanReportWire.withLocalNetworkDeferrals(prepared: PreparedDi
             } else {
                 completionKind
             },
-        // Recommendations cannot claim coverage of the original, unexecuted target set.
         directModeVerdict = null,
         strategyRecommendation = null,
     )

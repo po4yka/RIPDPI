@@ -15,17 +15,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
-/**
- * Covers acceptance criteria for the TransportPolicy type:
- *  - Enum exhaustiveness for all five policy enums.
- *  - Default constructor returns a sensible "unknown-host" policy.
- *  - Versioned envelope carries schemaVersion and round-trips via
- *    kotlinx.serialization.
- *  - State-transition unit tests: degrade quic_mode and preferred_stack.
- */
 class TransportPolicyTest {
-    // ---- 1. Enum exhaustiveness ------------------------------------------------
-
     @Test
     fun `QuicMode has exactly ALLOW SOFT_DISABLE HARD_DISABLE variants`() {
         val names = QuicMode.entries.map { it.name }
@@ -67,8 +57,6 @@ class TransportPolicyTest {
         }
     }
 
-    // ---- 2. Default constructor -------------------------------------------------
-
     @Test
     fun `default TransportPolicy is sensible unknown-host policy`() {
         val policy = TransportPolicy()
@@ -85,8 +73,6 @@ class TransportPolicyTest {
         assertEquals(CurrentTransportPolicyEnvelopeVersion, envelope.version)
         assertEquals(TransportPolicy(), envelope.policy)
     }
-
-    // ---- 3. Versioned envelope round-trip --------------------------------------
 
     @Test
     fun `TransportPolicyEnvelope round-trips via kotlinx serialization`() {
@@ -143,8 +129,6 @@ class TransportPolicyTest {
         val decoded = lenient.decodeFromString<TransportPolicyEnvelope>(jsonWithExtra)
         assertEquals(TransportPolicyEnvelope(), decoded)
     }
-
-    // ---- 4. State transitions --------------------------------------------------
 
     @Test
     fun `quic_mode degrades ALLOW to SOFT_DISABLE to HARD_DISABLE`() {

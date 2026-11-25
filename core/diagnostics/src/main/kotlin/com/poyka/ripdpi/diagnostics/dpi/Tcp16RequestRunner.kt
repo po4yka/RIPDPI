@@ -56,7 +56,6 @@ class Tcp16ConnectionTracker {
     var stage: Tcp16Stage = Tcp16Stage.SETUP
         private set
 
-    /** One pool per target run: a pool shared by concurrent targets evicted their keep-alive sockets. */
     val connectionPool: ConnectionPool = ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS)
 
     val connectionCount: Int
@@ -66,7 +65,6 @@ class Tcp16ConnectionTracker {
         stage = Tcp16Stage.SETUP
     }
 
-    /** Closes the idle keep-alive socket so it does not outlive the target run. */
     fun close() {
         connectionPool.evictAll()
     }
@@ -149,7 +147,6 @@ class OkHttpTcp16RequestRunner(
         call.timeout().timeout(request.timeoutMs, TimeUnit.MILLISECONDS)
         val startedNanos = System.nanoTime()
         return suspendCancellableCoroutine { continuation ->
-            // Cancellation can close the socket even while this dispatcher is blocked in execute().
             continuation.invokeOnCancellation { call.cancel() }
             if (!continuation.isActive) return@suspendCancellableCoroutine
             continuation.resumeWith(
@@ -172,7 +169,6 @@ class OkHttpTcp16RequestRunner(
         }
     }
 
-    // An HTTP or SOCKS proxy would choose the peer for the URL authority, invalidating the pin.
     private fun hasDirectRoute(url: HttpUrl): Boolean {
         val proxy = baseClient.proxy ?: baseClient.proxySelector.select(url.toUri())?.firstOrNull()
         return proxy == null || proxy.type() == Proxy.Type.DIRECT
@@ -190,7 +186,6 @@ class OkHttpTcp16RequestRunner(
                 retryOnConnectionFailure(false)
                 followRedirects(false)
                 followSslRedirects(false)
-                // The synthetic TLS name controls this probe. Keep certificate chain checks.
                 hostnameVerifier { _, _ -> true }
             }
             return clientBuilder?.invoke(configure) ?: OkHttpClient.Builder().apply(configure).build()

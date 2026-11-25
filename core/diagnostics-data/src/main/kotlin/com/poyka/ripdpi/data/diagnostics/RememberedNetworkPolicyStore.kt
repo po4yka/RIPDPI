@@ -50,12 +50,6 @@ interface RememberedNetworkPolicyStore {
         allowSuppression: Boolean = true,
     ): RememberedNetworkPolicyEntity
 
-    /**
-     * Deletes the remembered policy row identified by [id]. Returns the number of remaining
-     * remembered policy rows that still reference [fingerprintHash] (across other modes).
-     * A return value of `0` means the network scope is now fully forgotten and any companion
-     * per-network learned state keyed by the same fingerprint can be safely purged.
-     */
     suspend fun deletePolicy(
         id: Long,
         fingerprintHash: String,
@@ -64,13 +58,6 @@ interface RememberedNetworkPolicyStore {
     suspend fun clearAll()
 }
 
-/**
- * Serializes the read-modify-writes of `remembered_network_policies` made by
- * [DefaultRememberedNetworkPolicyStore], the terminal outbox policy checkpoint, the history reset and
- * the retention delete. Callers hold entity snapshots from different coroutines, so each mutation
- * re-reads the row under this lock, and a delete cannot fall between that read and the write.
- * Lock order: this lock, then a Room transaction.
- */
 internal val rememberedNetworkPolicyWriteLock = Mutex()
 
 @Singleton
@@ -161,12 +148,6 @@ class DefaultRememberedNetworkPolicyStore
             writeLock.withLock { recordStore.clearRememberedNetworkPolicies() }
         }
 
-        /**
-         * Applies [transform] to the stored row, not to the caller's snapshot, so concurrent updates
-         * are not lost. Without a stored row nothing is written and the snapshot is returned: only
-         * the remember* calls create a policy, so a missing row was deleted (by the user or a clear),
-         * and writing the snapshot would bring it back or REPLACE a newer row of the same network.
-         */
         private suspend fun mutateCurrent(
             policy: RememberedNetworkPolicyEntity,
             transform: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity,

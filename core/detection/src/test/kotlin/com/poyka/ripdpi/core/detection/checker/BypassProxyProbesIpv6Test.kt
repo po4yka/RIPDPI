@@ -83,8 +83,6 @@ class BypassProxyProbesIpv6Test {
         }
     }
 
-    // Replies through the SOCKS5 UDP relay with an IPv6 relay header, a legacy MAPPED-ADDRESS first
-    // and the XOR-MAPPED-ADDRESS second, which must win.
     private fun answerStun(
         relay: DatagramSocket,
         reflexive: InetAddress,

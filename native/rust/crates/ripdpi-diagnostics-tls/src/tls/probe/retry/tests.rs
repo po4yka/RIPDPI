@@ -124,7 +124,6 @@ fn comparison_ech_distinguishes_setup_failures_even_for_a_cdn_peer() {
     let transport = crate::transport::direct_transport();
     let targets = [TargetAddress::Ip(cdn_peer.ip())];
     let mut unusable_key = BORING_ECH_CONFIG_LIST.to_vec();
-    // An all-zero X25519 public key cannot be used for key agreement.
     unusable_key[11..43].fill(0);
 
     for (lookup, expected) in [

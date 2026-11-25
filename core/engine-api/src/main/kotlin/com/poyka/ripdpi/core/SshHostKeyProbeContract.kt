@@ -29,7 +29,6 @@ enum class SshHostKeyProbeFailure {
     NetworkChanged,
 }
 
-/** Called by JNI before connect; the owner must protect and bind the socket or deny it. */
 fun interface SshProbeSocketController {
     fun protectSocket(fd: Int): Boolean
 }

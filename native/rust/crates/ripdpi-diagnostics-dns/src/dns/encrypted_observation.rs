@@ -4,7 +4,6 @@ use ripdpi_diagnostics_contracts::types::{DnsResponseOutcome, DnsResponseSemanti
 use ripdpi_dns_resolver::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint};
 use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, exchange_encrypted_dns_query_with_request};
 
-/// Use the existing exchange once, retaining response facts even without usable addresses.
 pub fn resolve_via_encrypted_dns_with_observations(
     domain: &str,
     endpoint: EncryptedDnsEndpoint,

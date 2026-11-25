@@ -29,8 +29,6 @@ internal object PcapExportStaging {
         return openOwnerFile(File(root, "cleanup.lock")).use { cleanup ->
             cleanup.lock().use {
                 val live = directories[root]?.takeIf { it.file.isDirectory && it.owner.isValid }
-                // Only a dead process releases its ownership lock. Keep the lock file
-                // separate from the draft because JNI opens and closes the draft too.
                 root
                     .listFiles()
                     .orEmpty()

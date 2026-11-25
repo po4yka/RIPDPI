@@ -2,11 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 import kotlinx.serialization.Serializable
 
-/**
- * Developer-facing analytics payload bundled into the diagnostics share archive as
- * `developer-analytics.json`. Each section is nullable / defaulted so the payload
- * degrades gracefully when any single signal is unavailable.
- */
 @Serializable
 data class DeveloperAnalyticsPayload(
     val schemaVersion: Int = 1,
@@ -25,7 +20,6 @@ data class DeveloperAnalyticsPayload(
     val collectionStatus: DeveloperAnalyticsCollectionStatus = DeveloperAnalyticsCollectionStatus.COLLECTED,
 )
 
-/** Whether the developer-analytics source produced the payload or failed and left it empty. */
 @Serializable
 enum class DeveloperAnalyticsCollectionStatus {
     COLLECTED,

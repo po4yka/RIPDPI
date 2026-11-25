@@ -7,7 +7,6 @@ import org.junit.Test
 class NativeMemoryProbeTest {
     @Test
     fun `parses the resident pages field from a statm line`() {
-        // size resident shared text lib data dt
         assertEquals(8000L, parseResidentPages("12345 8000 512 4 0 4096 0"))
     }
 

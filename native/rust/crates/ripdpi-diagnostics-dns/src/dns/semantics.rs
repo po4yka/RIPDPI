@@ -3,8 +3,6 @@ use hickory_proto::rr::rdata::opt::EdnsOption;
 use hickory_proto::rr::{RData, RecordType};
 use ripdpi_diagnostics_contracts::types::{DnsResponseOutcome, DnsResponseSemantics};
 
-/// Parse diagnostic facts without relaxing the runtime resolver's strict API.
-/// Negative and truncated replies are facts, but never usable address answers.
 pub fn parse_dns_response_semantics(
     query: &[u8],
     response: &[u8],

@@ -97,7 +97,6 @@ class Tcp16FatHeaderProbe(
     ): Tcp16ProbeResult {
         val samples = mutableListOf<Long>()
         val requestedHosts = mutableListOf<String>()
-        // Keep the authority constant for the entire connection.
         val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else target.sni ?: target.ip
         val url = target.url(requestedHost)
         val authority = target.httpAuthority ?: url.toUri().rawAuthority
@@ -268,7 +267,6 @@ private fun List<Long>.averageMillis(): Long? =
         average().roundToLong()
     }
 
-// Stack-trace recovery can wrap the IOException that OkHttp uses to report an EOF.
 private fun IOException.isPeerClose(): Boolean =
     generateSequence<Throwable>(this) { it.cause }
         .take(MaxFailureCauseDepth)

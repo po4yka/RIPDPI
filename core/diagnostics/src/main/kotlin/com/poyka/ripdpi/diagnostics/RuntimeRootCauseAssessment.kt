@@ -158,7 +158,6 @@ private fun collectEvidence(
         val subsystem = event.subsystem.orEmpty()
         val level = event.level.lowercase(Locale.US)
 
-        // Process/device-state events are supporting context until they have session-correlated exit evidence.
         when (subsystem) {
             "data_plane" -> {
                 collectDataPlaneEvidence(event, tokens, terminalDataPlaneEvent, evidence)
@@ -170,7 +169,6 @@ private fun collectEvidence(
                 }
             }
         }
-        // DNS and relay verdicts remain fail-closed until their producers emit an allowlisted kind.
         collectTypedRuntimeHealthEvidence(connectionSessionId, event, tokens, evidence)
     }
     return evidence

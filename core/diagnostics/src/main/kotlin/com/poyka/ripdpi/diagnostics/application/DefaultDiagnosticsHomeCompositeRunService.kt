@@ -416,11 +416,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        /**
-         * Records the audit stage as completed and finalizes the home audit.
-         * Returns the finalized [DiagnosticsHomeAuditOutcome], or null if the audit session
-         * did not complete (e.g. network unavailable), in which case remaining stages are skipped.
-         */
         private suspend fun processAuditStageResult(
             runId: String,
             auditIndex: Int,
@@ -463,7 +458,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        /** Runs raw-path middle stages serially, then performs the targeted in-path comparison leg. */
         private suspend fun runMiddleStages(runId: String): PathComparisonSelection? {
             HomeCompositeStageSpecs
                 .drop(1)
@@ -722,8 +716,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     auditOutcome = auditOutcome,
                     coverageNote = coverageNote,
                     dnsIssuesDetected = dnsIssuesDetected,
-                    // The audit applies nothing when its session was measured on another or an unknown network;
-                    // both the full and the Quick scan run report that through the same flag.
                     networkChanged = networkChanged || auditOutcome?.networkChanged == true,
                     networkScope = networkScope,
                     detectionResult = detectionResult,

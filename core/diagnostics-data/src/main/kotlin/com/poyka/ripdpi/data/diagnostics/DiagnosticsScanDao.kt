@@ -27,9 +27,6 @@ interface DiagnosticsScanDao {
     )
     suspend fun getLatestCompletedScanSession(): ScanSessionEntity?
 
-    // A strategy test can be older than any row limit, so the stored report says which scan was one:
-    // the key is there and is not null, in compact or pretty JSON. The key cannot match inside a JSON
-    // string, where a quote is escaped. The reader still decodes the report and decides.
     @Query(
         ScanSessionProjection + """
         WHERE (launchOrigin IS NULL OR launchOrigin != 'home_detection_local')
@@ -64,8 +61,6 @@ interface DiagnosticsScanDao {
     suspend fun deleteAllScanSessions()
 }
 
-// reportJson is projected via CASE (see DiagnosticsReportPersister.MaxInlineReportJsonBytes)
-// to null payloads above ~1.5MB; larger rows overflow Android's 2MB CursorWindow.
 private const val ScanSessionProjection = """
         SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
                pathMode, serviceMode, status, summary,

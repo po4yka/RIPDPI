@@ -49,7 +49,6 @@ val ProbeStage.fieldFailureStage: FieldFailureStage
             ProbeStage.SENDING_DATA, ProbeStage.READING_DATA -> FieldFailureStage.Unknown
         }
 
-/** The typed probe error decides; an unclassified error falls back to the stage where the probe stopped. */
 fun fieldFailureStage(
     error: DpiProbeError,
     stage: ProbeStage,

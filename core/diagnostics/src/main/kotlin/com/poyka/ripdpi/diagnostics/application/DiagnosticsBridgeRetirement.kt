@@ -45,11 +45,6 @@ internal enum class BridgeRetirementReservationState {
     COMPLETED,
 }
 
-/**
- * Process-lifetime owner for native bridge retirements that must outlive canceled work scopes.
- * Android has no reliable graceful process-termination callback; [closeAndDrain] exists for
- * controlled component and test teardown and closes admission before joining tracked work.
- */
 @Singleton
 class BridgeRetirementQueue
     internal constructor(

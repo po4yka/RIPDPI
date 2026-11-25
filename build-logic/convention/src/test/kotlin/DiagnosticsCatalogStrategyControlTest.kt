@@ -13,11 +13,8 @@ class DiagnosticsCatalogStrategyControlTest {
         assertTrue(strategyProfiles.isNotEmpty())
         strategyProfiles.forEach { profile ->
             val controls = profile.domainTargets.filter { it.isControl }
-            // The in-path transfer reads at most 16 KiB; a site root page can never verify the active path.
             assertTrue(controls.all { it.httpPath != "/" }, profile.id)
-            // Cloudflare is blocked in some regions, so it cannot be the only baseline.
             assertTrue(controls.any { !it.host.endsWith("cloudflare.com") }, profile.id)
-            // A domestic site answers without any bypass, so it can never verify a strategy path.
             assertTrue(controls.none { it.controlTier == CatalogControlTier.DOMESTIC }, profile.id)
             controls.filter { it.host == "speed.cloudflare.com" }.forEach { control ->
                 val bytes = Regex("""/__down\?bytes=(\d+)""").matchEntire(control.httpPath)?.groupValues?.get(1)

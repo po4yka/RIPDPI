@@ -230,9 +230,6 @@ object LocationSignalsChecker {
         } else if (!snapshot.bssid.isUsableBssid()) {
             findings.add(Finding("BSSID: unavailable"))
         } else {
-            // Privacy: never interpolate the raw BSSID into a Finding string — only a
-            // presence flag. The raw value is forbidden in any persisted/serialized
-            // artifact per .claude/rules/network-fingerprint-privacy.md.
             findings.add(Finding("BSSID: present"))
         }
 

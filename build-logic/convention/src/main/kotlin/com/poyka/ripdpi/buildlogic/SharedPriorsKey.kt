@@ -4,17 +4,6 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.provider.Provider
 
-/**
- * Single resolver for the shared-priors release public key, used by both the
- * cargo environment (`ripdpi.android.rust-native`) and the `:core:service`
- * BuildConfig flag so native and Kotlin always agree.
- *
- * Sources, first non-blank wins: Gradle property `sharedPriors.publicKey`,
- * `local.properties`, environment `RIPDPI_SHARED_PRIORS_PUB_KEY`. Blank values
- * are treated as absent. A non-blank value must be 64 hex characters and not
- * all zero, otherwise the build fails. The provider yields an empty string when
- * no key is configured.
- */
 object SharedPriorsKey {
     const val PROPERTY: String = "sharedPriors.publicKey"
     const val ENV: String = "RIPDPI_SHARED_PRIORS_PUB_KEY"

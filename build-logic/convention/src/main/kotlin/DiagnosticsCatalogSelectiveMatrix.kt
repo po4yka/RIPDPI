@@ -56,9 +56,6 @@ private fun matrixTarget(
     infrastructureGroup: String,
 ): SelectiveMatrixTargetDefinition {
     val declared = cohort == "declared_available"
-    // The announcement covers services, not every hostname or future operator policy.
-    // Other cohorts describe provider origin; they do not claim exclusion from an allowlist.
-    // Their source date is the date of the endpoint observation, not its publication date.
     return SelectiveMatrixTargetDefinition(
         id = id,
         label = label,
@@ -67,8 +64,6 @@ private fun matrixTarget(
         infrastructureGroup = infrastructureGroup,
         sourceUrl = if (declared) "https://t.me/mintsifry/2603" else "https://$host/robots.txt",
         sourceDate = if (declared) "2025-09-05" else "2026-10-09",
-        // HTTPS checks returned complete 200 responses from this workstation on this date.
-        // This timestamp is catalog maintenance evidence, not a current health guarantee.
         lastVerifiedAt = "2026-10-09T04:20:29Z",
     )
 }

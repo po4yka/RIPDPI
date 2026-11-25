@@ -119,7 +119,6 @@ class ScanFinalizationService
                         pathMode = prepared.pathMode,
                         networkScopeKey = prepared.networkFingerprint?.scopeKey(),
                     )
-                // One predicate: a fresh result outranks a remembered policy exactly when its policy is persisted.
                 val freshPolicy = buildFreshRememberedPolicy(prepared, plannedReport)
                 val winningCombination =
                     resolveWinningCombination(
@@ -137,7 +136,6 @@ class ScanFinalizationService
                     deferTerminal = true,
                 )
                 postScanRecorder.persist(prepared)
-                // Report and context persistence can suspend while the physical network changes.
                 finalReport = scope(finalReport)
                 if (scopeLoss() == null) {
                     persistNetworkEvidence(
@@ -225,7 +223,6 @@ class ScanFinalizationService
             ) {
                 targetOptimizer.record(fingerprint.scopeKey(), report, prepared.settings)
             }
-            // An in-path scan measured the active tunnel or proxy, not the raw network's direct path.
             if (prepared.pathMode == ScanPathMode.RAW_PATH && isScopeCurrent()) {
                 rememberEdgeProbeResults(fingerprint, report, isScopeCurrent)
                 if (isScopeCurrent()) {
@@ -449,7 +446,6 @@ class ScanFinalizationService
             )
         }
 
-        /** The strategy policy this scan will remember, or null when it must not be persisted. */
         private fun buildFreshRememberedPolicy(
             prepared: PreparedDiagnosticsScan,
             report: ScanReport,
@@ -457,7 +453,6 @@ class ScanFinalizationService
             val strategyProbe = report.strategyProbeReport?.takeIf { report.isCompleteScan() }
             val fingerprint = prepared.networkFingerprint
             if (strategyProbe == null || fingerprint == null || !prepared.remembersStrategyPolicy()) return null
-            // The builder applies the auto-persist eligibility bar, quick_v1 suite and valid recommendation checks.
             return DiagnosticsScanWorkflow.buildRememberedNetworkPolicy(
                 strategyProbe = strategyProbe,
                 settings = prepared.settings,

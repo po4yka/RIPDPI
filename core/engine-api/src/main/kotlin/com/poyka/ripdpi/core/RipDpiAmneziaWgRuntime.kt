@@ -6,12 +6,6 @@ import kotlinx.serialization.Required
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/**
- * Stable runtime contract for the AmneziaWG (obfuscated WireGuard) native
- * session, implemented by `RipDpiAmneziaWg` in `:core:engine`. New
- * `:core:service` / AmneziaWG features depend on this interface rather than on
- * the JNI implementation module, mirroring [RipDpiWarpRuntime].
- */
 interface RipDpiAmneziaWgRuntime {
     suspend fun start(config: ResolvedRipDpiAmneziaWgConfig): Int
 
@@ -22,21 +16,9 @@ interface RipDpiAmneziaWgRuntime {
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
-// Three WireGuard REKEY_TIMEOUTs (5 s each): the answer to a resent initiation must still arrive in time.
 internal const val defaultAmneziaWgReadyTimeoutMs = 15_000L
 private const val wsAmneziaWgReadyTimeoutMs = 40_000L
 
-/**
- * AmneziaWG obfuscation parameters. Field names and types mirror the Rust
- * `AmneziaWgProfileConfig::amnezia` object (serde camelCase) deserialized by
- * `ripdpi-amneziawg-android`. `jc`/`jmin`/`jmax` size the junk-packet padding,
- * `s1`..`s4` the per-message-type junk-size knobs (`s1`/`s2` the
- * handshake-init/response prefixes, `s3`/`s4` the AWG-2.x cookie/transport
- * padding), `h1`..`h4` canonical unsigned header values or inclusive ranges, and
- * `i1`..`i5` the optional packet templates (empty string = unused). [v3] is the
- * nested Rust `AwgV3Config` object (AWG 3.x keys); its default emits nothing
- * under `encodeDefaults = false`, so 1.x/2.0 JSON stays byte-identical.
- */
 @Serializable
 data class RipDpiAmneziaWgObfuscationConfig(
     @Required
@@ -69,14 +51,6 @@ data class RipDpiAmneziaWgObfuscationConfig(
     val v3: AmneziaWgV3Parameters = AmneziaWgV3Parameters(),
 )
 
-/**
- * The transport an AmneziaWG tunnel egresses its WireGuard datagrams over.
- * Mirrors the Rust `AmneziaWgCarrierKind` (serde `snake_case`): [Udp] is the
- * default plain-UDP path; [Ws] frames each WireGuard datagram as a binary
- * WebSocket message over one protected TLS/TCP stream (the WG-over-WebSocket
- * carrier in `ripdpi-wireguard-ws`). The wire tokens are pinned by
- * [SerialName] so a rename on either side is caught by the contract test.
- */
 @Serializable
 enum class RipDpiAmneziaWgCarrierKind {
     @SerialName("udp")
@@ -86,7 +60,6 @@ enum class RipDpiAmneziaWgCarrierKind {
     Ws,
     ;
 
-    /** Allows WSS setup and peer authentication without changing the UDP deadline. */
     fun readyTimeoutMillis(): Long =
         when (this) {
             Udp -> defaultAmneziaWgReadyTimeoutMs
@@ -94,20 +67,6 @@ enum class RipDpiAmneziaWgCarrierKind {
         }
 }
 
-/**
- * Fully-resolved AmneziaWG session configuration. Field names and types mirror
- * the Rust `AmneziaWgProfileConfig` (serde camelCase) the native bridge
- * deserializes from the create-config JSON; serializing this with [RipDpiJson]
- * must produce exactly those keys (the cross-language contract is guarded by
- * `RipDpiAmneziaWgConfigSerializationTest`).
- *
- * [carrier] / [carrierWsUrl] are additive and defaulted ([carrier] =
- * [RipDpiAmneziaWgCarrierKind.Udp]) so a profile that omits them — and a native
- * core built before the carrier seam — deserializes unchanged; the native
- * schema does not bump. The endpoint host/port carried in [endpointHost] and
- * (when WS) [carrierWsUrl] are user-pasted config; they MUST NOT flow into
- * telemetry or logs in plain form (network-fingerprint-privacy).
- */
 @Serializable
 data class ResolvedRipDpiAmneziaWgConfig(
     val enabled: Boolean,
@@ -121,12 +80,10 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val endpointPort: Int,
     val interfaceAddressV4: String,
     val interfaceAddressV6: String = "",
-    /** Peer permissions; the producer always emits even the default policy. */
     @Required
     val allowedIps: List<String> = listOf("0.0.0.0/0", "::/0"),
     val mtu: Int = DefaultAmneziaWgTunnelMtu,
     val persistentKeepalive: Int = 0,
-    /** High bound of an AWG 3.x keepalive range; `0` = fixed [persistentKeepalive]. */
     val persistentKeepaliveMax: Int = 0,
     val amnezia: RipDpiAmneziaWgObfuscationConfig = RipDpiAmneziaWgObfuscationConfig(),
     val carrier: RipDpiAmneziaWgCarrierKind = RipDpiAmneziaWgCarrierKind.Udp,
@@ -135,7 +92,6 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val localSocksHost: String,
     val localSocksPort: Int,
 ) {
-    /** Keys, user endpoints and tunnel addresses show only their presence (network-fingerprint-privacy). */
     override fun toString(): String =
         "ResolvedRipDpiAmneziaWgConfig(enabled=$enabled, profileId=$profileId, " +
             "privateKey=${redact(privateKey)}, peerPublicKey=$peerPublicKey, presharedKey=${redact(presharedKey)}, " +

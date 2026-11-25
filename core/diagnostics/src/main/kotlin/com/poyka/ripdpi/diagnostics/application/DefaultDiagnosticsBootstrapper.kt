@@ -58,8 +58,6 @@ class DefaultDiagnosticsBootstrapper
                 }
                 traceStartupPhase("interrupted_scan_recovery") { recoverInterruptedScanSessions() }
                 if (importBundledProfilesOnInitialize) {
-                    // A corrupted override or unreadable bundled catalog must degrade to
-                    // missing persisted profiles instead of crashing every startup caller.
                     runCatching { traceStartupPhase("bundled_profile_import") { profileImporter.importProfiles() } }
                         .onFailure { error ->
                             if (error is kotlinx.coroutines.CancellationException) throw error
@@ -76,12 +74,10 @@ class DefaultDiagnosticsBootstrapper
                 }
                 completed = true
             } finally {
-                // A caller cancelled mid-way must leave the remaining steps to the next initialize().
                 if (!completed) initialized.set(false)
             }
         }
 
-        /** Resubscribes with capped backoff, so one store failure does not stop handover probes for the process. */
         private suspend fun collectHandoverEvents() {
             var attempt = 0
             while (true) {
@@ -103,11 +99,6 @@ class DefaultDiagnosticsBootstrapper
             }
         }
 
-        /**
-         * Process death mid-scan leaves sessions stuck in the running state; the
-         * raw-path settlement barrier only covers raw-path scans, so sweep the
-         * remaining stale rows once per process at startup.
-         */
         private suspend fun recoverInterruptedScanSessions() {
             val interrupted =
                 runCatching {

@@ -8,7 +8,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RememberedPolicyTerminalOutcomeTest {
-    // The stored row has one failure from another session since this session started.
     private val storedRow =
         RememberedNetworkPolicyEntity(
             id = 5L,
@@ -29,7 +28,6 @@ class RememberedPolicyTerminalOutcomeTest {
 
     @Test
     fun `a failure outcome adds to the failures stored since its snapshot`() {
-        // Outbox JSON as older builds wrote it, with snapshot counters that applyTo no longer reads.
         val outcome =
             RuntimeHistoryJson.decodeFromString(
                 RememberedPolicyTerminalOutcome.serializer(),
@@ -62,7 +60,6 @@ class RememberedPolicyTerminalOutcomeTest {
         assertEquals(1, result?.failureCount)
         assertEquals(0, result?.consecutiveFailureCount)
         assertEquals("strategy-new", result?.strategySignatureJson)
-        // Session time and traffic are no probe evidence: the policy keeps its validation age.
         assertEquals(10L, result?.lastValidatedAt)
         assertEquals(RememberedNetworkPolicyStatusValidated, result?.status)
     }

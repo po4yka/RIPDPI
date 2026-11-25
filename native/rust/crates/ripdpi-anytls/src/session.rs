@@ -25,38 +25,14 @@ pub use bridge::AnyTlsIo;
 use owned_tasks::{OwnedTasks, Owner};
 
 const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
-/// An open that has seen no inbound carrier frame for this long sends a
-/// HeartRequest.
 const CARRIER_PROBE_AFTER: Duration = Duration::from_secs(3);
-/// An open whose carrier sends no frame this long after a HeartRequest fails,
-/// and the carrier is evicted for new opens.
 const CARRIER_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
-/// An idle pooled session older than this is closed at the next sweep.
 const IDLE_SESSION_TIMEOUT: Duration = Duration::from_secs(30);
-/// Period of the idle-session sweep, as the reference client's default.
 const IDLE_SWEEP_INTERVAL: Duration = Duration::from_secs(30);
-/// A fresh session of a server whose version is not known yet waits this long
-/// for cmdServerSettings. A v2 server sends it right after it handles the first
-/// packet (Settings, SYN, PSH), before it dials the target, so it arrives within
-/// one round trip. Silence for this long means a v1 server, which has no
-/// SYNACK and ignores HeartRequest. The client remembers the answer, so only the
-/// first session of a v1 server pays the wait.
 const SERVER_SETTINGS_WAIT: Duration = Duration::from_secs(2);
-/// A new session must finish its TCP connect, TLS handshake and auth in this time.
 const SESSION_ESTABLISH_TIMEOUT: Duration = Duration::from_secs(10);
-/// One resolved address gets this long to connect, so a black-holed first
-/// address leaves time for the next ones within the establish budget.
 const ADDRESS_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 
-/// Open a protected TCP connection to the AnyTLS server.
-///
-/// Builds the socket explicitly and protects its fd via the in-process
-/// `VpnService.protect()` registry BEFORE connect, so the non-loopback carrier
-/// socket bypasses the app's own TUN route. REL-1. When `bind_ip` is set, the
-/// resolved server address must match its family or the connect fails closed,
-/// and the carrier socket is bound to the address before connect (interface
-/// pinning).
-///
 /// # Cancel safety
 /// cancel-safe: a cancelled attempt drops its unconnected socket; nothing is
 /// published before the connected stream is returned.
@@ -70,11 +46,6 @@ async fn connect_protected_tcp(
     connect_first_reachable(addrs, bind_ip, socket_protection, ADDRESS_CONNECT_TIMEOUT).await
 }
 
-/// Tries every address in order, each with its own protected socket, and
-/// returns the first connection. With `bind_ip` set, addresses of the other
-/// family are skipped. Each attempt is bounded by `attempt_timeout`. When all
-/// attempts fail, the last error is returned.
-///
 /// # Cancel safety
 /// cancel-safe: a cancelled attempt drops its unconnected socket.
 async fn connect_first_reachable(
@@ -126,11 +97,6 @@ async fn connect_protected_addr(
     Ok(tcp)
 }
 
-/// Protect a freshly created outbound socket via the registered
-/// `VpnService.protect()` callback before it connects to a non-loopback peer.
-///
-/// No-op for loopback. Fails closed for a non-loopback target when no callback
-/// is registered. Mirrors the `ripdpi-vless` gold-standard helper. REL-1.
 fn protect_outbound_socket<T: AsRawFd>(
     socket: &T,
     target: SocketAddr,
@@ -156,19 +122,12 @@ pub struct AnyTlsClientConfig {
     pub password: String,
     pub tls_fingerprint_profile: String,
     pub root_certificate_pem: Option<String>,
-    /// Leaf-certificate pin; when set it replaces chain and host name verification.
     pub certificate_pin_sha256: Option<crate::pin::CertificatePinSha256>,
     pub client_name: String,
     pub socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
-    /// Local address the carrier socket is bound to before connect (interface
-    /// pinning). `None` binds to an unspecified address.
     pub outbound_bind_ip: Option<std::net::IpAddr>,
 }
 
-// Hand-written `Debug` so the AnyTLS password and root-certificate material never
-// surface in logs, diagnostics, or crash reports. Mirrors the redaction pattern in
-// `ripdpi-mieru` (`MieruConfig`) and `ripdpi-ssh` (`SshConfig`). The `Eq`/`PartialEq`
-// derives are retained for test equality; only `Debug` is overridden.
 impl std::fmt::Debug for AnyTlsClientConfig {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -240,16 +199,9 @@ pub struct AnyTlsClient {
     tasks: Arc<OwnedTasks>,
     _owner: Option<Arc<Owner>>,
     owner_ref: Weak<Owner>,
-    /// Whether this client may open its own TCP connection to the server. A
-    /// client built over a caller's transport (a chain hop) never may: the
-    /// hop's server is reachable only through that transport, and a direct dial
-    /// would bypass the previous hops and leak the device address.
     allow_network_dial: bool,
 }
 
-/// Sessions that carry no stream. Each session carries at most one stream, so
-/// the carrier reader can wait for a slow stream reader without stalling a
-/// sibling; a finished stream returns its session here for reuse.
 struct ClientState {
     idle: Vec<IdleSession>,
     next_seq: u64,
@@ -264,18 +216,13 @@ struct IdleSession {
 }
 
 struct SessionHandle {
-    /// Creation order within the client; the idle session with the highest
-    /// value is reused first.
     seq: u64,
-    /// Protocol version of the server end of this session: 0 while unknown,
-    /// 1 for a server that sent no cmdServerSettings, else its `v` setting.
     peer_version: Arc<watch::Sender<u8>>,
     outbound: mpsc::Sender<Outbound>,
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     next_stream_id: Arc<Mutex<u32>>,
     settings_sent: Arc<Mutex<bool>>,
     closing: Arc<AtomicBool>,
-    /// Frames the carrier reader received; liveness evidence for opens.
     inbound_frames: Arc<AtomicU64>,
     tasks: Arc<OwnedTasks>,
 }
@@ -298,8 +245,6 @@ impl Clone for SessionHandle {
 
 struct StreamRoute {
     inbound: mpsc::Sender<Vec<u8>>,
-    /// Set when the peer sent cmdFIN, before the route is removed: only a FIN
-    /// is a clean end of the stream.
     peer_fin: Arc<AtomicBool>,
     open_ack: Option<oneshot::Sender<Result<(), AnyTlsError>>>,
 }
@@ -331,13 +276,8 @@ pub struct AnyTlsStream {
     inbound: mpsc::Receiver<Vec<u8>>,
     peer_fin: Arc<AtomicBool>,
     read_buffer: VecDeque<u8>,
-    /// Set once [`AnyTlsStream::close`] queued the substream's FIN so `Drop`
-    /// does not send a duplicate.
     fin_queued: bool,
-    /// The SYN was committed to the carrier queue, so a FIN must follow it.
     syn_sent: bool,
-    /// Return the session to the idle pool on drop. Cleared when the session
-    /// state is doubtful (failed open, silent carrier).
     reusable: bool,
     owner: Option<Arc<Owner>>,
 }
@@ -353,15 +293,11 @@ impl std::fmt::Debug for AnyTlsStream {
     }
 }
 
-/// The padding scheme of one server profile. Clients built with the same
-/// value keep a scheme the server pushed with `cmdUpdatePaddingScheme` after
-/// the session that learned it is gone, as the protocol requires.
 #[derive(Clone)]
 pub struct SharedPaddingScheme(Arc<Mutex<PaddingScheme>>);
 
 impl Default for SharedPaddingScheme {
     fn default() -> Self {
-        // Infallible: DEFAULT_PADDING_SCHEME is a constant; tests/padding.rs parses it.
         let scheme = PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes()).expect("default padding scheme parses");
         Self(Arc::new(Mutex::new(scheme)))
     }
@@ -372,7 +308,6 @@ impl AnyTlsClient {
         Self::with_padding_scheme(config, SharedPaddingScheme::default())
     }
 
-    /// Builds a client that reads and updates `padding_scheme`.
     pub fn with_padding_scheme(
         config: AnyTlsClientConfig,
         padding_scheme: SharedPaddingScheme,
@@ -411,7 +346,6 @@ impl AnyTlsClient {
         }
     }
 
-    /// Close admission and signal every owned worker, including bridge pumps.
     pub fn cancel(&self) {
         self.tasks.cancel();
     }
@@ -432,8 +366,6 @@ impl AnyTlsClient {
         self.open_encoded_target(encode_target(&target, port)?, None).await
     }
 
-    /// Opens a stream on `session` when given, otherwise on a pooled or new one.
-    ///
     /// # Cancel safety
     /// Cancel-safe: the owned worker returns an unused session to the pool;
     /// a committed stream is closed by its drop, which sends the FIN.
@@ -488,7 +420,6 @@ impl AnyTlsClient {
         let (inbound_tx, inbound_rx) = mpsc::channel(32);
         let (ack_tx, mut ack_rx) = oneshot::channel();
         let peer_fin = Arc::new(AtomicBool::new(false));
-        // The drop of this pending stream undoes every step below.
         let mut stream = AnyTlsStream {
             stream_id,
             session: session.clone(),
@@ -510,8 +441,6 @@ impl AnyTlsClient {
             .unwrap_or_else(PoisonError::into_inner)
             .insert(stream_id, StreamRoute { inbound: inbound_tx, peer_fin, open_ack: Some(ack_tx) });
 
-        // A silently dead carrier (path black hole, no RST) would otherwise
-        // hold every open until the caller's deadline.
         let carrier_dead = watch_carrier(&session);
         tokio::pin!(carrier_dead);
         let send_result = tokio::select! {
@@ -527,9 +456,6 @@ impl AnyTlsClient {
         }
         stream.syn_sent = true;
 
-        // v2 servers answer a SYN with SYNACK; v1 servers never do. Decide from
-        // the session's peer version, waiting a bounded time for ServerSettings
-        // when it is still unknown.
         let mut version_rx = session.peer_version.subscribe();
         let settings_deadline = tokio::time::sleep(SERVER_SETTINGS_WAIT);
         tokio::pin!(settings_deadline);
@@ -561,7 +487,6 @@ impl AnyTlsClient {
                     return;
                 };
                 stream.owner = Some(owner);
-                // A receiver that is gone drops the stream, which closes it.
                 result_tx.send(Ok(stream)).ok();
             }
             Ok(Err(error)) => {
@@ -590,9 +515,6 @@ impl AnyTlsClient {
             .unwrap_or_else(|_| Err(AnyTlsError::Io("AnyTLS connection timed out".into())))
     }
 
-    /// The idle session with the highest `seq`, if one is still alive and has
-    /// not been idle past the timeout (the sweep alone can leave it up to one
-    /// interval longer).
     fn take_idle_session(&self) -> Option<SessionHandle> {
         let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let timeout = state.idle_timeout;
@@ -606,17 +528,11 @@ impl AnyTlsClient {
     /// association is published after the open returns, with no await between.
     pub async fn open_udp_over_tcp(&self) -> Result<AnyTlsUdpOverTcp, AnyTlsError> {
         let mut target = encode_target(&TargetAddr::Domain(UDP_OVER_TCP_V2_TARGET.to_owned()), 0)?;
-        // UoT v2 requires its request before the server can acknowledge SYN:
-        // isConnect=false, followed by an unused SOCKS destination 0.0.0.0:0.
-        // Datagram mode carries the actual destination in every packet.
         target.extend_from_slice(&[0, 1, 0, 0, 0, 0, 0, 0]);
         let stream = self.open_encoded_target(target, None).await?;
         Ok(AnyTlsUdpOverTcp { stream, pending: Vec::new() })
     }
 
-    /// Opens a stream through `transport`, the byte pipe to the server (for
-    /// example the previous hop of a chain). The client never dials the network.
-    ///
     /// # Cancel safety
     /// cancel-safe: cancellation drops the unpublished transport and the
     /// client, whose owner guard cancels its workers.
@@ -632,9 +548,6 @@ impl AnyTlsClient {
         Self::open_tcp_over_with_padding_scheme(config, transport, target, port, SharedPaddingScheme::default()).await
     }
 
-    /// Like [`Self::open_tcp_over`], but reads and updates `padding_scheme`, so
-    /// a scheme the server pushed is used by the next client of the same profile.
-    ///
     /// # Cancel safety
     /// cancel-safe: cancellation drops the unpublished transport and the
     /// client, whose owner guard cancels its workers.
@@ -653,9 +566,6 @@ impl AnyTlsClient {
         client.open_tcp_on_transport(transport, target, port).await
     }
 
-    /// Opens on the supplied transport without using the idle pool or dialing a server.
-    /// The client owns the handshake, carrier, and stream workers until `close` joins them.
-    ///
     /// # Cancel safety:
     /// cancel-safe: dropping the caller cancels the owned open worker; `close` retains its join.
     pub async fn open_tcp_on_transport<S>(
@@ -692,14 +602,6 @@ impl AnyTlsClient {
     /// cancel-safe: a cancelled dial drops the unconnected socket and the
     /// unpublished transport; nothing is registered before the session is built.
     async fn establish_network_session(&self) -> Result<SessionHandle, AnyTlsError> {
-        // PROTECT INVARIANT: the carrier socket is protected before connect via the
-        // in-process VpnService.protect registry (loopback-skipped, fail-closed under
-        // a live TUN) — matching the ripdpi-vless / ripdpi-xhttp gold-standard
-        // pattern. AnyTLS is a standalone relay kind (transport_descriptor.rs
-        // build_anytls), reachable under a live TUN; own-UID exclusion via
-        // computeAppRoutingPlan remains the second layer. `establish_session` over an
-        // existing transport carries no OS socket of its own. REL-1 / REL-3. See
-        // .claude/rules/vpnservice-protect-invariant.md.
         let tcp = connect_protected_tcp(
             self.config.server_host.as_str(),
             self.config.server_port,
@@ -718,9 +620,6 @@ impl AnyTlsClient {
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let mut tls = connect_tls(&self.config, transport).await?;
-        // Clone the padding scheme and drop the guard before awaiting: holding
-        // the lock across the `write_auth` TLS write would serialize concurrent
-        // opens behind handshake I/O.
         let padding_scheme = self.padding_scheme.lock().await.clone();
         write_auth(&mut tls, &self.config.password, &padding_scheme).await?;
 
@@ -759,7 +658,6 @@ impl AnyTlsClient {
     }
 }
 
-/// Return a healthy session to the idle pool and make sure a sweeper runs.
 fn release_session(state: &Arc<StdMutex<ClientState>>, session: SessionHandle) {
     if session.is_dead() {
         return;
@@ -778,9 +676,6 @@ fn release_session(state: &Arc<StdMutex<ClientState>>, session: SessionHandle) {
     }
 }
 
-/// Closes pooled sessions that stayed idle past the timeout; ends when the
-/// pool is empty, and the next release starts it again.
-///
 /// # Cancel safety
 /// cancel-safe: it only sleeps and edits the pool under a short std lock.
 async fn sweep_idle_sessions(state: Weak<StdMutex<ClientState>>) {
@@ -802,9 +697,6 @@ async fn sweep_idle_sessions(state: Weak<StdMutex<ClientState>>) {
 }
 
 impl SessionHandle {
-    /// Record the server's version for this session only, and only while it is
-    /// still unknown. It is never carried to other sessions: addresses of one
-    /// server can differ in version, and a server can be downgraded.
     fn learn_peer_version(&self, version: u8) {
         self.peer_version.send_if_modified(|current| {
             let unknown = *current == 0;
@@ -851,20 +743,11 @@ fn carrier_unresponsive() -> AnyTlsError {
     AnyTlsError::Io("AnyTLS carrier stopped responding".to_owned())
 }
 
-/// Completes when the carrier of `session` stops responding: no inbound frame
-/// for [`CARRIER_PROBE_AFTER`] and then none for [`CARRIER_PROBE_TIMEOUT`]
-/// after a HeartRequest. A live server answers the request even while it is
-/// still dialing the target of a pending open. A carrier busy with a large
-/// upload can also miss the deadline (the request waits behind the upload), so
-/// the caller fails only its open and evicts the carrier; streams already on it
-/// keep running.
-///
 /// # Cancel safety
 ///
 /// cancel-safe: it only sleeps, reads a counter and queues a HeartRequest
 /// with `try_send`.
 async fn watch_carrier(session: &SessionHandle) {
-    // A v1 server ignores HeartRequest, so probe only a server proven to be v2.
     if session.peer_version.subscribe().wait_for(|version| *version >= 2).await.is_err() {
         std::future::pending::<()>().await;
     }
@@ -874,7 +757,6 @@ async fn watch_carrier(session: &SessionHandle) {
         if session.inbound_frames.load(Ordering::Acquire) != seen {
             continue;
         }
-        // A full queue means the writer is stalled as well; the timeout decides.
         session.outbound.try_send(Outbound::Batch(vec![Frame::control(Command::HeartRequest, 0)])).ok();
         tokio::time::sleep(CARRIER_PROBE_TIMEOUT).await;
         if session.inbound_frames.load(Ordering::Acquire) == seen {
@@ -901,9 +783,6 @@ impl AnyTlsStream {
     /// Not cancel-safe: completed chunks remain queued if a later chunk is
     /// cancelled. Callers must close the logical stream after cancellation.
     pub async fn write_all(&mut self, data: &[u8]) -> Result<(), AnyTlsError> {
-        // The wire length is u16. Oversized application writes must be split
-        // before entering the writer queue, otherwise frame encoding terminates
-        // the entire shared TLS carrier, including unrelated streams.
         for chunk in data.chunks(usize::from(u16::MAX)) {
             self.session
                 .outbound
@@ -933,12 +812,6 @@ impl AnyTlsStream {
         self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)
     }
 
-    /// Close the substream: queue a FIN frame. AnyTLS FIN closes the stream in
-    /// both directions, so the peer sends nothing new after it; the route
-    /// stays registered only for frames already in flight. It is not a
-    /// half-close. Idempotent: a second `close` is a no-op, and after a
-    /// successful `close` the `Drop` impl no longer sends a duplicate FIN.
-    ///
     /// # Cancel safety
     /// Cancel-safe: a cancelled bounded send does not enqueue FIN. Once the
     /// send commits, the flag is set without another await.
@@ -981,9 +854,6 @@ where
 {
     let server_name = ripdpi_tls_profiles::normalize_server_name(&config.server_name)
         .map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
-    // Keep the profile's version range: forcing TLS 1.3 only drops the TLS 1.2
-    // suites and extensions the browser sends, so the ClientHello would match no
-    // real browser. The server still negotiates TLS 1.3.
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| AnyTlsError::TlsProfile(error.to_string()))?;
     if let Some(root_pem) = &config.root_certificate_pem {
@@ -1024,12 +894,8 @@ where
     Ok(())
 }
 
-/// A CSPRNG draw for one padding size range, as the reference client draws
-/// every range with crypto/rand.
 fn random_selector() -> u64 {
     let mut bytes = [0_u8; 8];
-    // rand_bytes fails only when BoringSSL's DRBG is unusable; the range
-    // minimum is then a padding size, not a security loss.
     boring::rand::rand_bytes(&mut bytes).map_or(0, |()| u64::from_ne_bytes(bytes))
 }
 
@@ -1081,7 +947,6 @@ async fn run_session<S>(
                 match action {
                     PaddingAction::Payload(payload) => writer.write_all(&payload).await?,
                     PaddingAction::PayloadThenWaste { mut payload, waste_len } => {
-                        // One write, so the payload and its padding leave as one TLS record.
                         payload.extend_from_slice(&Frame::with_data(Command::Waste, 0, vec![0; waste_len]).encode()?);
                         writer.write_all(&payload).await?;
                     }
@@ -1095,18 +960,12 @@ async fn run_session<S>(
         Ok::<(), AnyTlsError>(())
     };
 
-    // A wrong password makes the server close the connection or fall back to
-    // another service, so no valid AnyTLS frame ever arrives. A v1 server also
-    // sends no frame after a good auth, but it keeps the connection open, so
-    // only the end of the carrier counts as a verdict.
     let saw_known_frame = AtomicBool::new(false);
     let reader = async {
         loop {
             let frame = read_frame(&mut reader, !saw_known_frame.load(Ordering::Relaxed)).await?;
             lifetime.inbound_frames.fetch_add(1, Ordering::Release);
             let Some(frame) = frame else {
-                // A command this client does not know: it is skipped, as the
-                // reference client does, so a newer server cannot kill the session.
                 continue;
             };
             saw_known_frame.store(true, Ordering::Relaxed);
@@ -1118,9 +977,6 @@ async fn run_session<S>(
                         .unwrap_or_else(PoisonError::into_inner)
                         .get(&frame.stream_id())
                         .map(|route| route.inbound.clone());
-                    // A session carries one stream, so waiting for a slow reader
-                    // is real TCP backpressure and stalls no sibling. A stream
-                    // that is gone drops the data.
                     if let Some(inbound) = inbound {
                         inbound.send(frame.data().to_vec()).await.ok();
                     }
@@ -1132,8 +988,6 @@ async fn run_session<S>(
                     }
                 }
                 Command::UpdatePaddingScheme => {
-                    // An unusable scheme keeps the current one; the reference
-                    // only logs it instead of closing the carrier.
                     if let Ok(scheme) = PaddingScheme::parse(frame.data()) {
                         *padding_scheme.lock().await = scheme;
                     }
@@ -1203,9 +1057,6 @@ fn handle_synack(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, stream_id: 
         } else {
             Err(AnyTlsError::StreamOpenRejected(String::from_utf8_lossy(data).into_owned()))
         };
-        // No waiting open means the stream was already returned (the server
-        // looked like v1 for a while). A late rejection then ends that stream
-        // without a FIN, which the application sees as a reset.
         if open_ack.send(result).is_err_and(|late| late.is_err()) {
             guard.remove(&stream_id);
         }
@@ -1222,12 +1073,6 @@ fn fail_all_streams(streams: &Arc<StdMutex<HashMap<u32, StreamRoute>>>, error: A
     guard.clear();
 }
 
-/// Reads one frame. A frame with an unknown command is consumed whole, using
-/// its declared length, and reported as `None`. As the first frame of a
-/// session (`first`), an unknown command means the peer is not an AnyTLS
-/// server, for example a fallback web server answering with HTTP, and is
-/// reported as `AuthenticationRejected` without waiting for its body.
-///
 /// # Cancel safety
 /// NOT cancel-safe: a cancelled read can leave a partial frame consumed. Only
 /// the session reader calls it, and it drops the whole session on cancellation.
@@ -1252,7 +1097,6 @@ where
     }
 }
 
-/// End of stream or a reset is the carrier ending; anything else is an I/O error.
 fn map_read_error(error: io::Error) -> AnyTlsError {
     if matches!(error.kind(), io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset) {
         AnyTlsError::SessionClosed

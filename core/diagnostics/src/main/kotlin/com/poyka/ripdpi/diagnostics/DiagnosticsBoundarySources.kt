@@ -40,7 +40,6 @@ class DefaultDiagnosticsHistorySource
         override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> =
             scanRecordStore
                 .observeRecentScanSessions(limit)
-                // Each row decodes its stored report JSON; keep that off the collector's dispatcher.
                 .map { sessions -> sessions.map(mapper::toDiagnosticScanSession) }
                 .flowOn(Dispatchers.Default)
 
@@ -106,9 +105,6 @@ class DefaultDiagnosticsRememberedPolicySource
                         id = policy.id,
                         fingerprintHash = policy.fingerprintHash,
                     )
-                // Only purge per-network learned state once no other mode still references this
-                // network scope; otherwise a surviving policy for the same fingerprint would be
-                // orphaned from its DNS-substrate learning.
                 if (remainingForFingerprint == 0) {
                     networkDnsPathPreferenceStore.deleteForFingerprint(policy.fingerprintHash)
                     networkDnsBlockedPathStore.clearForFingerprint(policy.fingerprintHash)
@@ -121,8 +117,6 @@ class DefaultDiagnosticsRememberedPolicySource
         override suspend fun clearAll() {
             rememberedNetworkPolicyStore.clearAll()
             networkDnsPathPreferenceStore.clearAll()
-            // Purge every companion per-network store so "clear all" leaves no orphaned learned
-            // state behind, mirroring the per-entry scoped purge above.
             networkDnsBlockedPathStore.clearAll()
             networkEdgePreferenceRecordStore.clearNetworkEdgePreferences()
         }
@@ -143,10 +137,6 @@ class DefaultDiagnosticsActiveConnectionPolicySource
                     policies.mapValues { (_, policy) -> mapper.toDiagnosticActiveConnectionPolicy(policy) }
                 }.stateIn(
                     scope = scope,
-                    // Eagerly is intentional: this is a singleton bound to ApplicationIoScope.
-                    // Active connection policies must be available immediately when diagnostics
-                    // consumers query this source; deferring to WhileSubscribed would produce a
-                    // stale initial value for the first subscriber.
                     started = SharingStarted.Eagerly,
                     initialValue = emptyMap(),
                 )

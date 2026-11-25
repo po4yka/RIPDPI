@@ -55,12 +55,6 @@ data class DnsPreset(
     val dohHost: String,
 ) {
     companion object {
-        /**
-         * Every DoH-capable bundled catalog entry, mapped onto the diagnostics-facing [DnsPreset]
-         * shape and cached so each id yields one stable instance (the [assertSame] identity the
-         * resolver tests rely on). Sourced from [BundledDnsProviderCatalog] — the same offline
-         * catalog the encrypted-DNS settings pipeline and the `:core:service` loader agree on.
-         */
         val ALL: List<DnsPreset> =
             BundledDnsProviderCatalog.providers
                 .filter { it.supportsDoh && it.dohUrl.isNotBlank() }
@@ -73,7 +67,6 @@ data class DnsPreset(
                     )
                 }
 
-        /** Convenience accessors for the historically named presets; resolve via the catalog by id. */
         val CLOUDFLARE: DnsPreset = requireNotNull(byId("cloudflare")) { "cloudflare missing from DNS catalog" }
         val GOOGLE: DnsPreset = requireNotNull(byId("google")) { "google missing from DNS catalog" }
         val YANDEX: DnsPreset = requireNotNull(byId("yandex")) { "yandex missing from DNS catalog" }
@@ -236,7 +229,6 @@ class DetectionResolverNetworkStack(
         } catch (
             @Suppress("TooGenericExceptionCaught") e: Throwable,
         ) {
-            // Resolver fallthrough: any OkHttp failure should be retried via the native curl bridge.
             okHttpError = e
             if (!config.useNativeCurlFallback || !nativeCurlBridge.canExecute()) {
                 throw e
@@ -248,12 +240,10 @@ class DetectionResolverNetworkStack(
         } catch (
             @Suppress("TooGenericExceptionCaught") nativeError: Throwable,
         ) {
-            // Resolver fallthrough: combine both transport failures into one diagnostic exception.
             throw CombinedTransportIOException(okHttpError, nativeError)
         }
     }
 
-    /** Keeps OkHttp cancellation active through the bounded body read. This path does not use native fallback. */
     suspend fun executeCancellable(
         request: Request,
         config: DetectionResolverConfig = DetectionResolverConfig(),
@@ -261,7 +251,6 @@ class DetectionResolverNetworkStack(
         proxy: Proxy? = null,
     ): DetectionTransportResponse = executeBufferedCall(clientFor(config), request, maxResponseBytes, proxy)
 
-    /** Cancels owned resolver calls; platform SYSTEM lookups may finish in the OS after cancellation. */
     suspend fun resolveAddressesCancellable(
         hostname: String,
         config: DetectionResolverConfig = DetectionResolverConfig(),

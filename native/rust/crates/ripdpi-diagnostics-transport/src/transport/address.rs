@@ -59,7 +59,6 @@ fn ordered_connect_targets(host: Option<&str>, connect_ip: Option<&str>, connect
 }
 
 const DNS_RESOLVE_TIMEOUT: Duration = Duration::from_secs(5);
-/// Each name takes two jobs (one per family), so this is twice the number of names looked up at once.
 const DNS_RESOLVER_WORKERS: usize = 8;
 const DNS_RESOLVER_QUEUE_CAPACITY: usize = 128;
 const DNS_RESOLVER_REPLACEMENT_FACTOR: usize = 2;
@@ -96,30 +95,20 @@ impl fmt::Display for DnsResolveError {
 
 impl std::error::Error for DnsResolveError {}
 
-/// Map a getaddrinfo return code. Only `EAI_NONAME` means the name does not exist; `EAI_NODATA`
-/// and `EAI_AGAIN` are other failures.
-// shortcut: Android bionic returns EAI_NODATA for a real NXDOMAIN and for offline or Private DNS
-// failures alike, so an injected NXDOMAIN is a missed DnsTampering verdict there, never a false
-// one; upgrade to a resolver that sees the rcode (for example the encrypted resolver path).
 fn classify_gai_code(code: libc::c_int) -> DnsResolveError {
     if code == libc::EAI_NONAME { DnsResolveError::Nxdomain } else { DnsResolveError::Failure }
 }
 
-/// Resolve `host` with getaddrinfo, like `ToSocketAddrs`, but keep the return code that std
-/// reduces to message text.
 fn system_lookup(host: &str, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
     system_lookup_family(host, port, libc::AF_UNSPEC, 0)
 }
 
-/// Address family of one half of a split lookup.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum LookupFamily {
     V6,
     V4,
 }
 
-/// `AI_ADDRCONFIG` keeps the IPv6 half from returning AAAA answers on a device with no IPv6
-/// address, where first-address callers would pick an unusable peer.
 fn system_lookup_by_family(host: &str, port: u16, family: LookupFamily) -> Result<Vec<SocketAddr>, DnsResolveError> {
     match family {
         LookupFamily::V6 => system_lookup_family(host, port, libc::AF_INET6, libc::AI_ADDRCONFIG),
@@ -170,8 +159,6 @@ fn system_lookup_family(
     Ok(addresses)
 }
 
-/// Read an IPv4 or IPv6 socket address; other families give `None`.
-///
 /// # Safety
 ///
 /// `address` must be null or point to `len` readable bytes that hold a socket address.
@@ -196,7 +183,6 @@ unsafe fn socket_addr_from(address: *const libc::sockaddr, len: libc::socklen_t,
     }
 }
 
-/// Index of the named network interface, for an IPv6 scope zone such as `fe80::1%wlan0`.
 pub fn interface_index(name: &str) -> Option<u32> {
     let c_name = std::ffi::CString::new(name).ok()?;
     // SAFETY: `c_name` is NUL-terminated and outlives the call.
@@ -216,7 +202,6 @@ struct ResolveJob {
     host: String,
     port: u16,
     deadline: Instant,
-    /// Replaces the pool's resolver for this job (per-family lookups).
     resolver: Option<Arc<ResolveFn>>,
     response: mpsc::Sender<Result<Vec<SocketAddr>, DnsResolveError>>,
 }
@@ -238,7 +223,6 @@ struct LookupPermit {
 
 impl LookupBudget {
     fn try_acquire(self: &Arc<Self>) -> Option<LookupPermit> {
-        // Ordering: this atomic is only a capacity counter; it does not publish lookup data.
         self.active
             .try_update(Ordering::Relaxed, Ordering::Relaxed, |active| (active < self.limit).then_some(active + 1))
             .ok()
@@ -248,7 +232,6 @@ impl LookupBudget {
 
 impl Drop for LookupPermit {
     fn drop(&mut self) {
-        // Ordering: this atomic is only a capacity counter; the result channel provides synchronization.
         let previous = self.budget.active.fetch_sub(1, Ordering::Relaxed);
         debug_assert!(previous > 0, "DNS lookup permit counter underflow");
     }
@@ -286,7 +269,6 @@ impl ResolverExecutor {
             {
                 Ok(worker) => worker,
                 Err(error) => {
-                    // Ordering: publish shutdown before disconnecting the queue and joining supervisors.
                     shutdown.store(true, Ordering::Release);
                     drop(jobs);
                     for worker in workers {
@@ -340,11 +322,6 @@ impl ResolverExecutor {
 }
 
 impl ResolverExecutor {
-    /// Look up IPv6 and IPv4 as two independent jobs sharing one budget (RFC 8305 section 3), so a
-    /// stalled family does not hide the other family's answer. IPv6 addresses come first.
-    /// The result is an error only when both lookups fail (see `merge_family_results`).
-    // shortcut: no 50 ms Resolution Delay; the result waits for both lookups or the budget, so a
-    // stalled family still costs the whole budget before the other family's addresses are used.
     fn resolve_split(
         &self,
         host: &str,
@@ -379,7 +356,6 @@ impl ResolverExecutor {
 
 type FamilyResult = Result<Vec<SocketAddr>, DnsResolveError>;
 
-/// IPv6 answers first. An error only when both fail; NXDOMAIN wins then, to keep the tampering signal.
 fn merge_family_results(v6: FamilyResult, v4: FamilyResult) -> FamilyResult {
     match (v6, v4) {
         (Ok(mut v6), Ok(v4)) => {
@@ -396,7 +372,6 @@ fn merge_family_results(v6: FamilyResult, v4: FamilyResult) -> FamilyResult {
 
 impl Drop for ResolverExecutor {
     fn drop(&mut self) {
-        // Ordering: publish shutdown before disconnecting the queue; Acquire polls make active supervisors exit.
         self.shutdown.store(true, Ordering::Release);
         self.jobs.take();
         for worker in self.workers.drain(..) {
@@ -412,7 +387,6 @@ fn resolver_worker(
     shutdown: Arc<AtomicBool>,
 ) {
     loop {
-        // Ordering: pairs with the Release store during executor shutdown.
         if shutdown.load(Ordering::Acquire) {
             break;
         }
@@ -438,7 +412,6 @@ fn resolve_job(
         let _ = response.send(Err(DnsResolveError::Timeout));
         return;
     }
-    // Ordering: pairs with the Release store during executor shutdown.
     if shutdown.load(Ordering::Acquire) {
         let _ = response.send(Err(DnsResolveError::Unavailable));
         return;
@@ -455,7 +428,6 @@ fn resolve_job(
         } else {
             catch_unwind(AssertUnwindSafe(|| resolver(&host, port))).unwrap_or(Err(DnsResolveError::Unavailable))
         };
-        // Release capacity before the result lets the supervisor start another lookup.
         drop(permit);
         let _ = lookup_response.send(result);
     });
@@ -473,7 +445,6 @@ fn wait_for_lookup(
     shutdown: &AtomicBool,
 ) -> Result<Vec<SocketAddr>, DnsResolveError> {
     loop {
-        // Ordering: pairs with the Release store during executor shutdown.
         if shutdown.load(Ordering::Acquire) {
             return Err(DnsResolveError::Unavailable);
         }
@@ -498,7 +469,6 @@ pub fn resolve_addresses(target: &TargetAddress, port: u16) -> Result<Vec<Socket
     resolve_addresses_with_timeout(target, port, timeout)
 }
 
-/// Resolve both address families within the scan deadline and stop waiting on cancellation.
 pub fn resolve_addresses_with_cancel(
     target: &TargetAddress,
     port: u16,
@@ -566,10 +536,6 @@ fn resolve_first_socket_addr_with(value: &str, resolver: &ResolverExecutor) -> R
         .ok_or(TransportError::NoSocketAddrs)
 }
 
-/// Submit DNS work to the bounded shared executor. Dropping the receiver abandons
-/// the result without spawning another resolver or waiting for a platform lookup.
-/// This is one `AF_UNSPEC` lookup: it returns a single receiver, so there is no place to merge
-/// per-family results without another thread.
 pub fn start_address_resolution(
     host: &str,
     port: u16,
@@ -649,7 +615,6 @@ mod tests {
 
     #[test]
     fn stalled_ipv6_does_not_starve_concurrent_names() {
-        // The pool used to serve four names at once; the split must keep that capacity.
         const NAMES: usize = 4;
         let v4: std::net::SocketAddr = "192.0.2.1:443".parse().unwrap();
         let executor = std::sync::Arc::new(
@@ -716,9 +681,6 @@ mod tests {
 
     use super::*;
 
-    /// Regression test (audit H4 siblings): a bare IPv6 authority must be
-    /// rejected with `InvalidSocketHost` instead of reaching the resolver as
-    /// a corrupted host (`"2001:db8:"`).
     #[test]
     fn resolve_first_socket_addr_rejects_bare_ipv6_authority() {
         let error = resolve_first_socket_addr("2001:db8::1").expect_err("bare IPv6 authority must be rejected");
@@ -801,7 +763,6 @@ mod tests {
         let target = TargetAddress::Host("localhost".to_string());
         let addrs = resolve_addresses(&target, 443).expect("resolve localhost");
 
-        // Every node of the getaddrinfo list must decode to a loopback address with our port.
         assert!(!addrs.is_empty());
         assert!(addrs.iter().all(|address| address.ip().is_loopback() && address.port() == 443), "{addrs:?}");
     }

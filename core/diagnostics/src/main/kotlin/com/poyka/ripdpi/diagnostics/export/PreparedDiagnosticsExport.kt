@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 import java.io.OutputStream
 import java.util.UUID
 
-/** Opaque lookup key; neither saved state nor a caller can supply a filesystem path. */
 class DiagnosticsExportLeaseId private constructor(
     val encoded: String,
 ) {
@@ -55,7 +54,6 @@ data class PreparedDiagnosticsExport(
     override fun toString(): String = "PreparedDiagnosticsExport(purpose=$purpose, phase=$phase, byteCount=$byteCount)"
 }
 
-/** Returned only after durable one-shot consumption and checked private file/record identity. */
 class CheckedDiagnosticsExportHandoff(
     val preview: PreparedDiagnosticsExport,
     val absolutePath: String,

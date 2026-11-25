@@ -15,11 +15,6 @@ import kotlinx.coroutines.async
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Process-owned native lane. Bind once per process, independently of any service scope.
- * Cancelling an await never cancels a native operation or releases its session lease.
- * Admission permits one start, one observation and one stop per lease, even if Go hangs.
- */
 class XrayRuntimeOwner(
     private val bridge: XrayNativeBridge,
     dispatcher: CoroutineDispatcher = NativeDispatcher,
@@ -35,10 +30,6 @@ class XrayRuntimeOwner(
     val isOccupied: Boolean
         get() = synchronized(lock) { active != null || endpointResolution != null }
 
-    /**
-     * One detached relay bootstrap lookup. Cancellation cannot enqueue unbounded blocking DNS jobs.
-     * It runs off the native lane, so a restart can resolve while the live session holds its lease.
-     */
     fun resolveEndpoint(resolve: () -> List<String>): Deferred<List<String>> {
         val operation =
             synchronized(lock) {
@@ -162,7 +153,6 @@ class XrayRuntimeOwner(
                     active = null
                 }
             }
-            // async completes only after publication/release, never while holding lock.
             StopCause.Clean
         }
     }

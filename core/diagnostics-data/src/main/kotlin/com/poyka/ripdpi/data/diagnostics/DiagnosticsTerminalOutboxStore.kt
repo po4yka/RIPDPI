@@ -28,11 +28,6 @@ interface DiagnosticsTerminalOutboxStore {
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean
 
-    /**
-     * Writes `update(row)` for the stored policy [policyId], read in the same transaction as the
-     * marker swap, so a concurrent store update is not overwritten. A missing row (deleted by the
-     * user) or a null update writes no policy; the marker is still replaced.
-     */
     suspend fun checkpointTerminalPolicy(
         policyId: Long?,
         update: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity?,

@@ -8,10 +8,6 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
-/**
- * Only the in-memory request to the native monitor may carry [secret]: the persisted scan entities must not,
- * and the archive redactor must remove it when the request JSON is exported as probe detail.
- */
 internal fun assertSecretNeverPersistedOrExported(
     prepared: PreparedDiagnosticsScan,
     secret: String,

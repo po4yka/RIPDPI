@@ -130,7 +130,6 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
     @Test
     fun `a recommendation whose config has explicit nulls, as the engine writes it, is valid`() {
         val config = invariantValidRecommendedProxyConfigJson()
-        // The engine marks an unset option with a null; the app's own encoder leaves the key out.
         val engineConfig = config.replaceFirst("\"fakePackets\":{", "\"fakePackets\":{\"entropyPaddingMax\":null,")
         org.junit.Assert.assertNotEquals(config, engineConfig)
 

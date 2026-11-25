@@ -33,7 +33,6 @@ class WithCancellationContractTest {
                 val reader = StringReader("fixture")
                 reader.use {
                     val observed = runCatching { reader.withCancellation<Nothing> { throw failure } }.exceptionOrNull()
-                    // Coroutine debug recovery can copy an Exception and keep its original cause.
                     if (failure is Exception && observed !== failure) {
                         assertEquals(failure.javaClass, observed?.javaClass)
                         assertEquals(failure.message, observed?.message)

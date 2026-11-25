@@ -839,7 +839,6 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
             val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope, activePolicyStore)
             firstCoordinator.registerNetworkTransitionFlush { true }
             var failSessionUpsert = true
-            // Process death after the policy transaction committed, before the outbox reaches SESSION_UPSERT.
             stores.beforeCheckpointTerminalOutbox = { marker ->
                 if (failSessionUpsert && marker.value.contains("\"phase\":\"SESSION_UPSERT\"")) {
                     failSessionUpsert = false
@@ -1058,7 +1057,6 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
             override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = MutableStateFlow(emptyMap())
         }
 
-    /** Returns a policy that matched the remembered row it seeds into [stores]. */
     protected fun activeRememberedPolicy(stores: FakeDiagnosticsHistoryStores): ActiveConnectionPolicy =
         ActiveConnectionPolicy(
             mode = Mode.VPN,

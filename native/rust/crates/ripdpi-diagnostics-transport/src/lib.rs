@@ -1,11 +1,3 @@
-// Crate-local unsafe hardening. The `unsafe` blocks in this crate are the
-// `getsockopt(IP_TTL)` FFI call in `platform_ttl`, the `poll` connect wait in `transport::protect`, and the `getaddrinfo` lookup and `if_nametoindex` call in
-// `transport::address`. Re-enabling the
-// workspace-deferred `undocumented_unsafe_blocks` and
-// `multiple_unsafe_ops_per_block` lints locally turns the per-block
-// `// SAFETY:` documentation requirement into a build-time error here, matching
-// the convention in ripdpi-vless / ripdpi-privileged-ops /
-// ripdpi-proxy-runtime, while the rest of the workspace migrates gradually.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 

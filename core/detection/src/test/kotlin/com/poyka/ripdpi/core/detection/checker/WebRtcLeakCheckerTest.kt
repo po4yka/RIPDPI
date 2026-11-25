@@ -105,7 +105,7 @@ class WebRtcLeakCheckerTest {
                 it[23] = 0x08
                 it[25] = 0x01
                 it[32] = 0x80.toByte()
-                it[33] = 0x22 // SOFTWARE: comprehension-optional
+                it[33] = 0x22
                 it[35] = 0x04
                 it[36] = 't'.code.toByte()
                 it[37] = 'e'.code.toByte()
@@ -115,7 +115,7 @@ class WebRtcLeakCheckerTest {
 
         assertTrue(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
         response[32] = 0x00
-        response[33] = 0x2f // Unassigned, comprehension-required
+        response[33] = 0x2f
         assertFalse(WebRtcLeakChecker.validBindingResponse(response, response.size, request))
     }
 }

@@ -72,7 +72,6 @@ class DetectionCheckScheduler
             if (observeJob != null) return
             observeJob =
                 scope.launch {
-                    // collectLatest: leaving Running cancels the in-flight check, and a restart gets its own check.
                     serviceStateStore.status
                         .distinctUntilChangedBy { it.first }
                         .collectLatest { (status) ->
@@ -89,7 +88,6 @@ class DetectionCheckScheduler
             if (handoverJob != null) return
             handoverJob =
                 scope.launch {
-                    // Handover checks belong to the Running session: leaving Running cancels the in-flight one.
                     serviceStateStore.status
                         .distinctUntilChangedBy { it.first }
                         .collectLatest { (status) ->
@@ -105,7 +103,6 @@ class DetectionCheckScheduler
             handoverJob = null
         }
 
-        // A handover during the start check waits for it, so two checks never save results at once.
         private val quickCheckLock = Mutex()
 
         private suspend fun runQuickCheck(context: Context) = quickCheckLock.withLock { runQuickCheckLocked(context) }
@@ -114,8 +111,6 @@ class DetectionCheckScheduler
             try {
                 val network = networkFingerprintProvider.capture()
                 val networkKey = network?.scopeKey() ?: "unknown"
-                // Local checks only: an automatic check must not send the public IP to third-party
-                // GeoIP or IP-echo services. The user runs those lookups from the Detection screen.
                 val config =
                     DetectionRunnerConfig(
                         ownPackageName = context.packageName,
@@ -180,7 +175,6 @@ class DetectionCheckScheduler
                     Verdict.NEEDS_REVIEW -> context.getString(R.string.detection_alert_title_needs_review, score)
                     Verdict.NOT_DETECTED -> return
                 }
-            // The launcher activity reads this link; core:detection cannot reference the app's activity class.
             val openDetectionCheck =
                 context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
                     action = Intent.ACTION_VIEW

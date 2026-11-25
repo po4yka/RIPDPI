@@ -27,12 +27,10 @@ internal suspend fun resolveDetectionHostname(
     lookup: () -> List<InetAddress>,
 ): List<InetAddress>? =
     withContext(Dispatchers.Default) {
-        // getaddrinfo cannot be interrupted. Keep its lease until it returns, but detach its caller.
         val pending = lookupScope.async { lookupSlots.withPermit { lookup() } }
         try {
             withTimeoutOrNull(timeoutMs) { pending.await() }
         } finally {
-            // Cancel a queued lookup. An active blocking lookup keeps its slot until its finally runs.
             pending.cancel()
         }
     }

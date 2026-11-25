@@ -7,10 +7,6 @@ const WEIGHT_SMALL_RESPONSE: u32 = 10;
 const WEIGHT_SINGLE_ANSWER: u32 = 5;
 const WEIGHT_MALFORMED_POINTERS: u32 = 15;
 
-/// Score protocol-level anomalies of the answer to the probe's UDP query.
-///
-/// The diagnostic query requests EDNS metadata, but a missing OPT or an empty additional
-/// section alone does not establish tampering and is not scored.
 pub(super) fn compute_tampering_score(analysis: &mut DnsResponseAnalysis) {
     let mut score: u32 = 0;
 

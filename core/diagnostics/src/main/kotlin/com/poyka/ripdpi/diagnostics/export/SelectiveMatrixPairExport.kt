@@ -7,10 +7,6 @@ import com.poyka.ripdpi.diagnostics.SelectiveMatrixPairRow
 import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.serialization.Serializable
 
-/**
- * Redacted export of a paired comparison. It carries transport labels, timestamps, opaque target ids, per-leg
- * stages and repetition counts only: no session ids, hostnames, revisions, or network identifiers.
- */
 @Serializable
 data class SelectiveMatrixPairExport(
     val format: String = SelectiveMatrixPairExportFormat,

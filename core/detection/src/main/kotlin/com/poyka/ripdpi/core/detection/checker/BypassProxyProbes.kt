@@ -171,7 +171,6 @@ private fun OutputStream.writeSocks5TargetRequest(
                 byteArrayOf(SocksAddressIpv4.toByte()) + address.address
             }
 
-            // An IPv6 literal goes as ATYP 4; a host name stays a domain for the proxy to resolve.
             address is Inet6Address && host.contains(':') -> {
                 byteArrayOf(SocksAddressIpv6.toByte()) + address.address
             }
@@ -212,7 +211,6 @@ private fun InputStream.readSocks5UdpRelay(proxyHost: String): InetSocketAddress
     return InetSocketAddress.createUnresolved(address, port)
 }
 
-// A wildcard (0.0.0.0 or ::) relay address means "the proxy's own address" (RFC 1928 s6).
 private fun InetAddress.relayHostOrNull(): String? = hostAddress.takeUnless { isAnyLocalAddress }
 
 private fun InputStream.skipSocks5Address(addressType: Int) {
@@ -300,7 +298,6 @@ private fun ByteArray.socks5UdpPayloadOffset(
         if (this[SocksAddressTypeIndex].unsigned() == SocksAddressDomain) {
             copyOfRange(addressStart + 1, addressEnd).decodeToString().equals(targetHost, ignoreCase = true)
         } else {
-            // The connected relay owns DNS for the domain target; its numeric origin must be usable.
             val address = InetAddress.getByAddress(copyOfRange(addressStart, addressEnd))
             !address.isAnyLocalAddress && !address.isMulticastAddress
         }

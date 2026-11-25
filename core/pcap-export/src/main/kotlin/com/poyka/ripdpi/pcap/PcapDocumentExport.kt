@@ -11,7 +11,6 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import kotlin.coroutines.resumeWithException
 
-/** Owns the private copy until the picker is cancelled or the document is published. */
 class PreparedPcapExport internal constructor(
     internal val file: File,
 ) : Closeable {

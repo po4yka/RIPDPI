@@ -1,17 +1,3 @@
-//! Dev-only ShadowTLS v3 loopback server + soak tests.
-//!
-//! Implements the server counterpart of [`crate::ShadowTlsClient`] for the
-//! `add-shadowtls-loopback-test-server-for-soak-runs` task. It is hosted in this
-//! crate (not `ripdpi-protocol-loopback`) because the framing/HMAC/handshake
-//! helpers it reuses are `pub(crate)`, which keeps the test "mutually consistent"
-//! with the real client per the loopback-harness design doc.
-//!
-//! Protocol note: ShadowTLS v3 abandons the TLS handshake immediately after the
-//! ServerHello — the client never processes a Certificate — so the loopback only
-//! needs to emit a *valid* (rustls-generated) TLS 1.3 ServerHello, then the
-//! HMAC-authenticated "switch" frame, then HMAC-framed echo. No certificate is
-//! ever sent, so no cert-verification seam is required on the client.
-
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -26,10 +12,6 @@ use crate::frames::{
 use crate::handshake::parse_validated_server_hello;
 use crate::hmac::{HMAC_LEN, ShadowTlsHmac};
 
-/// A loopback ShadowTLS v3 server. Echoes every application-data payload the
-/// client sends, framed with the server-direction HMAC. Authenticates with the
-/// same `password` the client is configured with.
-// Drop order: shutdown drops-before join; the Drop body fires the oneshot stop signal before the accept-loop `JoinHandle` is detached, so the loop observes shutdown on its next poll (fire-and-forget teardown).
 pub struct ShadowTlsLoopback {
     local_addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
@@ -37,10 +19,6 @@ pub struct ShadowTlsLoopback {
 }
 
 impl ShadowTlsLoopback {
-    /// Start a loopback ShadowTLS v3 server authenticating with `password`.
-    ///
-    /// # Errors
-    /// Returns an error if the loopback TCP listener cannot bind.
     pub async fn start(password: String) -> io::Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
         let local_addr = listener.local_addr()?;
@@ -51,9 +29,6 @@ impl ShadowTlsLoopback {
                     _ = &mut shutdown_rx => break,
                     accept = listener.accept() => {
                         let Ok((stream, _peer)) = accept else { break };
-                        // Disable Nagle so the per-frame echo is not throttled by
-                        // the Nagle/delayed-ACK interaction (a socket artifact,
-                        // independent of the stream's framing).
                         let _ = stream.set_nodelay(true);
                         let password = password.clone();
                         tokio::spawn(async move {
@@ -66,13 +41,11 @@ impl ShadowTlsLoopback {
         Ok(Self { local_addr, shutdown: Some(shutdown_tx), join: Some(join) })
     }
 
-    /// The loopback address the server is listening on.
     #[must_use]
     pub fn local_addr(&self) -> SocketAddr {
         self.local_addr
     }
 
-    /// Stop the accept loop and wait for it to terminate.
     pub async fn shutdown(mut self) {
         if let Some(tx) = self.shutdown.take() {
             let _ = tx.send(());
@@ -91,21 +64,6 @@ impl Drop for ShadowTlsLoopback {
     }
 }
 
-/// A loopback server that emulates a **ShadowTLS v2** peer well enough to drive
-/// the v3-only client's version-mismatch detection. The wire shape is synthetic:
-/// real upstream v2 relays the cover TLS flight unchanged, so a TLS 1.3 cover
-/// never sends a `0x16` record after the ServerHello (see the version policy
-/// document). It relays a valid TLS 1.3
-/// ServerHello (so `parse_validated_server_hello` passes, exactly as a real v2
-/// server proxying to a cover site would), then — instead of v3's
-/// HMAC-authenticated application-data switch — sends a raw TLS handshake record
-/// (`0x16 0x03 0x03 ..`). The v3 client reads that record at the switch point and
-/// classifies it as `ShadowTlsFailureKind::VersionMismatch`. See
-/// `docs/architecture/shadowtls-version-policy.md`.
-///
-/// Available to this crate's tests and, under the `test-server` feature, to
-/// downstream crates' integration tests (e.g. `ripdpi-relay-core` /
-/// `ripdpi-relay-tls-transports`) that drive the version-mismatch path end to end.
 pub struct ShadowTlsV2RejectLoopback {
     local_addr: SocketAddr,
     shutdown: Option<oneshot::Sender<()>>,
@@ -113,10 +71,6 @@ pub struct ShadowTlsV2RejectLoopback {
 }
 
 impl ShadowTlsV2RejectLoopback {
-    /// Start a loopback that always answers like a v2 server.
-    ///
-    /// # Errors
-    /// Returns an error if the loopback TCP listener cannot bind.
     pub async fn start() -> io::Result<Self> {
         let listener = TcpListener::bind(("127.0.0.1", 0)).await?;
         let local_addr = listener.local_addr()?;
@@ -138,13 +92,11 @@ impl ShadowTlsV2RejectLoopback {
         Ok(Self { local_addr, shutdown: Some(shutdown_tx), join: Some(join) })
     }
 
-    /// The loopback address the server is listening on.
     #[must_use]
     pub fn local_addr(&self) -> SocketAddr {
         self.local_addr
     }
 
-    /// Stop the accept loop and wait for it to terminate.
     pub async fn shutdown(mut self) {
         if let Some(tx) = self.shutdown.take() {
             let _ = tx.send(());
@@ -168,9 +120,6 @@ async fn handle_v2_reject_connection(mut stream: TcpStream) -> io::Result<()> {
 
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    // 1-3. Relay a valid ServerHello (mirrors `handle_connection` steps 1-3) so
-    //      the client's `parse_validated_server_hello` succeeds — a v2 server
-    //      proxying to a real cover site produces a genuine ServerHello too.
     let client_hello = read_tls_frame(&mut stream).await?;
     let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
         .map_err(|e| io::Error::other(e.to_string()))?;
@@ -196,18 +145,10 @@ async fn handle_v2_reject_connection(mut stream: TcpStream) -> io::Result<()> {
         server_flight.get(..record_len).ok_or_else(|| io::Error::other("truncated ServerHello record"))?;
     stream.write_all(server_hello).await?;
 
-    // 4. v2 framing: instead of v3's HMAC-authenticated application-data switch,
-    //    send a raw TLS handshake record (`0x16 0x03 0x03 ..`). This is the
-    //    `ShadowTlsFailureKind::VersionMismatch` signature the v3 client detects.
     const V2_HANDSHAKE_RECORD: &[u8] = &[0x16, 0x03, 0x03, 0x00, 0x04, 0xde, 0xad, 0xbe, 0xef];
     stream.write_all(V2_HANDSHAKE_RECORD).await?;
     stream.flush().await?;
 
-    // Hold the connection open until the client closes, draining whatever it
-    // writes (e.g. a TLS middlebox-compat ChangeCipherSpec). Draining the peer's
-    // bytes means the eventual close is a clean FIN rather than an RST, so the
-    // client is guaranteed to read the v2 record before EOF instead of racing a
-    // reset that could discard the already-sent bytes.
     let mut sink = [0u8; 64];
     loop {
         match stream.read(&mut sink).await {
@@ -223,12 +164,8 @@ async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<
 
     use tokio::io::AsyncWriteExt;
 
-    // 1. Read the (HMAC-session-id-modified) ClientHello.
     let client_hello = read_tls_frame(&mut stream).await?;
 
-    // 2. Use a real rustls 1.3 server only to produce a ServerHello the client's
-    //    rustls accepts (valid cipher + key_share). Self-signed cert is never
-    //    sent, so it is never validated.
     let cert = rcgen::generate_simple_self_signed(vec!["localhost".to_string()])
         .map_err(|e| io::Error::other(e.to_string()))?;
     let cert_der = rustls::pki_types::CertificateDer::from(cert.cert.der().to_vec());
@@ -244,9 +181,6 @@ async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<
     server_conn.read_tls(&mut Cursor::new(&client_hello))?;
     server_conn.process_new_packets().map_err(|e| io::Error::other(e.to_string()))?;
 
-    // 3. Send ONLY the first record (ServerHello); drop the rest of the TLS
-    //    flight (EncryptedExtensions/Certificate/Finished) — the client switches
-    //    to ShadowTLS framing right after ServerHello.
     let mut server_flight = Vec::new();
     server_conn.write_tls(&mut server_flight)?;
     if server_flight.len() < TLS_HEADER_LEN {
@@ -257,7 +191,6 @@ async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<
         server_flight.get(..record_len).ok_or_else(|| io::Error::other("truncated ServerHello record"))?;
     stream.write_all(server_hello).await?;
 
-    // 4. Derive the rolling HMACs exactly as the client does.
     let parsed = parse_validated_server_hello(server_hello).map_err(|e| io::Error::other(e.to_string()))?;
     let initial = ShadowTlsHmac::new(password.as_bytes());
     let mut handshake_hmac = initial.clone();
@@ -267,8 +200,6 @@ async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<
     let mut server_data_hmac = handshake_hmac.clone();
     server_data_hmac.update(b"S");
 
-    // 5. Send the HMAC-authenticated "switch to application data" frame that the
-    //    client's `verify_handshake_frame` accepts (HMAC over the payload only).
     let switch_payload: &[u8] = b"shadowtls-loopback-switch";
     let mut switch_hmac = handshake_hmac.clone();
     switch_hmac.update(switch_payload);
@@ -283,10 +214,7 @@ async fn handle_connection(mut stream: TcpStream, password: &str) -> io::Result<
     switch_frame.extend_from_slice(switch_payload);
     stream.write_all(&switch_frame).await?;
 
-    // 6. Echo loop: deframe client application data, reflect it back framed for
-    //    the client. Skip any abandoned-handshake artifacts (CCS, etc.).
     loop {
-        // A read error here means the peer closed; end the echo loop.
         let Ok(frame) = read_tls_frame(&mut stream).await else { break };
         if frame.first() != Some(&TLS_APPLICATION_DATA) {
             continue;
@@ -342,9 +270,6 @@ mod tests {
         server.shutdown().await;
     }
 
-    /// Soak: many sequential round-trips over one ShadowTLS session, exercising
-    /// the rolling-HMAC chaining (`frame_payload`/`deframe_payload`) past the
-    /// first frame in both directions.
     #[tokio::test]
     async fn shadowtls_loopback_soak_round_trips_many_payloads() {
         let pw = "loopback-soak-password";
@@ -366,27 +291,12 @@ mod tests {
         server.shutdown().await;
     }
 
-    /// Regression for two ShadowTLS bugs that an 8 MiB full-duplex transfer over
-    /// a `tokio::io::split` stream exposes (and that small-payload tests miss):
-    ///
-    /// 1. `ShadowTlsHmac` re-hashed its whole accumulated buffer on every
-    ///    `digest()`, making the rolling HMAC O(n²) in frame count — 8 MiB took
-    ///    minutes (and leaked memory) before the incremental-context fix.
-    /// 2. `ShadowTlsStream` shared one `pending_frame` between `poll_read` and
-    ///    `poll_write`, corrupting data under concurrent read+write (HMAC
-    ///    verification failure) before the read/write state was separated.
-    ///
-    /// With both fixed this completes in well under a second and echoes
-    /// byte-for-byte. Multi-thread runtime so the writer task and the reader make
-    /// progress concurrently.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn shadowtls_loopback_full_duplex_does_not_serialize() {
         const PAYLOAD_LEN: usize = 8 * 1024 * 1024;
         let pw = "loopback-fullduplex";
         let server = ShadowTlsLoopback::start(pw.to_string()).await.expect("start loopback");
         let tcp = TcpStream::connect(server.local_addr()).await.expect("tcp connect");
-        // Nodelay on both ends takes the Nagle/delayed-ACK timer out of the
-        // picture so this test isolates the stream's read/write serialization.
         tcp.set_nodelay(true).expect("set nodelay");
 
         let client = ShadowTlsClient::new(config(pw));
@@ -405,9 +315,6 @@ mod tests {
             reader.read_exact(&mut received).await.expect("read echo");
             received
         };
-        // The fixed path does ~8 MiB in well under a second; the O(n²)-HMAC
-        // regression takes minutes, so a 10 s ceiling cleanly separates them
-        // with ample headroom for slow CI.
         let received = tokio::time::timeout(std::time::Duration::from_secs(10), read_fut)
             .await
             .expect("full-duplex 8 MiB must finish quickly (O(n^2) HMAC / shared frame-state regression)");
@@ -423,7 +330,6 @@ mod tests {
         let server = ShadowTlsLoopback::start("server-password".to_string()).await.expect("start loopback");
         let tcp = TcpStream::connect(server.local_addr()).await.expect("tcp connect");
 
-        // Wrong password → the switch-frame HMAC will not verify on the client.
         let client = ShadowTlsClient::new(config("client-password"));
         let result = client.connect_over(tcp).await;
         assert!(result.is_err(), "handshake must fail when the password does not match");
@@ -431,10 +337,6 @@ mod tests {
         server.shutdown().await;
     }
 
-    /// Runtime path (positive): the real v3 client against a v2-emulating server
-    /// must surface a typed `ShadowTlsHandshakeError` version mismatch — not a
-    /// generic TLS handshake error — so the relay layer can map it to
-    /// `FailureClass::ShadowTlsVersionMismatch`.
     #[tokio::test]
     async fn shadowtls_v2_server_reject_surfaces_typed_version_mismatch() {
         let server = ShadowTlsV2RejectLoopback::start().await.expect("start v2-reject loopback");
@@ -458,10 +360,6 @@ mod tests {
         server.shutdown().await;
     }
 
-    /// Runtime path (negative / false-positive guard): a v3 server rejecting a
-    /// bad password sends the HMAC application-data switch (record type 0x17),
-    /// whose HMAC fails to verify — an auth-class failure. It must NOT be
-    /// misclassified as a version mismatch.
     #[tokio::test]
     async fn shadowtls_bad_password_is_not_classified_as_version_mismatch() {
         let server = ShadowTlsLoopback::start("server-password".to_string()).await.expect("start loopback");
@@ -484,11 +382,6 @@ mod tests {
         server.shutdown().await;
     }
 
-    /// Soak: N back-to-back full ShadowTLS handshakes against the loopback, each
-    /// doing one round-trip. `#[ignore]` so it stays out of normal PR CI; run
-    /// with `cargo nextest run -p ripdpi-shadowtls --run-ignored all` (or
-    /// `cargo test -- --ignored`). Asserts every handshake + echo succeeds (no
-    /// connection/HMAC leak across repeated sessions).
     #[ignore = "soak: run on demand via --run-ignored / --ignored"]
     #[tokio::test]
     async fn shadowtls_loopback_soak_repeats_full_handshakes() {
@@ -528,9 +421,6 @@ mod outbound_bind_tests {
         }
     }
 
-    /// A v6 bind IP against a v4-only resolved server must fail closed before
-    /// any connect runs — silently ignoring the bind would route the carrier
-    /// over the default interface instead of the pinned one.
     #[tokio::test]
     async fn connect_fails_closed_on_bind_ip_family_mismatch() {
         let pw = "loopback-bind-password";

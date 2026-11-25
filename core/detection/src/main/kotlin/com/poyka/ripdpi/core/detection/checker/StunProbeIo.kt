@@ -28,7 +28,6 @@ internal suspend fun resolveStunAddress(
     NumericIp.parseAddress(host)?.let { return it.toInetAddress() }
     StunLookupSlots.acquire()
     val pending = StunLookupScope.async { lookup(host) }
-    // A cancelled caller must not free admission while its blocking platform lookup still runs.
     pending.invokeOnCompletion { StunLookupSlots.release() }
     return pending.await()
 }

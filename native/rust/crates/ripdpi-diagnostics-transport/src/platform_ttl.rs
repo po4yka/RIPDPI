@@ -1,8 +1,3 @@
-//! Platform-gated helpers for the outbound socket TTL.
-
-/// Set the outbound TTL (IPv4) or unicast hop limit (IPv6) on a connected stream.
-///
-/// The option follows the traffic family: a v4-mapped IPv6 peer sends IPv4 packets, so it gets the IPv4 TTL.
 pub fn set_outbound_ttl(stream: &std::net::TcpStream, ttl: u8) -> std::io::Result<()> {
     if stream.peer_addr()?.ip().to_canonical().is_ipv4() {
         stream.set_ttl(u32::from(ttl))
@@ -11,17 +6,10 @@ pub fn set_outbound_ttl(stream: &std::net::TcpStream, ttl: u8) -> std::io::Resul
     }
 }
 
-/// Make the next close of `stream` abortive (`SO_LINGER` 0): the kernel drops unsent data and sends RST.
 pub fn set_abortive_close(stream: &std::net::TcpStream) -> std::io::Result<()> {
     socket2::SockRef::from(stream).set_linger(Some(std::time::Duration::ZERO))
 }
 
-/// Read the local outbound IPv4 TTL configured on a TCP stream.
-///
-/// Linux may return an IPv4 value for an IPv6 socket. Use the IPv4 option
-/// only on an IPv4 connection. Linux does not supply received TTL as
-/// `IP_RECVTTL` ancillary data for TCP sockets.
-/// Returns `None` when the option is unavailable or inapplicable.
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn get_local_socket_ttl(stream: &std::net::TcpStream) -> Option<u8> {
     use std::os::unix::io::AsRawFd;

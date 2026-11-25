@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
 
-/** One coherent clock observation for the private, reboot-bound export capability. */
 data class PreparedExportTime(
     val wallTimeMs: Long,
     val elapsedTimeMs: Long,
@@ -15,7 +14,6 @@ fun interface PreparedExportClock {
     fun snapshot(): PreparedExportTime
 }
 
-/** Shared by the service and thin FileProvider; does not initialize Room or Hilt. */
 class AndroidPreparedExportClock(
     context: Context,
 ) : PreparedExportClock {

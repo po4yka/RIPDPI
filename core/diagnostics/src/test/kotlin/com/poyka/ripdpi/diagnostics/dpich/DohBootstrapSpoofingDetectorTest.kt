@@ -299,7 +299,6 @@ class DohBootstrapSpoofingDetectorTest {
             assertEquals(listOf("dns.google", "8.8.8.8"), resolved)
         }
 
-    // Checks run on the test scheduler, not on a real IO thread.
     private fun TestScope.detector(
         resolver: DohBootstrapResolver,
         metadata: SubnetMetadataLookup,

@@ -12,7 +12,6 @@ use crate::transport::protect::{connect_socket_until, protect_for_target};
 use crate::transport::tcp::interleave_address_families;
 use crate::transport::types::{RouteExperimentConfig, RouteExperimentReport};
 
-/// Sequential on purpose: each socket binds a fixed source port per bucket, so attempts cannot race.
 pub(crate) fn connect_addresses_with_route_experiment(
     addresses: &[SocketAddr],
     config: &RouteExperimentConfig,

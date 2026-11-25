@@ -2,18 +2,6 @@ package com.poyka.ripdpi.diagnostics.replay
 
 import com.poyka.ripdpi.proto.AppSettings
 
-/**
- * One AppSettings field the proxy-preferences strategy writer sets, with a reader and a copier.
- * The list mirrors the desync, fake-packet, parser, adaptive, QUIC, host and protocol-toggle
- * sections of `applyToSettings`, plus the listen-section fields that change what the replayed
- * connection puts on the wire: TCP Fast Open (SynData chains), the custom/default TTL of real
- * packets, freeze detection (it triggers adaptive fallback) and domain resolution (`noDomain`).
- *
- * Excluded on purpose: listen address, port, max connections and buffer size (the replay must not
- * move the proxy); relay, WARP, AWG and ws-tunnel fields (other transports); host-autolearn
- * fields (learned state, not strategy). A writer field missing from this list is never applied,
- * so add new strategy fields from `RipDpiProxyUIPreferencesSettingsWriter` here as well.
- */
 internal class StrategySettingsSlot(
     val name: String,
     val read: (AppSettings) -> Any?,

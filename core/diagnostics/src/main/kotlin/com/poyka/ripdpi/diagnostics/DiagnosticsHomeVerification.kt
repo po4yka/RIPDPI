@@ -44,6 +44,5 @@ private fun ScanReport.hasHealthyVerificationTargets(): Boolean =
             DiagnosticsOutcomeTaxonomy.classifyProbeResult(pathMode, result, results).healthyEnoughForSummary
         }
 
-// DNS resolution or a QUIC Initial response alone does not establish application access.
 private val VerificationApplicationProbeTypes =
     setOf("domain_reachability", "service_reachability", "circumvention_reachability", "telegram_availability", "http3")

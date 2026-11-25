@@ -134,7 +134,6 @@ class SnowflakeStunReachabilityProbe(
                 val paddedLength = (length + Alignment - 1) and -Alignment
                 valid = paddedLength <= remaining()
                 if (valid) {
-                    // The unauthenticated Binding check recognizes the two address attributes.
                     valid = type >= FirstOptionalAttribute || type == XorMappedAddress || type == MappedAddress
                 }
                 if (valid && type == XorMappedAddress && !found) {

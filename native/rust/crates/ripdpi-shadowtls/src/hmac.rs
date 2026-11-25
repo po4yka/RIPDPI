@@ -2,17 +2,6 @@ use ring::hmac::{self, Key};
 
 pub(crate) const HMAC_LEN: usize = 4;
 
-/// Rolling HMAC-SHA1 over the cumulative ShadowTLS byte sequence, truncated to
-/// 4 bytes. The HMAC chains across every frame (payload, then digest, then the
-/// next payload, ...), so it must absorb the whole stream.
-///
-/// It keeps an incremental [`hmac::Context`] rather than buffering every byte
-/// and re-signing on each call. Buffering was O(n²) in frame count — each
-/// `digest()` re-hashed all prior bytes — and grew memory without bound for the
-/// life of a connection, which throttled and bloated long-lived ShadowTLS
-/// relays. `digest()` clones the context and finalizes the clone, leaving the
-/// running context free to keep absorbing (HMAC streaming is identical to a
-/// one-shot sign over the concatenation, so the wire contract is unchanged).
 #[derive(Clone)]
 pub(crate) struct ShadowTlsHmac {
     context: hmac::Context,
@@ -41,12 +30,6 @@ mod tests {
 
     #[test]
     fn shadowtls_hmac_uses_hmac_sha1_with_4_byte_tag() {
-        // RFC 2202 Test Case 1 for HMAC-SHA1:
-        //   Key:  0x0b repeated 20 times
-        //   Data: "Hi There"
-        //   Full HMAC-SHA1:
-        //     b617318655057264e28bc0b6fb378c8ef146be00
-        // ShadowTLS truncates to the first 4 bytes.
         let mut h = ShadowTlsHmac::new(&[0x0b; 20]);
         h.update(b"Hi There");
         let tag = h.digest();
@@ -57,9 +40,6 @@ mod tests {
 
     #[test]
     fn shadowtls_hmac_chained_updates_match_single_update() {
-        // The update API is incremental; chained calls must produce
-        // the same digest as a single call carrying the concatenated
-        // payload.
         let mut chained = ShadowTlsHmac::new(b"shared-password");
         chained.update(b"first chunk");
         chained.update(b"-");

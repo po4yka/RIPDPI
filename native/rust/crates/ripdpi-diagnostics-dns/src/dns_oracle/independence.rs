@@ -21,7 +21,6 @@ pub(super) fn independent_endpoints(
         independent.push(endpoints[index].clone());
         grouped[index] = true;
         let mut pending = vec![index];
-        // Close every alias before the attempt limit, including bridges later in the catalog.
         while let Some(member) = pending.pop() {
             for (other, endpoint) in endpoints.iter().enumerate() {
                 if !grouped[other] && same_service(&endpoints[member], endpoint) {
@@ -42,7 +41,6 @@ fn same_service(left: &EncryptedDnsEndpoint, right: &EncryptedDnsEndpoint) -> bo
 }
 
 fn service_names(endpoint: &EncryptedDnsEndpoint) -> Vec<String> {
-    // ODoH proxy sharing does not establish target-resolver ownership.
     if let Some(odoh) = &endpoint.odoh {
         return vec![normalized_name(&odoh.target_host)];
     }
@@ -61,7 +59,6 @@ fn provider_id(endpoint: &EncryptedDnsEndpoint) -> Option<String> {
         return (!operator.is_empty()).then_some(operator);
     }
     let id = endpoint.resolver_id.as_deref()?.trim().to_ascii_lowercase();
-    // Use known catalog identities, not user labels or shared bootstrap infrastructure.
     if bootstrap_ips_for_resolver(&id).is_empty() {
         return None;
     }

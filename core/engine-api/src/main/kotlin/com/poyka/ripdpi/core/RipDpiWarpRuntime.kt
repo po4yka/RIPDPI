@@ -3,11 +3,6 @@ package com.poyka.ripdpi.core
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.serialization.Serializable
 
-/**
- * Stable runtime contract for the WARP (WireGuard) native session, implemented
- * by `RipDpiWarp` in `:core:engine`. New `:core:service` / WARP features depend
- * on this interface rather than on the JNI implementation module.
- */
 interface RipDpiWarpRuntime {
     suspend fun start(config: ResolvedRipDpiWarpConfig): Int
 
@@ -18,12 +13,10 @@ interface RipDpiWarpRuntime {
     suspend fun pollTelemetry(): NativeRuntimeSnapshot
 }
 
-/** Socket guard held by the service for one blocking endpoint probe. */
 fun interface WarpProbeSocketController {
     fun protect(fd: Int): Boolean
 }
 
-// Cover the native DNS (10s) and authenticated-handshake (12s) budgets.
 internal const val defaultWarpReadyTimeoutMs = 25_000L
 
 @Serializable

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Project measured facts without joining independent connections or inferring provider intent. */
 fun ProbeResult.toConnectionStageScale(): ConnectionStageScale? {
     val evidence = ConnectionStageEvidence(details)
     val lanes =

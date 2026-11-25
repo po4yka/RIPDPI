@@ -12,15 +12,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Cross-language contract guard: the keys emitted when [ResolvedRipDpiAmneziaWgConfig]
- * is serialized with [RipDpiJson] must match, byte-for-byte, the serde camelCase
- * field names of the Rust `AmneziaWgProfileConfig` deserialized by
- * `ripdpi-amneziawg-android::jniCreate`. A rename on either side breaks the native
- * `create()` call silently (an unknown key is ignored, a missing key fails
- * deserialization), so this test pins the field names. Update both sides together
- * if the wire contract changes.
- */
 class RipDpiAmneziaWgConfigSerializationTest {
     @Test
     fun `peer AllowedIPs is emitted even when it matches the producer default`() {
@@ -101,8 +92,6 @@ class RipDpiAmneziaWgConfigSerializationTest {
                             disableCookies = true,
                         ),
                 ),
-            // Non-default carrier so the additive keys surface under
-            // RipDpiJson (encodeDefaults = false omits default-valued fields).
             carrier = RipDpiAmneziaWgCarrierKind.Ws,
             carrierWsUrl = "wss://carrier.example.org:443/wg",
             carrierWsAddresses = listOf("192.0.2.7", "2001:db8::7"),
@@ -145,16 +134,12 @@ class RipDpiAmneziaWgConfigSerializationTest {
     @Test
     fun `carrier kind serializes as the snake_case wire token`() {
         val obj = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(fullConfig)).jsonObject
-        // The Rust AmneziaWgCarrierKind is serde snake_case: udp / ws.
         assertEquals(JsonPrimitive("ws"), obj["carrier"])
         assertEquals(JsonPrimitive("wss://carrier.example.org:443/wg"), obj["carrierWsUrl"])
     }
 
     @Test
     fun `udp carrier default is omitted under RipDpiJson`() {
-        // encodeDefaults = false means a default UDP carrier (today's behavior)
-        // emits no carrier/carrierWsUrl keys, so the Rust serde(default) restores
-        // them — the field is fully additive and back-compatible.
         val udpConfig =
             fullConfig.copy(
                 carrier = RipDpiAmneziaWgCarrierKind.Udp,
@@ -237,7 +222,6 @@ class RipDpiAmneziaWgConfigSerializationTest {
             ),
             v3.keys,
         )
-        // The value class serializes as the plain base64 string the native side decodes.
         assertEquals(JsonPrimitive("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="), v3["headerProtectionKey"])
         assertEquals(JsonPrimitive(true), v3["randomTrailers"])
         assertEquals(JsonPrimitive(true), v3["disableCookies"])
@@ -251,7 +235,6 @@ class RipDpiAmneziaWgConfigSerializationTest {
         ).forEach { (key, value) ->
             assertEquals(JsonPrimitive(value), v3[key])
         }
-        // A config without 3.x keys emits no v3 object, keeping AWG 1.x/2.0 JSON unchanged.
         val legacy = fullConfig.copy(amnezia = fullConfig.amnezia.copy(v3 = AmneziaWgV3Parameters()))
         val legacyAmnezia = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(legacy)).jsonObject["amnezia"]
         assertTrue("v3" !in (legacyAmnezia as JsonObject).keys)
@@ -284,7 +267,6 @@ class RipDpiAmneziaWgConfigSerializationTest {
                 .parseToJsonElement(RipDpiJson.encodeToString(fullConfig))
                 .jsonObject["amnezia"] as JsonObject
 
-        // Header intervals use canonical strings on the native boundary.
         assertEquals(JsonPrimitive("1111111111"), amnezia["h1"])
         assertEquals(JsonPrimitive("4444444444"), amnezia["h4"])
         assertEquals("4444444444", (amnezia["h4"] as JsonPrimitive).content)

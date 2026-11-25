@@ -98,7 +98,6 @@ class DnsMessagesTest {
             val message = DnsMessages.parseQuery(wire)
             assertEquals(1232, message.opt.payloadSize)
             assertEquals(1, message.getSection(Section.ADDITIONAL).size)
-            // RFC 6891 9: 65001 is a local/experimental code; 12 (Padding) must not go over cleartext UDP.
             assertEquals(
                 65001,
                 message.opt.options

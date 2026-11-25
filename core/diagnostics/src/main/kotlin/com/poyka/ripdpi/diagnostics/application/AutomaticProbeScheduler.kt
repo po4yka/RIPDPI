@@ -21,15 +21,11 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
-/** Outcome of one automatic probe launch attempt for a handover delivery. */
 enum class AutomaticProbeLaunchOutcome {
-    /** A new probe scan started; the delivery settles once its durable terminal row appears. */
     LAUNCHED,
 
-    /** A durable terminal row already exists or the trigger is stale; the delivery may be acknowledged. */
     SETTLED,
 
-    /** Nothing was launched; retry after the transient condition clears. */
     RETRY,
 }
 
@@ -58,19 +54,12 @@ class AutomaticProbeScheduler
         private val pendingProbeJobs = ConcurrentHashMap<String, Job>()
         private val recentProbeRuns = ConcurrentHashMap<String, Long>()
 
-        /**
-         * Deliveries for which this scheduler started a probe and that have not settled yet.
-         * Their retries skip eligibility so the launcher can report the terminal row even
-         * though the just-recorded cooldown now rejects a fresh evaluation.
-         */
         private val launchedDeliveries = ConcurrentHashMap.newKeySet<String>()
 
         fun schedule(event: PolicyHandoverEvent) {
             val job =
                 scope.launch(start = CoroutineStart.LAZY) {
                     try {
-                        // The application scope has no handler: a durable-store failure ends this job only.
-                        // The delivery stays pending, so the next schedule() for it retries.
                         val failure = runCatching { runDelivery(event) }.exceptionOrNull()
                         if (failure is CancellationException || failure is Error) throw failure
                         failure?.let { Logger.w(it, tag = LogTags.DIAGNOSTICS) { "Automatic probe delivery stopped" } }
@@ -133,10 +122,6 @@ class AutomaticProbeScheduler
             }
             val outcome = launcher.launchAutomaticProbe(settings, event)
             if (outcome == AutomaticProbeLaunchOutcome.LAUNCHED) {
-                // Record the cooldown when a probe actually starts. The launcher's Boolean
-                // predecessors only returned true for already-settled deliveries, which left
-                // this map empty and let every new delivery for the same fingerprint bypass
-                // the cooldown entirely.
                 recentProbeRuns[AutomaticProbeCoordinator.probeKey(event)] = now
                 launchedDeliveries.add(event.deliveryId)
             } else {

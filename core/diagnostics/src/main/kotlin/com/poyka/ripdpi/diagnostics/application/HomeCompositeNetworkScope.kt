@@ -9,7 +9,6 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsNetworkScope
 import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 
-/** Captures both identity and physical callback evidence at the same run boundary. */
 internal class DiagnosticsNetworkScopeFactory
     @Inject
     constructor(
@@ -35,7 +34,6 @@ internal suspend fun <T> HomeCompositeFinalizationRequest.measureNetwork(measure
     return result.takeIf { hasCurrentNetworkScope() }
 }
 
-/** Retain historical stage records and local observations without current-network authority. */
 internal fun DiagnosticsHomeCompositeOutcome.withoutNetworkAuthority(): DiagnosticsHomeCompositeOutcome {
     val localSignals = detectionDecisionSignals.filter { it.scope != DetectionScope.NETWORK_OBSERVATION.name }
     return copy(

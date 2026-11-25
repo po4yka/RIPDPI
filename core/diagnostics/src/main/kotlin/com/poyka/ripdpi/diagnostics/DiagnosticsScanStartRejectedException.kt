@@ -11,7 +11,6 @@ sealed interface DiagnosticsScanStartRejectionReason {
 
     data object BlockedByLegalSafetyPolicy : DiagnosticsScanStartRejectionReason
 
-    /** The stored profile request cannot be decoded, so its legal-safety policy is unknown. */
     data object ProfileUnreadable : DiagnosticsScanStartRejectionReason
 
     data class InPathUnavailable(

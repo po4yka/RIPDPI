@@ -58,7 +58,6 @@ class DiagnosticsArchiveRedactor
                 triggerPreviousFingerprintHash = null,
                 triggerCurrentFingerprintHash = null,
                 networkScopeKey = null,
-                // A hash of the ordered targets, which include user-entered hostnames.
                 matrixTargetSetRevision = null,
             )
 
@@ -338,7 +337,6 @@ private fun projectStructuredArchiveJson(
         }
 
         element is JsonArray -> {
-            // Per-attempt TLS hop timings stay in local history.
             JsonArray(
                 element
                     .filterNot { (it as? JsonObject)?.get("key") == JsonPrimitive(TlsHopLocalKey) }
@@ -654,8 +652,6 @@ private const val AndroidLogcatLinePrefixPattern =
         "(?:(?:\\d+\\s+){2}[VDIWEF]\\s+[^:\\r\\n]+|[VDIWEF]/[^:\\r\\n]+):\\s*|" +
         "[VDIWEF]/[^()\\r\\n]+\\(\\s*\\d+\\):\\s*)"
 
-// Fail closed: base64-alphabet lines immediately before a sensitive END marker are secret material,
-// even when a fragment could also be read as an ordinary word.
 private val PemTailRegex =
     Regex(
         "(?m)(^|\\r?\\n)(?:(?:" +
@@ -728,7 +724,6 @@ private const val JsonEndpointFieldValuePattern =
 private val DnsSemanticsObservationFields = setOf("udpResponse", "encryptedResponse")
 private val DnsSemanticsDetailFields = setOf("udpDnsResponse", "encryptedDnsResponse")
 
-// Evidence details are exported only in their validated, re-encoded form.
 private val ArchiveCanonicalEvidence: Map<String, (String?) -> String?> =
     mapOf(
         QuicVersionEvidenceKey to ::canonicalQuicVersionMatrixEvidence,

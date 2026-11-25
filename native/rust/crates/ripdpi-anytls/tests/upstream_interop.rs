@@ -1,4 +1,3 @@
-//! Public client against the pinned, unmodified anytls-go server implementation.
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
@@ -134,7 +133,6 @@ async fn paused_reader_receives_the_whole_echo_from_upstream() {
         }
         sent
     });
-    // The local consumer is busy; the peer keeps echoing.
     tokio::time::sleep(Duration::from_secs(3)).await;
     let drain = async {
         let mut received = 0;
@@ -149,9 +147,6 @@ async fn paused_reader_receives_the_whole_echo_from_upstream() {
     assert_eq!(writer.await.expect("writer"), TOTAL);
 }
 
-/// A target that refuses the connection ends only its own stream. The peer
-/// answers with a rejected SYNACK (v2) or a FIN (v1); neither may read as a
-/// wrong password, because the carrier stays up and the server did answer.
 #[tokio::test]
 #[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
 async fn a_refused_target_is_not_reported_as_a_wrong_password() {

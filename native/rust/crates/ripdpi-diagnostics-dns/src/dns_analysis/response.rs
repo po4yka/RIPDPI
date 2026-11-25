@@ -5,48 +5,34 @@ use super::compression::has_malformed_compression_pointers;
 use super::scoring::compute_tampering_score;
 use super::wire_header::parse_header;
 
-/// Tampering signals extracted from a raw DNS response.
 #[derive(Debug, Clone, Default)]
 pub struct DnsResponseAnalysis {
-    // Header flags (from raw bytes).
     pub aa_flag: bool,
     pub tc_flag: bool,
     pub ra_flag: bool,
     pub rcode: u8,
 
-    // Section counts.
     pub answer_count: u16,
     pub authority_count: u16,
     pub additional_count: u16,
 
-    // TTL analysis (from answer section via hickory).
     pub min_ttl: Option<u32>,
     pub max_ttl: Option<u32>,
     pub ttl_uniform: bool,
 
-    // EDNS0 / OPT record presence.
     pub has_edns0: bool,
 
-    // CNAME targets found in answer section.
     pub cname_targets: Vec<String>,
 
-    // Raw response size in bytes.
     pub response_size: usize,
 
-    // Composite tampering score (0-100).
     pub tampering_score: u32,
 
-    // Malformed compression pointer detected.
     pub malformed_pointers: bool,
 
-    // Names of triggered anomaly signals.
     pub signals: Vec<&'static str>,
 }
 
-/// Analyze a raw DNS response packet for tampering indicators.
-///
-/// Returns useful results even on malformed packets: the raw byte layer
-/// always extracts header flags and section counts from the first 12 bytes.
 pub fn analyze_dns_response(packet: &[u8]) -> DnsResponseAnalysis {
     let mut analysis = DnsResponseAnalysis { response_size: packet.len(), ..Default::default() };
 

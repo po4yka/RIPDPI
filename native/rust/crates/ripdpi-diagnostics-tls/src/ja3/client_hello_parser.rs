@@ -5,7 +5,6 @@ use super::grease::is_grease;
 const MAX_RECORD_PAYLOAD: usize = 16_384;
 const HANDSHAKE_HEADER_LEN: usize = 4;
 const MAX_SESSION_ID_LEN: usize = 32;
-// Version, random, session ID, cipher suites, compression methods, and extensions.
 const MAX_CLIENT_HELLO_BODY: usize = 2 + 32 + (1 + MAX_SESSION_ID_LEN) + (2 + 65_534) + (1 + 255) + (2 + 65_535);
 
 pub(super) struct ClientHelloFields {
@@ -48,7 +47,6 @@ pub(super) fn parse_client_hello(data: &[u8]) -> Option<ClientHelloFields> {
     Some(fields)
 }
 
-/// Collect the first ClientHello from consecutive, complete handshake records.
 fn first_client_hello(mut records: &[u8]) -> Option<Cow<'_, [u8]>> {
     let mut handshake = Cow::Borrowed(take_handshake_record(&mut records)?);
     while handshake.len() < HANDSHAKE_HEADER_LEN {

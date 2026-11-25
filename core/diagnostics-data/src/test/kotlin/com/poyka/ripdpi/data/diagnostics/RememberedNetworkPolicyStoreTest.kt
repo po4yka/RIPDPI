@@ -206,7 +206,6 @@ private class FakeRememberedNetworkPolicyRecordStore : RememberedNetworkPolicyRe
             } else {
                 policy.copy(id = nextId++)
             }
-        // Same as Room REPLACE: a row with the same id or the same unique (fingerprintHash, mode) is dropped.
         state.value =
             state.value.filterNot {
                 it.id == persisted.id || (it.fingerprintHash == persisted.fingerprintHash && it.mode == persisted.mode)

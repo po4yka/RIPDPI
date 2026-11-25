@@ -144,7 +144,6 @@ fn reply(query: &[u8], flags: u16, aaaa: Option<&str>) -> Vec<u8> {
 
 #[test]
 fn resolver_faults_fall_through_to_the_next_resolver() {
-    // SERVFAIL, REFUSED, and an empty truncated reply from the primary.
     for flags in [0x8182u16, 0x8185, 0x8380] {
         let mut calls = 0;
         let result = discover_with(&["1.2.3.4".into(), "5.6.7.8".into()], &AtomicBool::new(false), |_, query| {
@@ -275,7 +274,6 @@ fn silent_last_resolver_keeps_an_earlier_clean_negative_answer() {
             if calls == 1 {
                 return Ok(reply(query, 0x8180, None));
             }
-            // A silent resolver: the receive wait ends exactly at the active deadline.
             let deadline = active_scan_io_deadline().expect("a per-resolver deadline");
             std::thread::sleep(deadline.saturating_duration_since(Instant::now()));
             Err("dns_timeout")

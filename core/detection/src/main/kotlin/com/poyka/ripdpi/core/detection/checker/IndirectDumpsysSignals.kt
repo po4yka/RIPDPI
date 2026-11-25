@@ -46,7 +46,6 @@ internal object IndirectDumpsysSignals {
             listOf(Finding("dumpsys $label: unavailable"))
         }
 
-    // VPN management can report a prepared package. A service record also does not prove a live tunnel.
     internal fun reportedPackages(records: List<ParsedActiveVpnRecord>): List<Finding> =
         records
             .mapNotNull { it.packageName }

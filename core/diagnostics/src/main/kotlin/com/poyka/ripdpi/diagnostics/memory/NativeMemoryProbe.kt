@@ -7,18 +7,8 @@ import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * A point-in-time read of the process's memory footprint.
- *
- * RIPDPI is single-process, so the Rust native core shares this process: the
- * native heap counts the Rust allocator's footprint and [processRssBytes]
- * covers the whole process (Java + native). This is the footprint Android 17's
- * per-app memory limiter measures.
- */
 data class NativeMemorySample(
-    /** Native (malloc/Rust) heap currently allocated, in bytes. */
     val nativeHeapBytes: Long,
-    /** Resident set size of the whole process, in bytes. */
     val processRssBytes: Long,
 )
 
@@ -48,15 +38,8 @@ class DefaultNativeMemoryProbe
                 .takeIf { it > 0 } ?: DefaultPageSizeBytes
 
         companion object {
-            // Fallback only; the real page size (4 KiB or 16 KiB on newer
-            // devices) is read at runtime via Os.sysconf.
             private const val DefaultPageSizeBytes: Long = 4096
 
-            /**
-             * Parses the resident-pages field (the 2nd token) from the contents
-             * of `/proc/self/statm`: `size resident shared text lib data dt`.
-             * Returns 0 when the line is malformed.
-             */
             fun parseResidentPages(statm: String): Long =
                 statm
                     .trim()

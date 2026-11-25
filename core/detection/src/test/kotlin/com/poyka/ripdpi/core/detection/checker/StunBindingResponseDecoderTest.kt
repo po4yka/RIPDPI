@@ -117,7 +117,6 @@ class StunBindingResponseDecoderTest {
         val MappedIpv4 = hex("0001000800018055c6336407")
         val MappedIpv6 = hex("000100140002805520010db8000000000000000000000007")
 
-        // RFC 5769 sections 2.2 and 2.3. Expected addresses come from the RFC, not a test encoder.
         val RfcIpv4Response =
             hex(
                 """

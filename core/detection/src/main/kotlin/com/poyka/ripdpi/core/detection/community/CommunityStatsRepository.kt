@@ -44,7 +44,6 @@ class DefaultCommunityStatsRepository
 
         override suspend fun refresh(): CommunityStatsRefreshResult {
             val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
-            // No built-in endpoint: without a user-configured URL the comparison stays local.
             val statsUrl = appSettingsRepository.settings.first().communityApiUrl
             if (statsUrl.isBlank()) {
                 return CommunityStatsRefreshResult(localStats = localStats, remoteStats = null, remoteError = null)

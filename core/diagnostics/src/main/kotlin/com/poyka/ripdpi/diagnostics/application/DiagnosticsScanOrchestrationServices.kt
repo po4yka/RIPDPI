@@ -84,14 +84,9 @@ class ScanAdmissionService
             }
         }
 
-        /** Null when the stored request cannot be decoded, so its legal-safety policy is unknown. */
         private fun legalSafetyAccess(requestJson: String): DiagnosticsJurisdictionProfileAccess? =
             readStoredRequest(requestJson) { request -> request.resolveLegalSafetyPolicy().access }
 
-        /**
-         * Decodes a stored profile request and reads it with [read]; null when either step fails
-         * (SerializationException, or a missing required policy, are IllegalArgumentException).
-         */
         private inline fun <T : Any> readStoredRequest(
             requestJson: String,
             read: (ProfileSpecWire) -> T,
@@ -130,7 +125,6 @@ class ScanAdmissionService
                 return null
             }
             val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
-            // An undecodable profile fails closed: no automatic probe.
             val allowed =
                 readStoredRequest(profile.requestJson) { request ->
                     request.normalizedExecutionPolicy().allowBackground &&
@@ -271,10 +265,8 @@ class ActiveScanRegistry
         constructor(timelineSource: DefaultDiagnosticsTimelineSource) : this(timelineSource, Mutex())
 
         private companion object {
-            /** How long to wait for the native engine to finalize after cancellation. */
             const val CANCEL_GRACE_PERIOD_MS = 4_000L
 
-            /** Poll interval while waiting for the partial report. */
             const val CANCEL_POLL_INTERVAL_MS = 200L
         }
 
@@ -429,16 +421,8 @@ class ActiveScanRegistry
                 }
             }
 
-        /**
-         * Retrieve and remove the partial report captured during [cancelActiveScan].
-         */
         fun consumeCancelledSessionReport(sessionId: String): String? = cancelledSessionReports.remove(sessionId)
 
-        /**
-         * After signaling cancellation, poll the native bridge for up to [graceMs].
-         * Native may first return a one-shot CHECKPOINT; keep it as a fallback,
-         * but continue polling for the TERMINAL report until the grace period ends.
-         */
         private suspend fun awaitCancellationReport(
             bridge: NetworkDiagnosticsBridge,
             graceMs: Long,
@@ -566,10 +550,6 @@ class ActiveScanRegistry
             registerActiveBridge: Boolean,
         ): Boolean =
             bridgeMutex.withLock {
-                // A cancellation that already claimed this session's bridge is tearing
-                // it down; registering the execution job would start a scan on a dying
-                // bridge when startup lands inside the cancel window. Claims from other
-                // sessions on a shared bridge instance do not block this session.
                 fun executionClaimedBySameSession(bridge: NetworkDiagnosticsBridge): Boolean =
                     terminalClaims[bridge]?.takeIf { it.second == ScanTerminalClaim.CANCELLATION }?.first == sessionId
 
@@ -611,10 +591,6 @@ class ActiveScanRegistry
                         }
 
                         terminalClaims[bridge]?.second == ScanTerminalClaim.CANCELLATION -> {
-                            // `takeReportJson()` is a destructive native read. If cancellation
-                            // won immediately before this completion poll, transfer the consumed
-                            // report to the cancellation owner instead of losing the only partial
-                            // report copy.
                             cancelledSessionReports[sessionId] = consumedReportJson
                             false
                         }
@@ -678,9 +654,6 @@ class ActiveScanRegistry
             sessionId: String,
             progress: ScanProgress?,
         ) {
-            // Publish while still holding bridgeMutex: a StateFlow assignment never
-            // blocks, and publishing outside the lock lets an older computation win
-            // the publication race and regress the visible progress.
             bridgeMutex.withLock {
                 if (progress == null) {
                     visibleScanProgress.remove(sessionId)
@@ -747,7 +720,6 @@ internal class BridgeReportPollingState(
                 }
 
                 EngineScanReportDisposition.TERMINAL -> {
-                    // Freeze at report acceptance, before completion or persistence can suspend.
                     ownedInPathRouteAtCompletion = routeRemainedCurrent
                     terminalReportJson = reportJson
                 }

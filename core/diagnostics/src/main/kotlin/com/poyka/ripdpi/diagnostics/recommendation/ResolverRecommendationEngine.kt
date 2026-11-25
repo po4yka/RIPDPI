@@ -20,12 +20,10 @@ private const val MaxBlockedBootstrapDisplay = 3
 private const val ProbeTypeDnsIntegrity = "dns_integrity"
 private const val ProbeTypeTcpFatHeader = "tcp_fat_header"
 
-// Only a reset or a close at the 16 KB threshold is evidence of DPI; a timeout or failed handshake is not.
 private val TcpFatHeaderDpiBlockedOutcomes = setOf("tcp_reset", "tcp_16kb_blocked")
 private val TcpFatHeaderUnusableOutcomes = TcpFatHeaderDpiBlockedOutcomes + setOf("tcp_timeout", "tls_handshake_failed")
 private const val OutcomeDnsMatch = "dns_match"
 
-// DNS outcomes the native classifier rates Failed or Attention as interference (outcome_policy.rs).
 private val DnsInterferenceOutcomes =
     setOf(
         "dns_sinkhole_substitution",
@@ -251,7 +249,6 @@ private fun ProbeResult.resolverObservation(): CandidateObservation? {
     return CandidateObservation(this, details, path)
 }
 
-// One native DNS-integrity row measures the plain and encrypted answers to the same question.
 private fun ProbeResult.confirmedRecovery(): CandidateObservation? {
     val candidate = resolverObservation() ?: return null
     val details = candidate.details
@@ -290,7 +287,6 @@ private fun ProbeResult.isDnsInterference(pathMode: ScanPathMode): Boolean =
         else -> false
     }
 
-/** Host of a `host:port`, `[v6]:port` or bare IPv6 target. */
 private fun String.targetHost(): String {
     val target = trim()
     return when {
@@ -300,7 +296,6 @@ private fun String.targetHost(): String {
     }.trim()
 }
 
-/** Port of a `host:port` or `[v6]:port` target; a bare IPv6 address has none. */
 private fun String.targetPort(): Int? {
     val target = trim()
     return when {
@@ -310,7 +305,6 @@ private fun String.targetPort(): Int? {
     }?.toIntOrNull()
 }
 
-/** One spelling per IP literal, so `2001:db8::1` and `2001:DB8:0::1` compare equal; hostnames pass through. */
 private fun String.canonicalIpOrSelf(): String = NumericIp.parseAddress(trim())?.toCanonicalString() ?: trim()
 
 private fun List<ProbeResult>.hasHealthyPrimaryDnsFor(target: String): Boolean =
@@ -371,7 +365,6 @@ private fun selectCandidate(
             { if (currentPath != null && it.path.protocol == currentPath.protocol) 0 else 1 },
             { -it.healthyCount },
             { it.averageLatencyMs ?: Long.MAX_VALUE },
-            // A full tie goes to the default provider, never to Cloudflare, which is blocked in Russia.
             { if (it.path.resolverId == canonicalDefaultDnsProviderDefinition().providerId) 0 else 1 },
         ),
     )

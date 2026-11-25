@@ -233,8 +233,6 @@ class SystemPingProber internal constructor(
         }
     }
 
-    // The summary average (iputils and toybox) wins; without it, the mean of all replies, so a
-    // slow first (radio wake-up) reply does not stand for the whole sample.
     internal fun parseRttMs(output: String): Double? =
         summaryRttRegex
             .find(output)
@@ -244,7 +242,6 @@ class SystemPingProber internal constructor(
             ?.takeIf { it.isFinite() && it >= 0.0 }
             ?: replyRttsMs(output).takeIf { it.isNotEmpty() }?.average()
 
-    // iputils prints mdev; toybox does not, so derive it (population deviation, as mdev) from the replies.
     internal fun parseJitterMs(output: String): Double? =
         summaryRttRegex
             .find(output)

@@ -301,8 +301,6 @@ private fun decodeProfileProjection(
         ?.takeIf { it.isNotBlank() }
         ?.let { decodeStoredOrNull("profile request") { json.decodeProfileSpecWire(it).toProfileProjection() } }
 
-// A stored row from another schema version, or a corrupt one, degrades to a missing projection
-// instead of failing the whole Room flow that maps it.
 private inline fun <T> decodeStoredOrNull(
     label: String,
     decode: () -> T,

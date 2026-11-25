@@ -4,14 +4,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 internal object DiagnosticsDatabaseMigrations {
-    /**
-     * Pre-release schema versions (v0.0.8 and earlier) that have no migration. They hold only
-     * disposable diagnostics history, so Room may drop and recreate the database from them.
-     * Never add a version here that a migration in [ALL] starts from.
-     */
     val DESTRUCTIVE_FROM_VERSIONS: IntArray = intArrayOf(1, 2, 3)
 
-    /** All migrations, in order. Append new Migration(N, N+1) objects here when the schema version bumps. */
     val ALL: Array<Migration> =
         arrayOf(
             migration4To5,
@@ -29,11 +23,6 @@ internal object DiagnosticsDatabaseMigrations {
         )
 }
 
-/**
- * v4 → v5: add process memory columns to `telemetry_samples`. v0.1.0 shipped schema 4, and
- * v0.1.1 relied on destructive fallback, so this step was missing for v0.1.0 upgrades.
- * Both columns are nullable INTEGER without a default, as in the exported schema 5.
- */
 private val migration4To5 =
     object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -42,11 +31,6 @@ private val migration4To5 =
         }
     }
 
-/**
- * v5 → v6: add `relayProtocolKind` column to `telemetry_samples`.
- * The column is nullable with no default — existing rows will have NULL,
- * which the Kotlin entity decodes as `null` (the field default).
- */
 private val migration5To6 =
     object : Migration(5, 6) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -56,7 +40,6 @@ private val migration5To6 =
         }
     }
 
-/** v6 → v7: persist the confirmed per-network TLS profile/concurrency policy. */
 private val migration6To7 =
     object : Migration(6, 7) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -64,7 +47,6 @@ private val migration6To7 =
         }
     }
 
-/** v7 → v8: add repository-owned durable diagnostics state for process-death ledgers. */
 private val migration7To8 =
     object : Migration(7, 8) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -81,7 +63,6 @@ private val migration7To8 =
         }
     }
 
-/** v8 → v9: retain terminal report state when a large report JSON cannot be read inline. */
 private val migration8To9 =
     object : Migration(8, 9) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -90,7 +71,6 @@ private val migration8To9 =
         }
     }
 
-/** v9 → v10: correlate runtime telemetry samples with a home diagnostics run and stage. */
 private val migration9To10 =
     object : Migration(9, 10) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -106,7 +86,6 @@ private val migration9To10 =
         }
     }
 
-/** v10 → v11: persist privacy-safe VLESS/Reality relay attempt stage evidence. */
 private val migration10To11 =
     object : Migration(10, 11) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -125,7 +104,6 @@ private val migration10To11 =
         }
     }
 
-/** v11 → v12: persist privacy-safe relay-health decisions and cleanup provenance. */
 private val migration11To12 =
     object : Migration(11, 12) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -140,7 +118,6 @@ private val migration11To12 =
         }
     }
 
-/** v12 -> v13: persist home diagnostics metadata outside ordinary scan sessions. */
 private val migration12To13 =
     object : Migration(12, 13) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -179,7 +156,6 @@ private val migration12To13 =
         }
     }
 
-/** v13 -> v14: remove raw network identifiers from existing snapshot payloads. */
 private val migration13To14 =
     object : Migration(13, 14) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -210,7 +186,6 @@ private val migration13To14 =
         }
     }
 
-/** v14 -> v15: record the network a scan ran on, so a later reader can tell that the network changed. */
 private val migration14To15 =
     object : Migration(14, 15) {
         override fun migrate(db: SupportSQLiteDatabase) {
@@ -218,7 +193,6 @@ private val migration14To15 =
         }
     }
 
-/** v15 -> v16: record the transport and selective matrix revisions so two matrix scans can be paired. */
 private val migration15To16 =
     object : Migration(15, 16) {
         override fun migrate(db: SupportSQLiteDatabase) {

@@ -284,7 +284,6 @@ class DirectModePolicySupportTest {
 
         val observation = collectDirectPathCapabilityObservations(report).getValue("example.org")
 
-        // The strategy probe found a working local strategy, so neither "direct works" nor "no direct solution".
         assertNull(deriveDirectModeVerdict(report))
         assertEquals(DirectModeOutcome.TRANSPARENT_OK, observation.transportPolicy?.outcome)
         assertEquals(QuicMode.HARD_DISABLE, observation.transportPolicy?.quicMode)

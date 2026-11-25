@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.diagnostics
 
-/** Read one value only. Duplicate keys are ambiguous even when their values match. */
 internal class ConnectionStageEvidence(
     details: List<ProbeDetail>,
 ) {

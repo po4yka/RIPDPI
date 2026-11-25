@@ -59,8 +59,6 @@ pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Res
     read_http_headers_io(stream, max_bytes).map_err(|error| error.to_string())
 }
 
-/// Read the final response head without consuming following body bytes.
-/// IO errors retain their kind for timeout and reset classification.
 pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> io::Result<Vec<u8>> {
     let mut bytes = Vec::new();
     let mut byte = [0u8; 1];

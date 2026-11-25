@@ -7,7 +7,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 
-/** Session facade over the single process-owned native lane. Lifecycle callers serialize commands. */
 class RipDpiXrayRuntime(
     private val owner: XrayRuntimeOwner,
     private val config: XrayProviderConfig = XrayProviderConfig(),
@@ -106,19 +105,16 @@ class RipDpiXrayRuntime(
         return snapshot.listenerReady
     }
 
-    /** Revoke this service's callback without waiting for a blocked native worker. */
     fun revokeProtection() {
         lease?.revokeProtection()
     }
 
-    /** A deadline bounds this caller only. Pending/Failed retains ownership until native cleanup succeeds. */
     suspend fun stop(timeoutMillis: Long = DefaultXrayStopTimeoutMs): StopCause {
         val current = lease ?: return StopCause.AlreadyStopped
         val operation = owner.stop(current)
         return withTimeoutOrNull(timeoutMillis) { operation.await() } ?: StopCause.Pending
     }
 
-    /** Refresh is coalesced by the native owner; telemetry never blocks on JNI. */
     fun pollTelemetry(): NativeRuntimeSnapshot {
         val snapshot = observe()
         val state = snapshot.state
@@ -154,36 +150,26 @@ sealed interface StopCause {
     ) : StopCause
 }
 
-/**
- * Typed lifecycle errors for [RipDpiXrayRuntime].
- *
- * Messages NEVER include rendered config contents, so they are safe to log.
- */
 sealed class XrayRuntimeException(
     message: String,
 ) : Exception(message) {
-    /** Rendered config was structurally unusable (blank / empty). */
     class InvalidConfig(
         message: String,
     ) : XrayRuntimeException(message)
 
-    /** A lifecycle call was made from a state that does not permit it. */
     class IllegalLifecycle(
         message: String,
     ) : XrayRuntimeException(message)
 
-    /** libXray rejected the start request with a non-zero code. */
     class StartupFailed(
         message: String,
         val code: Int,
     ) : XrayRuntimeException(message)
 
-    /** The listener did not become ready within the bounded timeout. */
     class ReadinessTimeout(
         message: String,
     ) : XrayRuntimeException(message)
 
-    /** The Xray process exited unexpectedly (crash / non-clean exit). */
     class Crashed(
         message: String,
     ) : XrayRuntimeException(message)

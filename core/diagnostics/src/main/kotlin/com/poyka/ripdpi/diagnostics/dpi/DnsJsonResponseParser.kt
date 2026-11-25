@@ -118,7 +118,6 @@ internal object DnsJsonResponseParser {
         val fields = text("data").trim().split(SoaSeparator)
         require(fields.size == SoaFields)
         dnsName(fields[0])
-        // SOA RNAME can escape a dot in the mailbox label.
         require(fields[1] != "@" && fields[1].all { it in VisibleAscii })
         try {
             Name.fromString(fields[1], Name.root)
@@ -137,7 +136,6 @@ internal object DnsJsonResponseParser {
 
     private fun JsonObject.recordType(): Int = integer("type").also { require(it in 1..MaxRecordType) }
 
-    // RFC 2181 treats incoming RR TTLs with the high bit set as zero.
     private fun JsonObject.ttl(): Long =
         requireNotNull(number("TTL").longOrNull)
             .also { require(it in 0..MaxUnsigned32) }

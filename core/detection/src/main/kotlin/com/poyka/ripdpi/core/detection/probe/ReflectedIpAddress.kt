@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.NumericIp
 
 internal fun canonicalIpOrNull(value: String): String? = parseLiteral(value)?.toCanonicalString()
 
-/** Reject local, multicast, and tunnel-only addresses before they become public-IP evidence. */
 internal fun publicIpOrNull(value: String): String? =
     parseLiteral(value)?.let { parsed ->
         val canonical = parsed.toCanonicalString()

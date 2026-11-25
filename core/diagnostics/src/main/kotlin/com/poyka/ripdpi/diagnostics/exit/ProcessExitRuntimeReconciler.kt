@@ -233,10 +233,8 @@ private fun Map<String, String>.processExitClassificationOrNull(): ProcessExitCl
     }
 }
 
-/** How the reconciler classified the process exit behind a correlation event. */
 enum class ProcessExitCorrelationKind { ExpectedLifecycle, ResourcePressure, Unexpected }
 
-/** Returns the kind of a persisted process-exit correlation [message], or null for any other event message. */
 fun processExitCorrelationKind(message: String): ProcessExitCorrelationKind? {
     val tokens = message.toKeyValueTokens()
     if (tokens["event"] != ProcessExitCorrelationEvent) return null

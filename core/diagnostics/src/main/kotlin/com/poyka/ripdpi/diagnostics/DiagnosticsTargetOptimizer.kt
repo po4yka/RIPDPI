@@ -7,12 +7,10 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Process-local evidence. A restart or expired history restores the catalog order. */
 @Singleton
 class DiagnosticsTargetOptimizer
     @Inject
     constructor() {
-        // Evidence is per host, so profiles sharing a probe suite share it; unseen hosts stay mandatory.
         private data class Scope(
             val fingerprint: String,
             val path: ScanPathMode,
@@ -108,7 +106,6 @@ class DiagnosticsTargetOptimizer
             }
         }
 
-        // Selecting a profile to run it manually must not hide that run from the automatic profile.
         private fun scope(
             fingerprint: String,
             path: ScanPathMode,
@@ -176,7 +173,6 @@ class DiagnosticsTargetOptimizer
         private fun unitId(target: DomainTarget) =
             target.concurrencyProbe?.let { "cohort:${it.cohortId}" } ?: target.host.lowercase(Locale.ROOT)
 
-        /** A concurrency cohort is one unit, dropped only if each member had healthy concurrency in every report. */
         private fun domainUnits(
             targets: List<DomainTarget>,
             history: List<Evidence>,
@@ -201,7 +197,6 @@ class DiagnosticsTargetOptimizer
                 )
             }
 
-        /** Largest target count within [limit] that a set holding every mandatory unit can reach. */
         private fun largestFit(
             units: List<CompactProbe>,
             limit: Int,
@@ -225,7 +220,6 @@ class DiagnosticsTargetOptimizer
                         cohort.domainTargets.map {
                             probe(
                                 it.host,
-                                // A complete registered cohort retains its own concurrency contract.
                                 it.isControl,
                                 history,
                                 scope.path,

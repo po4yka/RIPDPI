@@ -1,7 +1,6 @@
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
-/** The catalog bundles no endpoint or SNI; the user enters them before each run. */
 internal data class QuicVersionMatrixDefinition(
     val host: String = "",
     val controlSni: String = "",

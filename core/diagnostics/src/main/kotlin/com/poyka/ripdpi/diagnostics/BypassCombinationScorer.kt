@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 internal data class BypassCombinationCandidate(
     val id: String,
     val rememberedValidated: Boolean,
-    /** A fresh result whose strategy policy this scan will remember. */
     val persistenceEligible: Boolean = false,
     val strategyConfidence: StrategyProbeAuditConfidenceLevel? = null,
     val winnerCoveragePercent: Int = 0,
@@ -82,7 +81,6 @@ internal object BypassCombinationScorer {
 
     private val candidateComparator: Comparator<BypassCombinationCandidate> =
         compareBy<BypassCombinationCandidate>(
-            // A validated remembered policy outranks only fresh results that could not be persisted.
             { if (it.rememberedValidated || it.persistenceEligible) 1 else 0 },
             { confidenceRank(it.strategyConfidence) },
             { it.winnerCoveragePercent },

@@ -32,8 +32,6 @@ class RememberedPolicySessionTracker
             session: BypassUsageSessionEntity,
             activePolicy: ActiveConnectionPolicy?,
         ): BypassUsageSessionEntity {
-            // Only a replayed remembered policy is tracked. A session's time and traffic do not show that a
-            // strategy unblocks anything, so an ordinary session neither creates nor validates a policy.
             val policy =
                 activePolicy?.takeIf { it.usedRememberedPolicy } ?: run {
                     clear()
@@ -98,8 +96,6 @@ class RememberedPolicySessionTracker
                     )
                 }
 
-                // A clean session counts as a success, but only probe evidence validates: the status and
-                // lastValidatedAt stay as they are, so the policy still expires on schedule.
                 proved -> {
                     RememberedPolicyTerminalOutcome(
                         policyId = entity.id,
@@ -177,11 +173,6 @@ internal data class RememberedPolicyTerminalOutcome(
     val updatedAt: Long,
     val failureHandover: RememberedPolicyFailureHandover? = null,
 ) {
-    /**
-     * Applies this session's success or failure to [current], the row as stored now, so updates made by other
-     * sessions since this one started are kept. Returns null when [current] is a row of another mode. Outbox JSON
-     * written by older builds carries extra counter keys; the tolerant decoder ignores them.
-     */
     fun applyTo(
         current: RememberedNetworkPolicyEntity,
         strategySignatureJson: String,
@@ -191,7 +182,6 @@ internal data class RememberedPolicyTerminalOutcome(
                 null
             }
 
-            // Only the proved branch of prepareTerminalOutcome updates the strategy signature.
             updateStrategySignature -> {
                 current.copy(
                     strategySignatureJson = strategySignatureJson,

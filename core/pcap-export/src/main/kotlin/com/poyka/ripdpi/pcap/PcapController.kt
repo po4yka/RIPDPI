@@ -23,16 +23,6 @@ import java.nio.channels.Channels
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * High-level Kotlin facade around the [PcapBridge] JNI surface.
- *
- * Lifetime model: one capture per tunnel session. Caller passes the
- * existing session handle (from Tun2SocksTunnel) to start / stop. The
- * native side enforces single-capture-per-session.
- *
- * Redaction completes in private storage before the document picker opens.
- * Only the staged output can be published to the resulting document URI.
- */
 @Singleton
 class PcapController
     @Inject
@@ -44,11 +34,6 @@ class PcapController
         val captureDirectory: File
             get() = File(context.filesDir, "pcap")
 
-        /**
-         * Returns capture-set id on success, 0 on failure. Caller stores
-         * the id to call stop later, though the single-capture-per-session
-         * rule means the session handle alone is sufficient.
-         */
         suspend fun start(
             sessionHandle: Long,
             captureDir: File,
@@ -148,7 +133,6 @@ class PcapController
         ) {
             ParcelFileDescriptor.AutoCloseOutputStream(descriptor).use { output ->
                 try {
-                    // The channel lets cancellation interrupt writes to a provider pipe.
                     input.copyTo(Channels.newOutputStream(output.channel))
                     if (descriptor.canDetectErrors()) descriptor.checkError()
                 } catch (error: IOException) {
@@ -178,7 +162,6 @@ class PcapController
                 try {
                     bridge.jniPcapRedactToFile(sourcePath, fd)
                 } catch (error: UnsatisfiedLinkError) {
-                    // A missing JNI symbol never took ownership of the detached descriptor.
                     runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
                         .exceptionOrNull()
                         ?.let(error::addSuppressed)
@@ -188,7 +171,6 @@ class PcapController
         }
 
         companion object {
-            /** The requested segment size for local captures. Native code owns the storage cap. */
             const val DEFAULT_MAX_FILE_BYTES: Long = 16L * 1024L * 1024L
             const val DEFAULT_MAX_FILES: Int = 3
 

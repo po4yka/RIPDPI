@@ -23,9 +23,6 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
 
-// Must stay in sync with the same threshold used in DiagnosticsDao queries.
-// CursorWindow caps a single row at ~2MB; reports above this never fit and
-// previously caused SQLiteBlobTooBigException on read.
 private const val MaxInlineReportJsonBytes = 1_500_000
 
 internal object DiagnosticsReportPersister {

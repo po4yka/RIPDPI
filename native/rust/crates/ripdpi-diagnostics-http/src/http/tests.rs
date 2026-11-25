@@ -454,7 +454,7 @@ fn alt_svc_header_preserved_in_response() {
     let response = HttpResponse { status_code: 200, reason: "OK".to_string(), headers, body: b"ok".to_vec() };
     let alt_svc = response.headers.get("alt-svc").unwrap();
     assert!(alt_svc.contains("h3"));
-    assert!(!alt_svc.contains("h2")); // Only h3 in this value
+    assert!(!alt_svc.contains("h2"));
 }
 
 #[test]

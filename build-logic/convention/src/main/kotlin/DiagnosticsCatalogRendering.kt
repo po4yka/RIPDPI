@@ -169,7 +169,6 @@ internal class DiagnosticsCatalogValidator(
                     "Profile ${profile.id} control ${target.host} must declare exactly one control tier"
                 }
             }
-            // A domestic site answers without any bypass, so it cannot prove a strategy or an in-path route.
             require(
                 profile.kind != CatalogScanKind.STRATEGY_PROBE ||
                     profile.domainTargets.none { it.controlTier == CatalogControlTier.DOMESTIC },

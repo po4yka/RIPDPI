@@ -144,15 +144,6 @@ class DefaultProbeResultCache
                 persist(map)
             }
 
-        /**
-         * Drops the in-memory copy of the cache (the persisted file is left
-         * untouched). The next [lookup]/[store] reloads it from disk via
-         * [ensureLoaded], so this only sheds regenerable memory -- exactly the
-         * behaviour Android's `TRIM_MEMORY_UI_HIDDEN`/`TRIM_MEMORY_BACKGROUND`
-         * callbacks ask for. Non-blocking and main-thread safe; `entries` is
-         * volatile so the null write is visible to concurrent suspend callers,
-         * which simply reload on their next access.
-         */
         override fun trimToBackground() {
             entries = null
         }
