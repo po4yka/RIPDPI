@@ -47,7 +47,7 @@ export const de: SlideCopy = {
     "Verbindungsstatus und Datenverkehr",
     "Ergebnisse deiner Netzwerkprüfung",
     "Wähle einen Transport für dein Profil",
-    "Eigene DoH- und IPv6-Optionen",
+    "Eigenen DoH-Resolver einstellen",
     "Paketoptionen für deine Verbindung",
     "Konfiguration sichern und wiederherstellen"
   ]

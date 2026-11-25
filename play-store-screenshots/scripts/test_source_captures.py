@@ -370,6 +370,16 @@ class SourceCaptureTests(unittest.TestCase):
         self.save()
         self.assertTrue(any("DNS editor viewport" in error for error in self.validate()))
 
+    def test_malformed_dns_viewports_are_rejected(self):
+        receipts = self.data["runReceipts"]["dnsFocus"]
+        self.data["runReceipts"]["dnsFocus"] = None
+        self.save()
+        self.assertIn("Missing actual DNS editor viewport receipts.", self.validate())
+        self.data["runReceipts"]["dnsFocus"] = receipts
+        receipts["ru"]["controls"]["dns-advanced"] = None
+        self.save()
+        self.assertIn("Missing actual DNS editor viewport receipts.", self.validate())
+
     def test_unapplied_locale_display_override_is_rejected(self):
         self.data["runReceipts"]["displayFrames"]["fa/backup"]["densityDpi"] = DENSITY_DPI
         self.save()

@@ -11,14 +11,17 @@ from pathlib import Path
 from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport
 
 
-def complete_viewports(receipts: dict, controls: tuple[str, ...]) -> bool:
-    if set(receipts) != set(LOCALES):
+def complete_viewports(receipts: object, controls: tuple[str, ...]) -> bool:
+    if not isinstance(receipts, dict) or set(receipts) != set(LOCALES):
         return False
     for receipt in receipts.values():
-        observed = receipt.get("controls", {})
-        if not receipt.get("observedAtUtc") or set(observed) != set(controls):
+        if not isinstance(receipt, dict) or not receipt.get("observedAtUtc"):
             return False
-        if any(not whole_control_in_viewport(control.get("bounds"), control.get("viewport"))
+        observed = receipt.get("controls")
+        if not isinstance(observed, dict) or set(observed) != set(controls):
+            return False
+        if any(not isinstance(control, dict)
+               or not whole_control_in_viewport(control.get("bounds"), control.get("viewport"))
                for control in observed.values()):
             return False
     return True
