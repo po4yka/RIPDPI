@@ -115,6 +115,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
     ProfileBackupMutationCoordinator by ProfileBackupMutations(runtime),
     StandaloneAwgMutationCoordinator by runtime.standalone,
     RelayUpsertMutationCoordinator by RelayUpsertWriter(runtime),
+    RelayCatalogMutationCoordinator by RelayCatalogWriter(runtime),
     SubscriptionRefreshMutationCoordinator by runtime.subscriptionRefresh,
     WarpRuntimeRevisionReader by runtime.warpRevisions {
     @Inject
@@ -589,6 +590,40 @@ interface RelayUpsertMutationCoordinator {
     ): ProfileMutationOutcome
 }
 
+/** Deletes and renames saved relay profiles; editors and imports write through [RelayUpsertMutationCoordinator]. */
+interface RelayCatalogMutationCoordinator {
+    /** Throws [RelayProfileInUseException] for the active relay or a profile a chain or group uses. */
+    suspend fun deleteRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): ProfileMutationOutcome
+
+    /**
+     * Moves the profile and its credentials to [newProfileId] and follows it in the active selection.
+     * Throws [RelayProfileInUseException] when a chain or group uses it, [RelayProfileIdTakenException]
+     * when [newProfileId] exists.
+     */
+    suspend fun renameRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+        newProfileId: String,
+    ): ProfileMutationOutcome
+}
+
+class RelayProfileInUseException : IllegalStateException("Relay profile is in use")
+
+class RelayProfileIdTakenException : IllegalArgumentException("Relay profile id is taken")
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.requireRelayUnreferenced(profileId: String) {
+    val chained =
+        relayProfiles.list().any { other ->
+            other.id != profileId &&
+                profileId in (other.chainMiddleProfileIds + other.chainEntryProfileId + other.chainExitProfileId)
+        }
+    val grouped = groups.list().any { group -> group.members.any { it.id == profileId } }
+    if (chained || grouped) throw RelayProfileInUseException()
+}
+
 private class RelayUpsertWriter(
     private val runtime: ProfileMutationRuntime,
 ) : RelayUpsertMutationCoordinator {
@@ -646,4 +681,35 @@ private class RelayUpsertWriter(
                 settingsBaseImage = settingsBaseImage,
             ),
         )
+}
+
+private class RelayCatalogWriter(
+    private val runtime: ProfileMutationRuntime,
+) : RelayCatalogMutationCoordinator {
+    override suspend fun deleteRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+    ): ProfileMutationOutcome =
+        runtime.mutex.withLock {
+            runtime.recover()
+            runtime.afterImageWriter.executeRecovered(preparation, RelayDeleteIntent(profileId)) { rows ->
+                val settings = rows.settings.snapshot()
+                if (settings.relayEnabled && settings.relayProfileId == profileId) throw RelayProfileInUseException()
+                rows.requireRelayUnreferenced(profileId)
+            }
+        }
+
+    override suspend fun renameRelay(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        profileId: String,
+        newProfileId: String,
+    ): ProfileMutationOutcome =
+        runtime.mutex.withLock {
+            runtime.recover()
+            runtime.afterImageWriter.executeRecovered(preparation, RelayRenameIntent(profileId, newProfileId)) { rows ->
+                require(newProfileId.isNotBlank())
+                if (rows.relayProfiles.load(newProfileId) != null) throw RelayProfileIdTakenException()
+                rows.requireRelayUnreferenced(profileId)
+            }
+        }
 }

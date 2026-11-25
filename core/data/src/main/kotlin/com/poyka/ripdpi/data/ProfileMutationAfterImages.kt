@@ -97,6 +97,15 @@ internal class ProfileMutationRowWriter(
                 saveRelay(intent)
             }
 
+            is RelayDeleteIntent -> {
+                rows.relayCredentials.clear(intent.profileId)
+                rows.relayProfiles.clear(intent.profileId)
+            }
+
+            is RelayRenameIntent -> {
+                renameRelay(intent)
+            }
+
             is WarpUpsertIntent -> {
                 saveWarp(intent)
             }
@@ -147,6 +156,20 @@ internal class ProfileMutationRowWriter(
             is SwitchRevertIntent -> {
                 revertSwitch(intent)
             }
+        }
+    }
+
+    // Replay after a crash finds the profile already moved, so a missing source is a no-op.
+    private fun renameRelay(intent: RelayRenameIntent) {
+        val profile = rows.relayProfiles.load(intent.profileId) ?: return
+        rows.relayCredentials.load(intent.profileId)?.let {
+            rows.relayCredentials.save(it.copy(profileId = intent.newProfileId))
+        }
+        rows.relayProfiles.save(profile.copy(id = intent.newProfileId))
+        rows.relayCredentials.clear(intent.profileId)
+        rows.relayProfiles.clear(intent.profileId)
+        if (rows.settings.snapshot().relayProfileId == intent.profileId) {
+            rows.settings.update { relayProfileId = intent.newProfileId }
         }
     }
 
@@ -420,6 +443,23 @@ internal data class RelayUpsertIntent(
     val xraySelectionAfterImage: XrayProviderSelectionRecord? = null,
     val clearSelectorOwnership: Boolean = false,
     val importedGroup: ProxyGroup? = null,
+) : ProfileMutationIntent {
+    override val family: ProfileMutationFamily = ProfileMutationFamily.Relay
+}
+
+@Serializable
+@SerialName("relay_delete")
+internal data class RelayDeleteIntent(
+    val profileId: String,
+) : ProfileMutationIntent {
+    override val family: ProfileMutationFamily = ProfileMutationFamily.Relay
+}
+
+@Serializable
+@SerialName("relay_rename")
+internal data class RelayRenameIntent(
+    val profileId: String,
+    val newProfileId: String,
 ) : ProfileMutationIntent {
     override val family: ProfileMutationFamily = ProfileMutationFamily.Relay
 }

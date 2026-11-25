@@ -93,6 +93,12 @@ abstract class ProfileMutationCoordinatorModule {
 
     @Binds
     @Singleton
+    abstract fun bindRelayCatalogMutationCoordinator(
+        coordinator: ProfileMutationRecoveryCoordinator,
+    ): RelayCatalogMutationCoordinator
+
+    @Binds
+    @Singleton
     abstract fun bindPauseMutationPreparationSource(
         coordinator: ProfileMutationRecoveryCoordinator,
     ): PauseMutationPreparationSource
