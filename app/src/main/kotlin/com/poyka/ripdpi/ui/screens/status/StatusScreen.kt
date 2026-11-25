@@ -170,6 +170,8 @@ fun StatusScreen(
                     dataTransferred = uiState.dataTransferred,
                     onReprobe = onRunFullDiagnosticRun,
                     onOpenConnectionHealth = onOpenConnectionHealth,
+                    server = uiState.connectedServer,
+                    uptime = uiState.connectionDuration,
                 )
             },
             supporting = {

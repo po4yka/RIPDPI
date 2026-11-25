@@ -54,6 +54,7 @@ internal object RipDpiTestTags {
     const val ConnectionActuatorIssueDiagnose = "connection-actuator-fault-diagnose"
     const val ConnectionActuatorIssueViewLog = "connection-actuator-fault-view-log"
     const val StatusLatencyMetric = "home-latency-metric"
+    const val StatusServerMetric = "home-server-metric"
     const val LatencyDetailDialog = "latency-detail-dialog"
     const val LatencyDetailDismiss = "latency-detail-dismiss"
     const val LatencyDetailValues = "latency-detail-values"

@@ -58,12 +58,14 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.SilentNetworkHandoverMonito
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
+import com.poyka.ripdpi.ui.screens.status.StatusConnectedServer
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import com.poyka.ripdpi.ui.screens.status.assertArabic
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.connectedServerOf
 import com.poyka.ripdpi.ui.screens.status.homeOutcome
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -346,6 +348,26 @@ class MainViewModelTest {
 
         assertEquals("\u2068Home\u2069 · Hysteria2", state.trailingLabel)
         assertEquals("", state.strategyLabel)
+    }
+
+    @Test
+    fun `status names the connected server with the round trip its egress reports`() {
+        val telemetry =
+            ServiceTelemetrySnapshot(
+                awgTelemetry = NativeRuntimeSnapshot(source = "awg", upstreamRttMs = 37),
+            )
+        val exit = ActiveExit("Home", "AmneziaWG")
+
+        assertEquals(
+            StatusConnectedServer("Home", 37),
+            connectedServerOf(exit, ConnectionState.Connected, telemetry),
+        )
+        assertEquals(
+            StatusConnectedServer("Home", null),
+            connectedServerOf(exit, ConnectionState.Connected, ServiceTelemetrySnapshot()),
+        )
+        assertNull(connectedServerOf(exit, ConnectionState.Connecting, telemetry))
+        assertNull(connectedServerOf(null, ConnectionState.Connected, telemetry))
     }
 
     @Test

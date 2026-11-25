@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.screens.status.actuatorTrailingLabel
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.buildStatusModeCards
+import com.poyka.ripdpi.ui.screens.status.connectedServerOf
 import com.poyka.ripdpi.ui.screens.status.degradedDetailRes
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLive
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLost
@@ -176,6 +177,7 @@ internal fun buildMainUiState(
         connectionQualitySource = qualityRuntime?.measurementSource(inputs.telemetry),
         networkCondition = resolveMainNetworkCondition(status, inputs.pathValidation),
         xrayProviderSnapshot = inputs.telemetry.xrayProviderSnapshot,
+        connectedServer = connectedServerOf(inputs.activeExit, effectiveConnectionState, inputs.telemetry),
     )
 }
 

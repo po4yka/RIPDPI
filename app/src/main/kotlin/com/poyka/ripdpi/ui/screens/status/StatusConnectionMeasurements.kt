@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.theme.DefaultRipDpiNetworkQualityThresholds
 import com.poyka.ripdpi.ui.theme.resolveMeasurementTone
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
+import kotlin.time.Duration
 
 @Composable
 internal fun StatusConnectionMeasurements(
@@ -50,6 +51,8 @@ internal fun StatusConnectionMeasurements(
     onReprobe: () -> Unit,
     onOpenConnectionHealth: () -> Unit = {},
     now: Long? = null,
+    server: StatusConnectedServer? = null,
+    uptime: Duration = Duration.ZERO,
 ) {
     var selectedSnapshot by remember { mutableStateOf<LatencyDetailSnapshot?>(null) }
     var returnFocusRequested by remember { mutableStateOf(false) }
@@ -86,6 +89,8 @@ internal fun StatusConnectionMeasurements(
                 statusMeasurementMetrics(
                     observed,
                     dataTransferred,
+                    server,
+                    uptime,
                     latencyModifier =
                         Modifier
                             .semantics { stateDescription = qualityMeaning }
@@ -189,9 +194,29 @@ private fun assessedStatusMeasurementSummary(quality: ConnectionQualitySnapshot)
 private fun statusMeasurementMetrics(
     quality: ConnectionQualitySnapshot?,
     dataTransferred: Long,
+    server: StatusConnectedServer?,
+    uptime: Duration,
     latencyModifier: Modifier,
     onOpenLatency: () -> Unit,
 ) = buildList {
+    server?.let {
+        add(
+            statusMetric(
+                R.string.status_server_metric,
+                it.name,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.StatusServerMetric),
+            ),
+        )
+        it.latencyMillis?.let { latency ->
+            add(
+                statusMetric(
+                    R.string.status_server_latency_metric,
+                    stringResource(R.string.status_quality_metric_ms_format, latency),
+                ),
+            )
+        }
+        add(statusMetric(R.string.status_server_uptime_metric, formatStatusModeConnectionDuration(uptime)))
+    }
     quality?.let {
         // Zero loss with no samples is an empty window, not a good result.
         if (it.lossPct > 0f || it.sampleCount > 0L) {
