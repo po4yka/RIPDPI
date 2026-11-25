@@ -10,7 +10,7 @@ import kotlinx.serialization.json.put
 /**
  * Renders a typed [XrayProfile] into the local-inbound + outbound xray-core
  * config JSON used by the
- * [com.poyka.ripdpi.data.xray.XrayTunnelTopology.TunToLocalInbound] topology,
+ * loopback handoff,
  * then gates the result through [XrayConfigValidator] and an injected
  * [XrayConfigTester] before it can be saved or started.
  *

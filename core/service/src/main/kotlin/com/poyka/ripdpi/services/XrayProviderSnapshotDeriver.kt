@@ -9,7 +9,6 @@ import com.poyka.ripdpi.data.xray.XrayProviderConfig
 import com.poyka.ripdpi.data.xray.XrayProviderFailureClass
 import com.poyka.ripdpi.data.xray.XrayProviderReadiness
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
-import com.poyka.ripdpi.data.xray.XrayTunnelTopology
 
 /**
  * Pure derivation of a privacy-safe [XrayProviderSnapshot] from the live Xray
@@ -34,15 +33,14 @@ internal class XrayProviderSnapshotDeriver(
 ) {
     /**
      * @param providerState orchestrator's current [VpnProviderState].
-     * @param config active provider config (topology + loopback inbound port).
+     * @param config active provider config with the loopback inbound port.
      * @param xrayVersion bridge `version()`; null until first read.
      * @param listenerReady bridge `listenerReady()`.
      * @param isAlive bridge `isAlive()`.
      * @param configFindings findings from the last render (empty when valid).
      * @param protectFailureDetail raw last-protect-failure detail, or null. MUST
      *   be the raw monitor detail; this deriver redacts it.
-     * @param dnsLoopSuspected heuristic flag (e.g. listener bound + outbound
-     *   never completes on the SetTunFd topology). Defaults false.
+     * @param dnsLoopSuspected whether the observed symptoms suggest a DNS loop.
      * @param profileName already-non-secret label of the active profile.
      * @param outboundProtocol already-non-secret protocol kind (e.g. `vless`).
      * @param outboundSecurity already-non-secret stream security (e.g. `reality`).
@@ -84,7 +82,7 @@ internal class XrayProviderSnapshotDeriver(
             listenerState = listenerState,
             outboundHealth = outboundHealth,
             failureClass = failureClass,
-            tunnelTopology = config.tunnelTopology.label(),
+            tunnelTopology = XrayProviderSnapshot.LoopbackTunnelTopology,
             localInboundListen = "127.0.0.1",
             localInboundPort = config.localInboundPort,
             profileName = profileName,
@@ -155,11 +153,5 @@ internal class XrayProviderSnapshotDeriver(
             readiness == XrayProviderReadiness.OutboundHealthy -> XrayOutboundHealth.Reachable
             readiness == XrayProviderReadiness.ListenerReady -> XrayOutboundHealth.Unknown
             else -> XrayOutboundHealth.Unknown
-        }
-
-    private fun XrayTunnelTopology.label(): String =
-        when (this) {
-            XrayTunnelTopology.TunToLocalInbound -> "TunToLocalInbound"
-            XrayTunnelTopology.LibXraySetTunFd -> "LibXraySetTunFd"
         }
 }

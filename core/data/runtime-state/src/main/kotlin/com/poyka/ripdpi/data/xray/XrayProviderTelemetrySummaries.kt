@@ -47,13 +47,8 @@ object XrayProviderTelemetrySummaries {
             appendLine("outbound: ${s.outboundHealth.name}")
             appendLine("failureClass: ${s.failureClass.name}")
             s.tunnelTopology
-                ?.takeIf {
-                    it in
-                        setOf(
-                            "TunToLocalInbound",
-                            "LibXraySetTunFd",
-                        )
-                }?.let { appendLine("topology: $it") }
+                ?.takeIf { it == XrayProviderSnapshot.LoopbackTunnelTopology }
+                ?.let { appendLine("topology: $it") }
             s.outboundProtocol?.takeIf { it == "vless" }?.let { appendLine("protocol: $it") }
             s.outboundSecurity?.takeIf { it in setOf("reality", "tls") }?.let { appendLine("security: $it") }
             // Local inbound is loopback by construction — safe to render verbatim.

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
-import com.poyka.ripdpi.data.xray.XrayTunnelTopology
 
 object XrayTunnelHandoff {
     fun resolveUpstream(
@@ -11,25 +10,7 @@ object XrayTunnelHandoff {
     ): TunnelUpstream =
         when (providerKind) {
             VpnProviderKind.Native -> TunnelUpstream.Native
-            VpnProviderKind.Xray -> resolveXrayUpstream(xrayConfig)
-        }
-
-    private fun resolveXrayUpstream(xrayConfig: XrayProviderConfig): TunnelUpstream =
-        when (xrayConfig.tunnelTopology) {
-            XrayTunnelTopology.TunToLocalInbound -> {
-                TunnelUpstream.Xray(
-                    host = LoopbackHost,
-                    port = xrayConfig.localInboundPort,
-                    dnsOwner = DnsLoopOwner.Tunnel,
-                )
-            }
-
-            XrayTunnelTopology.LibXraySetTunFd -> {
-                throw IllegalArgumentException(
-                    "XrayTunnelTopology.LibXraySetTunFd is a declared-but-unimplemented " +
-                        "follow-up; XrayTunnelHandoff only bridges the TunToLocalInbound topology",
-                )
-            }
+            VpnProviderKind.Xray -> TunnelUpstream.Xray(LoopbackHost, xrayConfig.localInboundPort, DnsLoopOwner.Tunnel)
         }
 
     const val LoopbackHost: String = "127.0.0.1"

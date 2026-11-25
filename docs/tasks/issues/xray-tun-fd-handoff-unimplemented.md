@@ -2,17 +2,16 @@
 id: ENG-1795610462793424
 title: Implement or remove the LibXraySetTunFd handoff
 kind: chore
-status: backlog
+status: review
 area: engine
 priority: low
 owner: comment-ratchet
 parent: null
 blocked_by: []
-spec_mode: not-required
-openspec_change: null
+spec_mode: required
+openspec_change: eng-1795610462793424-remove-xray-tun-fd-handoff
 created: 2026-11-25
 updated: 2026-11-25
-spec_reason: mechanical-refactor
 ---
 
 ## Goal

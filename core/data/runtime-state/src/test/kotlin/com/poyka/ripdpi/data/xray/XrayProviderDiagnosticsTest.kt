@@ -112,6 +112,7 @@ class XrayProviderDiagnosticsTest {
     fun `every fixture export is free of secrets and live endpoints`() {
         XrayProviderDiagnosticsFixtures.all.forEach { (name, report) ->
             val export = XrayProviderTelemetrySummaries.export(report)
+            assertTrue("$name export omits the loopback handoff", export.contains("topology: TunToLocalInbound"))
             assertFalse("$name export leaked a server domain", export.contains("vpn.example.com"))
             assertFalse(
                 "$name export leaked a UUID",

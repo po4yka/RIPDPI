@@ -4,7 +4,6 @@ import com.poyka.ripdpi.core.testing.FakeManagedTunnel
 import com.poyka.ripdpi.core.testing.FakeXrayNativeBridge
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayProviderConfig
-import com.poyka.ripdpi.data.xray.XrayTunnelTopology
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -58,18 +57,6 @@ class XrayDnsLoopRegressionTest {
             "rejection must name the single-source-of-truth rule",
             ex.message!!.contains("single source of truth"),
         )
-    }
-
-    @Test
-    fun `set-tun-fd topology - where xray would own DNS - is refused not silently bridged`() {
-        val ex =
-            assertThrows(IllegalArgumentException::class.java) {
-                XrayTunnelHandoff.resolveUpstream(
-                    VpnProviderKind.Xray,
-                    XrayProviderConfig(tunnelTopology = XrayTunnelTopology.LibXraySetTunFd),
-                )
-            }
-        assertTrue(ex.message!!.contains("LibXraySetTunFd"))
     }
 
     @Test

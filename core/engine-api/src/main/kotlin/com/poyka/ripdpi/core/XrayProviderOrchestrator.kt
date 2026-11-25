@@ -137,8 +137,7 @@ class XrayProviderOrchestrator(
             }
 
             VpnProviderKind.Xray -> {
-                from.xrayConfig.localInboundPort != to.xrayConfig.localInboundPort ||
-                    from.xrayConfig.tunnelTopology != to.xrayConfig.tunnelTopology
+                from.xrayConfig.localInboundPort != to.xrayConfig.localInboundPort
             }
         }
     }

@@ -127,7 +127,7 @@ still be via the Xray server.
 
 ## DNS-loop ownership — single source of truth
 
-For the `TunToLocalInbound` topology (the only one this lane bridges):
+For the `TunToLocalInbound` handoff:
 
 - **The RIPDPI tunnel owns DNS resolution.** It terminates DNS locally (its
   mapdns / encrypted-DNS machinery) and hands Xray only resolved TCP/UDP connect
@@ -141,16 +141,10 @@ For the `TunToLocalInbound` topology (the only one this lane bridges):
 
 This split is enforced in code by `XrayTunnelHandoff`, which fixes
 `TunnelUpstream.Xray.dnsOwner` to `DnsLoopOwner.Tunnel` and rejects the
-`DnsLoopOwner.XrayDns` (split) model. The `DnsLoopOwner.XrayDns` value is
-reserved for the future `LibXraySetTunFd` topology, where Xray owns the packet
-loop and must own DNS too.
+`DnsLoopOwner.XrayDns` model.
 
-## Out of scope (explicit follow-ups)
+## Out of scope
 
-- `libXray.SetTunFd` direct fd hand-off (`XrayTunnelTopology.LibXraySetTunFd`)
-  stays a declared-but-unimplemented branch. `XrayTunnelHandoff` rejects it and
-  `XrayProviderOrchestrator.start` fails fast with `HandoffOutcome.Failed`
-  rather than silently doing nothing.
 - Per-package routing via `tun routeonly` is tracked separately.
 
 ## Related

@@ -62,9 +62,7 @@ enum class XrayProviderReadiness {
 }
 
 /**
- * Local-inbound listener state for the
- * [XrayTunnelTopology.TunToLocalInbound] topology. The TUN forwarder cannot
- * dial Xray until this reaches [Bound].
+ * The TUN forwarder can dial the Xray loopback listener after it reaches [Bound].
  */
 enum class XrayListenerState {
     Unknown,
@@ -89,11 +87,7 @@ enum class XrayOutboundHealth {
  * Classifies a PROVIDER-level failure so Home can render it DISTINCTLY from a
  * tunnel failure. Each variant maps to a different user-facing remediation.
  *
- * `protect`-loop and DNS-loop variants exist because those are the two
- * Android-topology hazards called out for the Xray provider (the
- * [XrayTunnelTopology] doc and the VpnService.protect invariant): they present
- * as "connected but no traffic" and are otherwise indistinguishable from a
- * dead server without this typing.
+ * Protect failures and DNS loops can stall traffic through a connected provider.
  */
 @Serializable
 enum class XrayProviderFailureClass {
@@ -116,11 +110,7 @@ enum class XrayProviderFailureClass {
      */
     ProtectFailure,
 
-    /**
-     * Xray DNS egress re-entered the tunnel (the DNS-loop hazard of
-     * [XrayTunnelTopology.LibXraySetTunFd] without a bypass rule). Suspected,
-     * not proven, from a symptom heuristic.
-     */
+    /** The observed symptoms suggest DNS traffic re-entered the tunnel. */
     DnsLoopSuspected,
 
     /** Outbound handshake/probe never reached the upstream server. */
@@ -200,6 +190,8 @@ data class XrayProviderSnapshot(
         get() = configFindings.isNotEmpty()
 
     companion object {
+        const val LoopbackTunnelTopology: String = "TunToLocalInbound"
+
         fun idle(): XrayProviderSnapshot = XrayProviderSnapshot()
     }
 }

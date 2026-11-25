@@ -31,7 +31,7 @@ object XrayProviderDiagnosticsFixtures {
             listenerState = listener,
             outboundHealth = outbound,
             failureClass = failure,
-            tunnelTopology = XrayTunnelTopology.TunToLocalInbound::class.simpleName,
+            tunnelTopology = XrayProviderSnapshot.LoopbackTunnelTopology,
             localInboundListen = LoopbackListen,
             localInboundPort = LoopbackPort,
             profileName = "Example profile",
@@ -122,10 +122,6 @@ object XrayProviderDiagnosticsFixtures {
                 ),
         )
 
-    /**
-     * Xray DNS egress re-entered the tunnel (LibXraySetTunFd topology without a
-     * DNS bypass rule). Suspected from the symptom heuristic.
-     */
     val dnsLoopSuspected: XrayProviderProbeReport =
         XrayProviderProbeReport(
             snapshot =
@@ -135,7 +131,6 @@ object XrayProviderDiagnosticsFixtures {
                     outbound = XrayOutboundHealth.Unreachable,
                     failure = XrayProviderFailureClass.DnsLoopSuspected,
                 ).copy(
-                    tunnelTopology = XrayTunnelTopology.LibXraySetTunFd::class.simpleName,
                     lastFailureDetailRedacted =
                         "DNS query latency spike with no upstream response; loop suspected",
                 ),

@@ -379,7 +379,7 @@ class XrayProviderOrchestratorTest {
         }
 
     @Test
-    fun `set-tun-fd route fails fast without starting anything`() =
+    fun `invalid xray inbound port fails before starting the provider or tunnel`() =
         runTest {
             val bridge = FakeXrayNativeBridge()
             val tunnel = FakeManagedTunnel()
@@ -387,7 +387,7 @@ class XrayProviderOrchestratorTest {
             val route =
                 ProviderRoute(
                     VpnProviderKind.Xray,
-                    XrayProviderConfig(tunnelTopology = com.poyka.ripdpi.data.xray.XrayTunnelTopology.LibXraySetTunFd),
+                    XrayProviderConfig(localInboundPort = 0),
                 )
 
             val outcome = orch.start(route)

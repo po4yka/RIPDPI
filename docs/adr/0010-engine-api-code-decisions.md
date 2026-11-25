@@ -80,7 +80,7 @@ A new runtime for each start keeps the provider state machine linear. Each sessi
 
 The native provider returns `TunnelUpstream.Native`. It carries no Xray endpoint and keeps the RIPDPI tun2socks upstream. Xray is opt-in and does not change the native path.
 
-The tunnel, not Xray, owns DNS in the `TunToLocalInbound` topology. The tunnel already resolves DNS locally and sends only the resolved connections to the SOCKS inbound. If Xray also resolved DNS through its own outbound, a second DNS path would exist with different caching, leak, and strategy behavior. That outbound socket is protected, so it would not loop into the TUN. The two owners do not overlap: the tunnel owns resolution and the protect seam owns socket routing. `DnsLoopOwner.Xray` is reserved for the future `LibXraySetTunFd` topology, where Xray owns the packet loop and DNS. That topology fails fast today. It must not fall through to a path that works but leaks. The inbound host is always loopback, never a routable address.
+The tunnel resolves DNS locally and sends resolved connections to the Xray SOCKS inbound on loopback. The protect callback keeps Xray outbound sockets outside the VPN tunnel. The upstream rejects a routable inbound address or a separate Xray DNS owner.
 
 ### core/engine-api/src/main/kotlin/com/poyka/ripdpi/core/routing/DestinationRoutingPolicy.kt#DestinationRoutingPolicy
 

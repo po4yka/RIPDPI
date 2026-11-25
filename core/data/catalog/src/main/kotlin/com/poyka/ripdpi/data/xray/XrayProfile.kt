@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
  *
  * Covers the minimal set of fields needed to bring up a VLESS/REALITY or
  * VLESS/XHTTP outbound through a local SOCKS inbound (the
- * [com.poyka.ripdpi.data.xray.XrayTunnelTopology.TunToLocalInbound] topology).
+ * loopback handoff).
  * This is a product-safe surface: only the fields RIPDPI knows how to render
  * and validate are modelled, so the renderer never emits arbitrary xray-core
  * JSON.

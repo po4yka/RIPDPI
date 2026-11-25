@@ -29,7 +29,7 @@ Run with `./gradlew :<module>:testDebugUnitTest --offline`.
 
 | Lane | Module | Test class | What it locks |
 |------|--------|-----------|---------------|
-| Provider-kind / state machine | `:core:data:runtime-state` | `VpnProviderKindTest`, `VpnProviderStateTransitionTest`, `XrayTunnelTopologyTest` | Provider kinds, the `Stopped→Starting→Running→Stopping→Stopped` table, abort edge, topology shape |
+| Provider-kind / state machine | `:core:data:runtime-state` | `VpnProviderKindTest`, `VpnProviderStateTransitionTest` | Provider kinds, the `Stopped→Starting→Running→Stopping→Stopped` table and abort edge |
 | Mode selection & diagnostics | `:core:data:runtime-state` | `XrayServiceModeOptionTest`, `XrayProviderDiagnosticsTest` | Mutually-exclusive provider×mode picker set; typed diagnostics shape (no secrets) |
 | Config render (goldens) | `:core:data:catalog` | `XrayConfigRendererTest` | VLESS/REALITY and VLESS/XHTTP golden JSON; invalid combinations rejected (empty flow, `allowInsecure`, REALITY+XHTTP at broken tag); tester rejection |
 | Config validation | `:core:data:catalog` | `XrayConfigValidatorTest` | `VLESS_FLOW_MISSING`, `ALLOW_INSECURE_DISABLED`, `REALITY_XHTTP_BROKEN_AT_TAG`; tag-version gating |
@@ -38,8 +38,8 @@ Run with `./gradlew :<module>:testDebugUnitTest --offline`.
 | Runtime lifecycle | `:core:engine-api` | `RipDpiXrayRuntimeTest` | Protect-first ordering, blank-config reject, readiness success/timeout, crash→typed cause, idempotent/late/hung stop, secret-free telemetry |
 | Service lifecycle matrix | `:core:engine-api` | **`XrayServiceLifecycleMatrixTest`** | End-to-end matrix: startup failure, readiness timeout, clean stop (idempotent), restart, handover, crash-fast |
 | Protect-fd contract | `:core:engine-api` | **`XrayProtectFdContractTest`** | Every non-loopback outbound socket is offered to protect **before** connect; a denied protect aborts the socket; loopback inbound is never protected |
-| DNS-loop regression | `:core:engine-api` | **`XrayDnsLoopRegressionTest`** | Bridged path pins DNS ownership to the tunnel; the split `XrayDns` model is not constructible; SetTunFd is refused not silently bridged |
-| Provider selection & handover | `:core:engine-api` | `XrayProviderOrchestratorTest`, `XrayTunnelHandoffTest` | Native-default, Xray loopback upstream, dual restart ordering (tunnel before Xray), teardown on failure |
+| DNS-loop regression | `:core:engine-api` | **`XrayDnsLoopRegressionTest`** | The managed tunnel owns DNS. The upstream rejects a separate Xray DNS owner. |
+| Provider selection & handover | `:core:engine-api` | `XrayProviderOrchestratorTest`, `XrayTunnelHandoffTest` | Native default, Xray loopback upstream, invalid port rejection before startup, restart order, and teardown on failure |
 | Import/onboarding UX | `:app` | `XrayProfileImportScreenTest`, `XrayProfileImportViewModelTest` | Provider picker + fail-closed import surface (Robolectric; see app-module caveat below) |
 
 > **App-module caveat.** `:app` transitively configures the native engine, so
