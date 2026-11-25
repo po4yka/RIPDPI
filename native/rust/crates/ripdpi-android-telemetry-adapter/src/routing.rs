@@ -35,8 +35,6 @@ impl ProxyTelemetryState {
         trigger: u32,
         host: Option<String>,
     ) {
-        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
-        self.route_changes.fetch_add(1, Ordering::Relaxed);
         // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_route_group.store(to_group.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         let message = format!(

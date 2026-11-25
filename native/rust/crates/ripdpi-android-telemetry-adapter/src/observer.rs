@@ -120,6 +120,11 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         trigger: u32,
         host: Option<&str>,
     ) {
+        // A local target (a host sinkholed to 127.0.0.1) refuses for every group, so its advance is not route evidence.
+        if is_internet_target(target.ip()) {
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
+            self.state.route_changes.fetch_add(1, Ordering::Relaxed);
+        }
         self.state.on_route_advanced(target.to_string(), from_group, to_group, trigger, host.map(ToOwned::to_owned));
     }
 

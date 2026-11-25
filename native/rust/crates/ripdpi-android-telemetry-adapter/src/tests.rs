@@ -353,6 +353,20 @@ fn failures_on_local_targets_do_not_count_toward_warnings() {
     assert_eq!(state.snapshot().connection_failure_events, 1);
 }
 
+// A sinkholed host resolves to 127.0.0.1; the refused dial advances the route at start-up (SVC-1795615846684850).
+#[test]
+fn route_advances_on_local_targets_do_not_count_toward_warnings() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+    for target in ["127.0.0.1:443", "192.168.1.20:443", "[fe80::1]:443", "[fd00::1]:443"] {
+        observer.on_route_advanced(target.parse().unwrap(), 0, 6, 32, None);
+    }
+    assert_eq!(state.snapshot().route_changes, 0);
+
+    observer.on_route_advanced("203.0.113.10:443".parse().unwrap(), 0, 6, 32, None);
+    assert_eq!(state.snapshot().route_changes, 1);
+}
+
 #[test]
 fn failure_classification_telemetry_records_strategy_execution_context() {
     with_proxy_event_capture(|buffers| {
