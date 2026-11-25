@@ -545,6 +545,8 @@ fakeddisorder endhost</string>
     <string name="config_validation_banner_title">部分值仍需处理</string>
     <string name="config_vpn_credentials_title">中继凭据</string>
     <string name="config_vpn_add_profile_title">添加服务器</string>
+    <string name="config_vpn_add_server">添加服务器</string>
+    <string name="config_vpn_add_server_manual">手动添加</string>
     <string name="config_vpn_add_server_paste">粘贴链接</string>
     <string name="config_vpn_add_server_scan">扫描 QR</string>
     <string name="config_vpn_profiles_title">服务器</string>

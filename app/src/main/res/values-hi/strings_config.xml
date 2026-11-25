@@ -22,6 +22,8 @@
     <string name="config_strategy_lanes_other_network">अन्य नेटवर्क</string>
     <string name="config_strategy_lanes_sites">खुली साइटें: %2$d में से %1$d</string>
     <string name="config_vpn_add_profile_title">सर्वर जोड़ें</string>
+    <string name="config_vpn_add_server">सर्वर जोड़ें</string>
+    <string name="config_vpn_add_server_manual">मैन्युअल रूप से जोड़ें</string>
     <string name="config_vpn_add_server_paste">लिंक चिपकाएँ</string>
     <string name="config_vpn_add_server_scan">QR स्कैन करें</string>
     <string name="config_vpn_profiles_title">सर्वर</string>

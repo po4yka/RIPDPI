@@ -426,6 +426,8 @@ fakeddisorder endhost</string>
     <string name="config_udp_chain_hint">Les rafales factices UDP se trouvent désormais dans l\'éditeur de stratégie de contournement sous forme de compteurs fake_burst.</string>
     <string name="config_vpn_credentials_summary">Clés ou mots de passe du serveur relais, conservés dans le stockage sécurisé de cet appareil</string>
     <string name="config_vpn_add_profile_title">Ajouter un serveur</string>
+    <string name="config_vpn_add_server">Ajouter un serveur</string>
+    <string name="config_vpn_add_server_manual">Ajouter manuellement</string>
     <string name="config_vpn_add_server_paste">Coller le lien</string>
     <string name="config_vpn_add_server_scan">Scanner QR</string>
     <string name="config_vpn_profiles_title">Serveurs</string>

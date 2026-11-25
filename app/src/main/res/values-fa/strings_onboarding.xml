@@ -86,8 +86,8 @@
     <string name="onboarding_test_grant_permission">اعطای مجوز VPN</string>
     <string name="onboarding_test_use_proxy">به‌جای آن از حالت پراکسی استفاده کنید</string>
     <string name="onboarding_test_use_vpn">به‌جای آن از حالت VPN استفاده کنید</string>
-    <string name="onboarding_test_permission_note">اندروید ممکن است پیش از آنکه RIPDPI بتواند یک تونل VPN محلی ایجاد کند، درخواست مجوز کند. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
-    <string name="onboarding_test_failed_permission">اندروید پیش از آنکه RIPDPI بتواند روی این دستگاه یک تونل VPN محلی ایجاد کند، به مجوز نیاز دارد. هیچ سرور VPN راه دوری استفاده نمی‌شود.</string>
+    <string name="onboarding_test_permission_note">اندروید ممکن است پیش از آنکه RIPDPI بتواند یک تونل VPN محلی ایجاد کند، درخواست مجوز کند.</string>
+    <string name="onboarding_test_failed_permission">اندروید پیش از آنکه RIPDPI بتواند روی این دستگاه یک تونل VPN محلی ایجاد کند، به مجوز نیاز دارد.</string>
     <string name="onboarding_test_permission_preset">RIPDPI برای ایجاد تونل VPN روی این دستگاه به مجوز اندروید نیاز دارد.</string>
     <string name="onboarding_test_change_dns">تغییر DNS</string>
     <string name="onboarding_test_finish_without">پایان بدون آزمایش</string>
@@ -127,6 +127,7 @@
     <string name="onboarding_welcome_body">RIPDPI مسیر شبکه شما را بررسی می‌کند و با یک VPN یا پراکسی محلی روی این دستگاه، شیوه ارسال ترافیک را بهبود می‌دهد.</string>
     <string name="onboarding_dns_title">انتخاب DNS</string>
     <string name="onboarding_background_title">RIPDPI را در حال اجرا نگه دارید</string>
+    <string name="onboarding_own_server_title">سرور خودتان را دارید؟</string>
     <string name="onboarding_test_notification_note">ممکن است اندروید برای نمایش اعلان وضعیت حین اجرای VPN یا پراکسی مجوز بخواهد. آزمایش بدون این مجوز هم انجام می‌شود.</string>
     <string name="onboarding_test_proxy_card_title">پراکسی محلی</string>
     <string name="onboarding_test_proxy_note">آزمایش یک پراکسی روی این دستگاه راه‌اندازی می‌کند. فقط برنامه‌هایی که به آن وصل می‌کنید از آن استفاده می‌کنند و اندروید مجوز VPN نمی‌خواهد.</string>

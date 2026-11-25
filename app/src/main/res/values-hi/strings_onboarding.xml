@@ -48,8 +48,8 @@
     <string name="onboarding_test_use_proxy">इसके बजाय प्रॉक्सी मोड का उपयोग करें</string>
     <string name="onboarding_test_use_vpn">इसके बजाय VPN मोड का उपयोग करें</string>
     <string name="onboarding_test_finish_without">परीक्षण किए बिना समाप्त करें</string>
-    <string name="onboarding_test_permission_note">RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android अनुमति माँग सकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
-    <string name="onboarding_test_failed_permission">इस डिवाइस पर RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android को अनुमति की आवश्यकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
+    <string name="onboarding_test_permission_note">RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android अनुमति माँग सकता है।</string>
+    <string name="onboarding_test_failed_permission">इस डिवाइस पर RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android को अनुमति की आवश्यकता है।</string>
     <string name="onboarding_test_permission_preset">इस डिवाइस पर VPN टनल बनाने के लिए RIPDPI को Android की अनुमति चाहिए।</string>
     <string name="onboarding_test_state_permission">Android स्थानीय VPN कनेक्शन बनाने के लिए अनुमति माँगेगा।</string>
     <string name="onboarding_test_failed_title">कनेक्शन परीक्षण विफल</string>
@@ -120,6 +120,7 @@
     <string name="onboarding_welcome_body">RIPDPI आपके नेटवर्क पथ की जाँच करता है और इस डिवाइस पर स्थानीय VPN या प्रॉक्सी से आपके ट्रैफ़िक को भेजने का तरीका बेहतर बनाता है।</string>
     <string name="onboarding_dns_title">DNS चुनें</string>
     <string name="onboarding_background_title">RIPDPI को चालू रखें</string>
+    <string name="onboarding_own_server_title">क्या आपका अपना सर्वर है?</string>
     <string name="onboarding_test_notification_note">VPN या प्रॉक्सी सत्र के दौरान स्थिति की सूचनाएँ दिखाने के लिए Android अनुमति माँग सकता है। आप इसके बिना भी परीक्षण चला सकते हैं।</string>
     <string name="onboarding_test_proxy_card_title">स्थानीय प्रॉक्सी</string>
     <string name="onboarding_test_proxy_note">परीक्षण इस डिवाइस पर एक प्रॉक्सी शुरू करता है। केवल वे ऐप इसका उपयोग करते हैं जिन्हें आप इसकी ओर भेजते हैं, और Android VPN अनुमति नहीं माँगता।</string>

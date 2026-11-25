@@ -86,8 +86,8 @@
     <string name="onboarding_test_grant_permission">Conceder permiso de VPN</string>
     <string name="onboarding_test_use_proxy">Usar el modo proxy en su lugar</string>
     <string name="onboarding_test_use_vpn">Usar el modo VPN en su lugar</string>
-    <string name="onboarding_test_permission_note">Android puede solicitar permiso antes de que RIPDPI pueda crear un túnel VPN local. No se usa ningún servidor VPN remoto.</string>
-    <string name="onboarding_test_failed_permission">Android requiere permiso antes de que RIPDPI pueda crear un túnel VPN local en este dispositivo. No se usa ningún servidor VPN remoto.</string>
+    <string name="onboarding_test_permission_note">Android puede solicitar permiso antes de que RIPDPI pueda crear un túnel VPN local.</string>
+    <string name="onboarding_test_failed_permission">Android requiere permiso antes de que RIPDPI pueda crear un túnel VPN local en este dispositivo.</string>
     <string name="onboarding_test_permission_preset">RIPDPI necesita el permiso de Android para crear un túnel VPN en este dispositivo.</string>
     <string name="onboarding_test_change_dns">Cambiar DNS</string>
     <string name="onboarding_test_finish_without">Finalizar sin probar</string>
@@ -128,6 +128,7 @@
     <string name="onboarding_welcome_body">RIPDPI comprueba la ruta de tu red y mejora el envío del tráfico con una VPN o un proxy local en este dispositivo.</string>
     <string name="onboarding_dns_title">Elige el DNS</string>
     <string name="onboarding_background_title">Mantén RIPDPI en ejecución</string>
+    <string name="onboarding_own_server_title">¿Tienes tu propio servidor?</string>
     <string name="onboarding_test_notification_note">Android puede pedir permiso para mostrar notificaciones de estado durante la sesión de VPN o proxy. Puedes hacer la prueba sin este permiso.</string>
     <string name="onboarding_test_proxy_card_title">Proxy local</string>
     <string name="onboarding_test_proxy_note">La prueba inicia un proxy en este dispositivo. Solo lo usan las apps que dirijas a él, y Android no pide permiso de VPN.</string>

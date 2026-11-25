@@ -80,8 +80,8 @@
     <string name="onboarding_test_grant_permission">Предоставить разрешение VPN</string>
     <string name="onboarding_test_use_proxy">Использовать режим Proxy</string>
     <string name="onboarding_test_use_vpn">Использовать режим VPN</string>
-    <string name="onboarding_test_permission_note">Android может запросить разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель. Удалённый VPN-сервер не используется.</string>
-    <string name="onboarding_test_failed_permission">Android требует разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель на этом устройстве. Удалённый VPN-сервер не используется.</string>
+    <string name="onboarding_test_permission_note">Android может запросить разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель.</string>
+    <string name="onboarding_test_failed_permission">Android требует разрешение, прежде чем RIPDPI сможет создать локальный VPN-туннель на этом устройстве.</string>
     <string name="onboarding_test_permission_preset">RIPDPI нужно разрешение Android, чтобы создать VPN-туннель на этом устройстве.</string>
     <string name="onboarding_test_change_dns">Сменить DNS</string>
     <string name="onboarding_test_finish_without">Завершить без проверки</string>
@@ -121,6 +121,7 @@
     <string name="onboarding_welcome_body">RIPDPI проверяет сетевой путь и улучшает отправку трафика с помощью локального VPN или прокси на этом устройстве.</string>
     <string name="onboarding_dns_title">Выберите DNS</string>
     <string name="onboarding_background_title">Не давайте RIPDPI останавливаться</string>
+    <string name="onboarding_own_server_title">Есть свой сервер?</string>
     <string name="onboarding_test_notification_note">Android может запросить разрешение на уведомления о работе VPN или прокси. Проверку можно пройти без этого разрешения.</string>
     <string name="onboarding_test_proxy_card_title">Локальный прокси</string>
     <string name="onboarding_test_proxy_note">Проверка запускает прокси на этом устройстве. Им пользуются только приложения, которые вы на него направите, и Android не запрашивает разрешение VPN.</string>

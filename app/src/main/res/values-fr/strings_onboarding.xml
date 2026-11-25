@@ -86,8 +86,8 @@
     <string name="onboarding_test_grant_permission">Accorder l\'autorisation VPN</string>
     <string name="onboarding_test_use_proxy">Utiliser le mode proxy à la place</string>
     <string name="onboarding_test_use_vpn">Utiliser le mode VPN à la place</string>
-    <string name="onboarding_test_permission_note">Android peut demander une autorisation avant que RIPDPI puisse créer un tunnel VPN local. Aucun serveur VPN distant n\'est utilisé.</string>
-    <string name="onboarding_test_failed_permission">Android exige une autorisation avant que RIPDPI puisse créer un tunnel VPN local sur cet appareil. Aucun serveur VPN distant n\'est utilisé.</string>
+    <string name="onboarding_test_permission_note">Android peut demander une autorisation avant que RIPDPI puisse créer un tunnel VPN local.</string>
+    <string name="onboarding_test_failed_permission">Android exige une autorisation avant que RIPDPI puisse créer un tunnel VPN local sur cet appareil.</string>
     <string name="onboarding_test_permission_preset">RIPDPI a besoin de l\'autorisation d\'Android pour créer un tunnel VPN sur cet appareil.</string>
     <string name="onboarding_test_change_dns">Changer de DNS</string>
     <string name="onboarding_test_finish_without">Terminer sans tester</string>
@@ -128,6 +128,7 @@
     <string name="onboarding_welcome_body">RIPDPI vérifie le chemin de votre réseau et améliore l\'envoi de votre trafic, avec un VPN ou un proxy local sur cet appareil.</string>
     <string name="onboarding_dns_title">Choisir le DNS</string>
     <string name="onboarding_background_title">Garder RIPDPI actif</string>
+    <string name="onboarding_own_server_title">Vous avez votre propre serveur ?</string>
     <string name="onboarding_test_notification_note">Android peut demander l’autorisation d’afficher les notifications d’état pendant la session VPN ou proxy. Vous pouvez lancer le test sans cette autorisation.</string>
     <string name="onboarding_test_proxy_card_title">Proxy local</string>
     <string name="onboarding_test_proxy_note">Le test démarre un proxy sur cet appareil. Seules les applications que vous dirigez vers lui l\'utilisent, et Android ne demande pas l\'autorisation VPN.</string>
