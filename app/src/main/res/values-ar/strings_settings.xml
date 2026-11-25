@@ -177,7 +177,22 @@
     <string name="import_subscription_confirm_title">إضافة اشتراك</string>
     <string name="import_subscription_bootstrap_title">رابط تهيئة لمرة واحدة</string>
     <string name="import_subscription_bootstrap_body">هذا رمز تهيئة لمرة واحدة. يمكن استخدامه مرة واحدة لجلب اشتراكك.</string>
-    <string name="import_subscription_unnamed">اشتراك بدون اسم</string>
+    <string name="import_subscription_check_action">تحقق</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="zero">لا توجد خوادم</item>
+        <item quantity="one">خادم واحد</item>
+        <item quantity="two">خادمان</item>
+        <item quantity="few">%1$d خوادم</item>
+        <item quantity="many">%1$d خادمًا</item>
+        <item quantity="other">%1$d خادم</item>
+    </plurals>
+    <string name="import_subscription_failed">تعذّر استيراد الاشتراك.</string>
+    <string name="import_subscription_failed_network">تعذّر الوصول إلى خادم الاشتراك. تحقق من الرابط ومن اتصالك.</string>
+    <string name="import_subscription_failed_http">أعاد خادم الاشتراك خطأ HTTP %1$d.</string>
+    <string name="import_subscription_failed_format">لا يُرجع هذا الرابط اشتراكًا بتنسيق مدعوم.</string>
+    <string name="import_subscription_failed_too_large">الاشتراك كبير جدًا ولا يمكن استيراده.</string>
+    <string name="import_subscription_failed_expired">انتهت صلاحية هذا الاشتراك.</string>
+    <string name="import_subscription_failed_invalid">رابط الاشتراك هذا لم يعد صالحًا.</string>
     <string name="import_done_added">تمت الإضافة: %1$s</string>
     <string name="import_unavailable">لم يعد هذا الاستيراد متاحًا. افتح الرابط أو الملف مرة أخرى.</string>
     <string name="import_failure_schema_version">إصدار هذه الحزمة %1$d. يدعم التطبيق الإصدار %2$d.</string>
@@ -196,7 +211,8 @@
     <string name="import_clipboard_unknown_with_scheme">تحتوي الحافظة على رابط \"%1$s\"، وهو ليس رابط بروكسي مدعوماً.</string>
     <string name="import_clipboard_unknown_no_scheme">لا تحتوي الحافظة على رابط بروكسي مدعوم.</string>
     <string name="import_clipboard_empty_title">الحافظة فارغة</string>
-    <string name="import_clipboard_empty_body">انسخ رابط مشاركة البروكسي أولاً، ثم أعِد محاولة الاستيراد.</string>
+    <string name="import_link_label">رابط الخادم</string>
+    <string name="import_link_action">استيراد</string>
     <string name="settings_permission_action_open_vpn_settings">فتح إعدادات VPN</string>
     <string name="settings_permission_status_unknown">غير معروف</string>
     <string name="settings_permissions_lockdown_needed">فعّل \"حجب الاتصالات بدون VPN\" في إعدادات VPN بـ Android لتفعيل مفتاح الإيقاف الصارم.</string>

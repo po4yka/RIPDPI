@@ -199,7 +199,18 @@
     <string name="import_subscription_confirm_title">सदस्यता जोड़ें</string>
     <string name="import_subscription_bootstrap_title">एक-बार का बूटस्ट्रैप लिंक</string>
     <string name="import_subscription_bootstrap_body">यह एक-बार का बूटस्ट्रैप टोकन है। इसका उपयोग आपकी सदस्यता प्राप्त करने के लिए एक बार किया जा सकता है।</string>
-    <string name="import_subscription_unnamed">बिना नाम की सदस्यता</string>
+    <string name="import_subscription_check_action">जाँचें</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d सर्वर</item>
+        <item quantity="other">%1$d सर्वर</item>
+    </plurals>
+    <string name="import_subscription_failed">सदस्यता आयात नहीं हो सकी।</string>
+    <string name="import_subscription_failed_network">सदस्यता सर्वर तक नहीं पहुँच सके। लिंक और अपना कनेक्शन जाँचें।</string>
+    <string name="import_subscription_failed_http">सदस्यता सर्वर ने HTTP त्रुटि %1$d लौटाई।</string>
+    <string name="import_subscription_failed_format">यह लिंक समर्थित प्रारूप में सदस्यता नहीं लौटाता।</string>
+    <string name="import_subscription_failed_too_large">यह सदस्यता आयात करने के लिए बहुत बड़ी है।</string>
+    <string name="import_subscription_failed_expired">इस सदस्यता की अवधि समाप्त हो गई है।</string>
+    <string name="import_subscription_failed_invalid">यह सदस्यता लिंक अब मान्य नहीं है।</string>
     <string name="import_done_added">जोड़ा गया: %1$s</string>
     <string name="import_unavailable">यह आयात अब उपलब्ध नहीं है। लिंक या फ़ाइल फिर से खोलें।</string>
     <string name="import_failure_schema_version">यह बंडल संस्करण %1$d का है। यह ऐप संस्करण %2$d का समर्थन करता है।</string>
@@ -215,7 +226,8 @@
     <string name="import_clipboard_unknown_with_scheme">क्लिपबोर्ड में एक \"%1$s\" लिंक है, जो कोई समर्थित प्रॉक्सी लिंक नहीं है।</string>
     <string name="import_clipboard_unknown_no_scheme">क्लिपबोर्ड में कोई समर्थित प्रॉक्सी लिंक नहीं है।</string>
     <string name="import_clipboard_empty_title">क्लिपबोर्ड खाली है</string>
-    <string name="import_clipboard_empty_body">पहले कोई प्रॉक्सी शेयर लिंक कॉपी करें, फिर आयात फिर से आज़माएँ।</string>
+    <string name="import_link_label">सर्वर लिंक</string>
+    <string name="import_link_action">आयात करें</string>
     <string name="settings_permission_action_open_vpn_settings">VPN सेटिंग्स खोलें</string>
     <string name="settings_permission_status_unknown">अज्ञात</string>
     <string name="settings_permissions_lockdown_needed">हार्ड किल-स्विच व्यवहार के लिए Android VPN सेटिंग्स में \"VPN के बिना कनेक्शन अवरुद्ध करें\" सक्षम करें।</string>

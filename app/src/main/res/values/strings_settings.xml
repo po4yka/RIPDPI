@@ -196,7 +196,18 @@
     <string name="import_subscription_confirm_title">Add subscription</string>
     <string name="import_subscription_bootstrap_title">One-time bootstrap link</string>
     <string name="import_subscription_bootstrap_body">This is a one-time bootstrap token. It can be used once to fetch your subscription.</string>
-    <string name="import_subscription_unnamed">Unnamed subscription</string>
+    <string name="import_subscription_check_action">Check</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d server</item>
+        <item quantity="other">%1$d servers</item>
+    </plurals>
+    <string name="import_subscription_failed">This subscription could not be imported.</string>
+    <string name="import_subscription_failed_network">Could not reach the subscription server. Check the link and your connection.</string>
+    <string name="import_subscription_failed_http">The subscription server returned HTTP error %1$d.</string>
+    <string name="import_subscription_failed_format">This link does not return a subscription in a supported format.</string>
+    <string name="import_subscription_failed_too_large">This subscription is too large to import.</string>
+    <string name="import_subscription_failed_expired">This subscription has expired.</string>
+    <string name="import_subscription_failed_invalid">This subscription link is no longer valid.</string>
     <string name="import_done_added">Added: %1$s</string>
     <string name="import_unavailable">This import is no longer available. Open the link or file again.</string>
     <string name="import_failure_schema_version">This bundle is version %1$d. This app supports version %2$d.</string>
@@ -212,7 +223,8 @@
     <string name="import_clipboard_unknown_with_scheme">The clipboard holds a \"%1$s\" link, which is not a supported proxy link.</string>
     <string name="import_clipboard_unknown_no_scheme">The clipboard does not hold a supported proxy link.</string>
     <string name="import_clipboard_empty_title">Clipboard is empty</string>
-    <string name="import_clipboard_empty_body">Copy a proxy share link first, then try the import again.</string>
+    <string name="import_link_label">Server link</string>
+    <string name="import_link_action">Import</string>
     <string name="settings_permission_action_open_vpn_settings">Open VPN settings</string>
     <string name="settings_permission_status_unknown">Unknown</string>
     <string name="settings_permissions_lockdown_needed">Enable Block connections without VPN in Android VPN settings for hard kill-switch behavior.</string>

@@ -191,7 +191,18 @@
     <string name="import_subscription_confirm_title">افزودن اشتراک</string>
     <string name="import_subscription_bootstrap_title">پیوند راه‌اندازی یک‌بارمصرف</string>
     <string name="import_subscription_bootstrap_body">این یک توکن راه‌اندازی یک‌بارمصرف است. می‌توان یک بار از آن برای دریافت اشتراک استفاده کرد.</string>
-    <string name="import_subscription_unnamed">اشتراک بدون نام</string>
+    <string name="import_subscription_check_action">بررسی</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d سرور</item>
+        <item quantity="other">%1$d سرور</item>
+    </plurals>
+    <string name="import_subscription_failed">وارد کردن اشتراک ممکن نشد.</string>
+    <string name="import_subscription_failed_network">دسترسی به سرور اشتراک ممکن نشد. پیوند و اتصال خود را بررسی کنید.</string>
+    <string name="import_subscription_failed_http">سرور اشتراک خطای HTTP %1$d را برگرداند.</string>
+    <string name="import_subscription_failed_format">این پیوند اشتراکی در قالب پشتیبانی‌شده برنمی‌گرداند.</string>
+    <string name="import_subscription_failed_too_large">این اشتراک برای وارد کردن بیش از حد بزرگ است.</string>
+    <string name="import_subscription_failed_expired">این اشتراک منقضی شده است.</string>
+    <string name="import_subscription_failed_invalid">این پیوند اشتراک دیگر معتبر نیست.</string>
     <string name="import_done_added">افزوده شد: %1$s</string>
     <string name="import_unavailable">این ورود دیگر در دسترس نیست. پیوند یا فایل را دوباره باز کنید.</string>
     <string name="import_failure_schema_version">نسخهٔ این بسته %1$d است. برنامه از نسخهٔ %2$d پشتیبانی می‌کند.</string>
@@ -207,7 +218,8 @@
     <string name="import_clipboard_unknown_with_scheme">بریده‌دان شامل یک پیوند \"%1$s\" است که پیوند پراکسی پشتیبانی‌شده نیست.</string>
     <string name="import_clipboard_unknown_no_scheme">بریده‌دان شامل پیوند پراکسی پشتیبانی‌شده‌ای نیست.</string>
     <string name="import_clipboard_empty_title">بریده‌دان خالی است</string>
-    <string name="import_clipboard_empty_body">ابتدا یک پیوند پراکسی را رونوشت کنید، سپس درون‌ریزی را دوباره امتحان کنید.</string>
+    <string name="import_link_label">پیوند سرور</string>
+    <string name="import_link_action">وارد کردن</string>
     <string name="settings_permission_action_open_vpn_settings">باز کردن تنظیمات VPN</string>
     <string name="settings_permission_status_unknown">نامشخص</string>
     <string name="settings_permissions_lockdown_needed">برای رفتار kill switch سخت‌گیرانه، گزینه مسدود کردن اتصال‌ها بدون VPN را در تنظیمات VPN Android فعال کنید.</string>

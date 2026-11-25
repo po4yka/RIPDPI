@@ -188,7 +188,19 @@
     <string name="import_subscription_confirm_title">Adicionar assinatura</string>
     <string name="import_subscription_bootstrap_title">Link de inicialização de uso único</string>
     <string name="import_subscription_bootstrap_body">Este é um token de inicialização de uso único. Ele pode ser usado uma única vez para obter sua assinatura.</string>
-    <string name="import_subscription_unnamed">Assinatura sem nome</string>
+    <string name="import_subscription_check_action">Verificar</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d servidor</item>
+        <item quantity="many">%1$d servidores</item>
+        <item quantity="other">%1$d servidores</item>
+    </plurals>
+    <string name="import_subscription_failed">Não foi possível importar a assinatura.</string>
+    <string name="import_subscription_failed_network">Não foi possível acessar o servidor da assinatura. Verifique o link e sua conexão.</string>
+    <string name="import_subscription_failed_http">O servidor da assinatura retornou o erro HTTP %1$d.</string>
+    <string name="import_subscription_failed_format">Este link não retorna uma assinatura em um formato compatível.</string>
+    <string name="import_subscription_failed_too_large">A assinatura é grande demais para importar.</string>
+    <string name="import_subscription_failed_expired">Esta assinatura expirou.</string>
+    <string name="import_subscription_failed_invalid">Este link de assinatura não é mais válido.</string>
     <string name="import_done_added">Adicionado: %1$s</string>
     <string name="import_unavailable">Esta importação não está mais disponível. Abra o link ou o arquivo novamente.</string>
     <string name="import_failure_schema_version">Este pacote é da versão %1$d. O app é compatível com a versão %2$d.</string>
@@ -204,7 +216,8 @@
     <string name="import_clipboard_unknown_with_scheme">A área de transferência contém um link \"%1$s\", que não é um link de proxy suportado.</string>
     <string name="import_clipboard_unknown_no_scheme">A área de transferência não contém um link de proxy suportado.</string>
     <string name="import_clipboard_empty_title">A área de transferência está vazia</string>
-    <string name="import_clipboard_empty_body">Copie primeiro um link de compartilhamento de proxy e tente importar novamente.</string>
+    <string name="import_link_label">Link do servidor</string>
+    <string name="import_link_action">Importar</string>
     <string name="settings_permission_action_open_vpn_settings">Abrir configurações de VPN</string>
     <string name="settings_permission_status_unknown">Desconhecido</string>
     <string name="settings_permissions_lockdown_needed">Ative Bloquear conexões sem VPN nas configurações de VPN do Android para ter o comportamento de kill switch rígido.</string>

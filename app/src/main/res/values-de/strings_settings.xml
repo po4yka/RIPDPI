@@ -190,7 +190,18 @@
     <string name="import_subscription_confirm_title">Abonnement hinzufügen</string>
     <string name="import_subscription_bootstrap_title">Einmaliger Bootstrap-Link</string>
     <string name="import_subscription_bootstrap_body">Dies ist ein einmaliges Bootstrap-Token. Es kann einmal verwendet werden, um Ihr Abonnement abzurufen.</string>
-    <string name="import_subscription_unnamed">Unbenanntes Abonnement</string>
+    <string name="import_subscription_check_action">Prüfen</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d Server</item>
+        <item quantity="other">%1$d Server</item>
+    </plurals>
+    <string name="import_subscription_failed">Das Abonnement konnte nicht importiert werden.</string>
+    <string name="import_subscription_failed_network">Der Abonnement-Server ist nicht erreichbar. Prüfen Sie den Link und Ihre Verbindung.</string>
+    <string name="import_subscription_failed_http">Der Abonnement-Server hat den HTTP-Fehler %1$d gemeldet.</string>
+    <string name="import_subscription_failed_format">Dieser Link liefert kein Abonnement in einem unterstützten Format.</string>
+    <string name="import_subscription_failed_too_large">Das Abonnement ist zu groß für den Import.</string>
+    <string name="import_subscription_failed_expired">Dieses Abonnement ist abgelaufen.</string>
+    <string name="import_subscription_failed_invalid">Dieser Abonnement-Link ist nicht mehr gültig.</string>
     <string name="import_done_added">Hinzugefügt: %1$s</string>
     <string name="import_unavailable">Dieser Import ist nicht mehr verfügbar. Öffne den Link oder die Datei erneut.</string>
     <string name="import_failure_schema_version">Dieses Paket hat Version %1$d. Die App unterstützt Version %2$d.</string>
@@ -206,7 +217,8 @@
     <string name="import_clipboard_unknown_with_scheme">Die Zwischenablage enthält einen \"%1$s\"-Link, der kein unterstützter Proxy-Link ist.</string>
     <string name="import_clipboard_unknown_no_scheme">Die Zwischenablage enthält keinen unterstützten Proxy-Link.</string>
     <string name="import_clipboard_empty_title">Zwischenablage ist leer</string>
-    <string name="import_clipboard_empty_body">Kopieren Sie zuerst einen Proxy-Link und versuchen Sie den Import dann erneut.</string>
+    <string name="import_link_label">Server-Link</string>
+    <string name="import_link_action">Importieren</string>
     <string name="settings_permission_action_open_vpn_settings">VPN-Einstellungen öffnen</string>
     <string name="settings_permission_status_unknown">Unbekannt</string>
     <string name="settings_permissions_lockdown_needed">Aktivieren Sie Verbindungen ohne VPN blockieren in den Android-VPN-Einstellungen für einen harten Kill-Switch.</string>

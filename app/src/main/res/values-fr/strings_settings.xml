@@ -190,7 +190,19 @@
     <string name="import_subscription_confirm_title">Ajouter un abonnement</string>
     <string name="import_subscription_bootstrap_title">Lien d\'amorçage à usage unique</string>
     <string name="import_subscription_bootstrap_body">Ceci est un jeton d\'amorçage à usage unique. Il peut être utilisé une fois pour récupérer votre abonnement.</string>
-    <string name="import_subscription_unnamed">Abonnement sans nom</string>
+    <string name="import_subscription_check_action">Vérifier</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d serveur</item>
+        <item quantity="many">%1$d serveurs</item>
+        <item quantity="other">%1$d serveurs</item>
+    </plurals>
+    <string name="import_subscription_failed">Impossible d\'importer l\'abonnement.</string>
+    <string name="import_subscription_failed_network">Impossible de joindre le serveur de l\'abonnement. Vérifiez le lien et votre connexion.</string>
+    <string name="import_subscription_failed_http">Le serveur de l\'abonnement a renvoyé l\'erreur HTTP %1$d.</string>
+    <string name="import_subscription_failed_format">Ce lien ne renvoie pas d\'abonnement dans un format pris en charge.</string>
+    <string name="import_subscription_failed_too_large">Cet abonnement est trop volumineux pour être importé.</string>
+    <string name="import_subscription_failed_expired">Cet abonnement a expiré.</string>
+    <string name="import_subscription_failed_invalid">Ce lien d\'abonnement n\'est plus valide.</string>
     <string name="import_done_added">Ajouté : %1$s</string>
     <string name="import_unavailable">Cet import n’est plus disponible. Ouvrez à nouveau le lien ou le fichier.</string>
     <string name="import_failure_schema_version">Ce paquet est en version %1$d. L’application prend en charge la version %2$d.</string>
@@ -207,7 +219,8 @@
     <string name="import_clipboard_unknown_with_scheme">Le presse-papiers contient un lien \"%1$s\", qui n\'est pas un lien proxy pris en charge.</string>
     <string name="import_clipboard_unknown_no_scheme">Le presse-papiers ne contient pas de lien proxy pris en charge.</string>
     <string name="import_clipboard_empty_title">Le presse-papiers est vide</string>
-    <string name="import_clipboard_empty_body">Copiez d\'abord un lien proxy, puis réessayez l\'importation.</string>
+    <string name="import_link_label">Lien du serveur</string>
+    <string name="import_link_action">Importer</string>
     <string name="settings_permission_action_open_vpn_settings">Ouvrir les paramètres VPN</string>
     <string name="settings_permission_status_unknown">Inconnu</string>
     <string name="settings_permissions_lockdown_needed">Activez Bloquer les connexions sans VPN dans les paramètres VPN Android pour un kill switch strict.</string>

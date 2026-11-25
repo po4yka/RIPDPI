@@ -191,7 +191,17 @@
     <string name="import_subscription_confirm_title">添加订阅</string>
     <string name="import_subscription_bootstrap_title">一次性引导链接</string>
     <string name="import_subscription_bootstrap_body">这是一次性引导令牌，只能使用一次以获取你的订阅。</string>
-    <string name="import_subscription_unnamed">未命名订阅</string>
+    <string name="import_subscription_check_action">检查</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="other">%1$d 个服务器</item>
+    </plurals>
+    <string name="import_subscription_failed">无法导入订阅。</string>
+    <string name="import_subscription_failed_network">无法连接订阅服务器。请检查链接和网络连接。</string>
+    <string name="import_subscription_failed_http">订阅服务器返回 HTTP 错误 %1$d。</string>
+    <string name="import_subscription_failed_format">此链接未返回受支持格式的订阅。</string>
+    <string name="import_subscription_failed_too_large">订阅过大，无法导入。</string>
+    <string name="import_subscription_failed_expired">此订阅已过期。</string>
+    <string name="import_subscription_failed_invalid">此订阅链接已失效。</string>
     <string name="import_done_added">已添加：%1$s</string>
     <string name="import_unavailable">此导入已失效，请重新打开链接或文件。</string>
     <string name="import_failure_schema_version">此配置包的版本为 %1$d，本应用支持版本 %2$d。</string>
@@ -206,7 +216,8 @@
     <string name="import_clipboard_unknown_with_scheme">剪贴板中是一个“%1$s”链接，不是受支持的代理链接。</string>
     <string name="import_clipboard_unknown_no_scheme">剪贴板中没有受支持的代理链接。</string>
     <string name="import_clipboard_empty_title">剪贴板为空</string>
-    <string name="import_clipboard_empty_body">请先复制一个代理分享链接，然后重试导入。</string>
+    <string name="import_link_label">服务器链接</string>
+    <string name="import_link_action">导入</string>
     <string name="settings_permission_action_open_vpn_settings">打开 VPN 设置</string>
     <string name="settings_permission_status_unknown">未知</string>
     <string name="settings_permissions_lockdown_needed">请在 Android VPN 设置中启用无 VPN 时阻止连接,以获得强制 kill switch 行为。</string>

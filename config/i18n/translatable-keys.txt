@@ -3203,7 +3203,6 @@ app:http_fake_profile_scope_off
 app:http_fake_profile_scope_ready
 app:http_fake_profile_title
 app:import_clipboard_action
-app:import_clipboard_empty_body
 app:import_clipboard_empty_title
 app:import_clipboard_unknown_no_scheme
 app:import_clipboard_unknown_title
@@ -3216,6 +3215,8 @@ app:import_error_bad_encoding
 app:import_error_missing_url
 app:import_error_unsupported
 app:import_failure_schema_version
+app:import_link_action
+app:import_link_label
 app:import_profile_confirm_empty_body
 app:import_profile_confirm_empty_title
 app:import_profile_confirm_error
@@ -3226,9 +3227,16 @@ app:import_profile_summary_endpoint
 app:import_profile_summary_raw
 app:import_subscription_bootstrap_body
 app:import_subscription_bootstrap_title
+app:import_subscription_check_action
 app:import_subscription_confirm_empty_body
 app:import_subscription_confirm_title
-app:import_subscription_unnamed
+app:import_subscription_failed
+app:import_subscription_failed_expired
+app:import_subscription_failed_format
+app:import_subscription_failed_http
+app:import_subscription_failed_invalid
+app:import_subscription_failed_network
+app:import_subscription_failed_too_large
 app:import_unavailable
 app:language_name_ar
 app:language_name_de

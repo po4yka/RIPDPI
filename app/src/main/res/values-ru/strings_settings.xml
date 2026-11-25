@@ -188,7 +188,20 @@
     <string name="import_subscription_confirm_title">Добавить подписку</string>
     <string name="import_subscription_bootstrap_title">Одноразовая ссылка инициализации</string>
     <string name="import_subscription_bootstrap_body">Это одноразовый токен инициализации. Его можно использовать один раз для получения подписки.</string>
-    <string name="import_subscription_unnamed">Подписка без названия</string>
+    <string name="import_subscription_check_action">Проверить</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d сервер</item>
+        <item quantity="few">%1$d сервера</item>
+        <item quantity="many">%1$d серверов</item>
+        <item quantity="other">%1$d сервера</item>
+    </plurals>
+    <string name="import_subscription_failed">Не удалось импортировать подписку.</string>
+    <string name="import_subscription_failed_network">Не удалось связаться с сервером подписки. Проверьте ссылку и подключение.</string>
+    <string name="import_subscription_failed_http">Сервер подписки вернул ошибку HTTP %1$d.</string>
+    <string name="import_subscription_failed_format">По этой ссылке нет подписки в поддерживаемом формате.</string>
+    <string name="import_subscription_failed_too_large">Подписка слишком большая для импорта.</string>
+    <string name="import_subscription_failed_expired">Срок действия подписки истёк.</string>
+    <string name="import_subscription_failed_invalid">Ссылка на подписку больше недействительна.</string>
     <string name="import_done_added">Добавлено: %1$s</string>
     <string name="import_unavailable">Этот импорт больше недоступен. Откройте ссылку или файл ещё раз.</string>
     <string name="import_failure_schema_version">Версия этого пакета — %1$d. Приложение поддерживает версию %2$d.</string>
@@ -205,7 +218,8 @@
     <string name="import_clipboard_unknown_with_scheme">В буфере обмена ссылка \"%1$s\", которая не является поддерживаемой ссылкой прокси.</string>
     <string name="import_clipboard_unknown_no_scheme">В буфере обмена нет поддерживаемой ссылки прокси.</string>
     <string name="import_clipboard_empty_title">Буфер обмена пуст</string>
-    <string name="import_clipboard_empty_body">Сначала скопируйте ссылку прокси, затем повторите импорт.</string>
+    <string name="import_link_label">Ссылка на сервер</string>
+    <string name="import_link_action">Импортировать</string>
     <string name="settings_permission_action_open_vpn_settings">Открыть настройки VPN</string>
     <string name="settings_permission_status_unknown">Неизвестно</string>
     <string name="settings_permissions_lockdown_needed">Включите Блокировать подключения без VPN в настройках Android VPN для жесткого kill switch.</string>

@@ -190,7 +190,19 @@
     <string name="import_subscription_confirm_title">Añadir suscripción</string>
     <string name="import_subscription_bootstrap_title">Enlace de arranque de un solo uso</string>
     <string name="import_subscription_bootstrap_body">Este es un token de arranque de un solo uso. Puede usarse una vez para obtener tu suscripción.</string>
-    <string name="import_subscription_unnamed">Suscripción sin nombre</string>
+    <string name="import_subscription_check_action">Comprobar</string>
+    <plurals name="import_subscription_servers">
+        <item quantity="one">%1$d servidor</item>
+        <item quantity="many">%1$d servidores</item>
+        <item quantity="other">%1$d servidores</item>
+    </plurals>
+    <string name="import_subscription_failed">No se pudo importar la suscripción.</string>
+    <string name="import_subscription_failed_network">No se pudo conectar con el servidor de la suscripción. Comprueba el enlace y tu conexión.</string>
+    <string name="import_subscription_failed_http">El servidor de la suscripción devolvió el error HTTP %1$d.</string>
+    <string name="import_subscription_failed_format">Este enlace no devuelve una suscripción en un formato compatible.</string>
+    <string name="import_subscription_failed_too_large">La suscripción es demasiado grande para importarla.</string>
+    <string name="import_subscription_failed_expired">Esta suscripción ha caducado.</string>
+    <string name="import_subscription_failed_invalid">Este enlace de suscripción ya no es válido.</string>
     <string name="import_done_added">Añadido: %1$s</string>
     <string name="import_unavailable">Esta importación ya no está disponible. Abre el enlace o el archivo de nuevo.</string>
     <string name="import_failure_schema_version">Este paquete es de la versión %1$d. La aplicación admite la versión %2$d.</string>
@@ -207,7 +219,8 @@
     <string name="import_clipboard_unknown_with_scheme">El portapapeles contiene un enlace \"%1$s\", que no es un enlace de proxy compatible.</string>
     <string name="import_clipboard_unknown_no_scheme">El portapapeles no contiene un enlace de proxy compatible.</string>
     <string name="import_clipboard_empty_title">El portapapeles está vacío</string>
-    <string name="import_clipboard_empty_body">Copia primero un enlace de proxy y vuelve a intentar la importación.</string>
+    <string name="import_link_label">Enlace del servidor</string>
+    <string name="import_link_action">Importar</string>
     <string name="settings_permission_action_open_vpn_settings">Abrir ajustes de VPN</string>
     <string name="settings_permission_status_unknown">Desconocido</string>
     <string name="settings_permissions_lockdown_needed">Activa Bloquear conexiones sin VPN en los ajustes de VPN de Android para un kill switch estricto.</string>
