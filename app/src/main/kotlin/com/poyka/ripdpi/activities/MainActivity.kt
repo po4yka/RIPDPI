@@ -12,8 +12,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.core.os.BundleCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -41,6 +43,7 @@ import com.poyka.ripdpi.ui.screens.onboarding.LocalOnboardingBadgeAnchor
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingBadgeAnchor
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Optional
@@ -66,6 +69,8 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val exportPreview: ExportPreviewViewModel by viewModels()
     private lateinit var shellController: MainActivityShellController
+    private val pendingAutomationLaunches = ArrayDeque<Bundle>()
+    private val automationPrepared = MutableStateFlow(true)
 
     companion object {
         fun createLaunchIntent(
@@ -92,13 +97,15 @@ class MainActivity : AppCompatActivity() {
                 savedPendingLaunchRequests = savedInstanceState?.getBundle(PendingLaunchRequestsStateKey),
             )
         applySelectorSelection(intent)
-        val automationConfig =
-            automationController
-                .map { controller -> controller.prepareLaunch(intent) }
-                .orElse(null)
-        val launchRoute = automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute
-        if (savedInstanceState == null || launchRoute != null) {
-            shellController.setLaunchRouteRequest(launchRoute)
+        val restoredAutomationLaunches =
+            savedInstanceState?.let {
+                BundleCompat.getParcelableArrayList(it, PendingAutomationLaunchesStateKey, Bundle::class.java)
+            }
+        if (restoredAutomationLaunches.isNullOrEmpty()) {
+            prepareLaunchRoute(intent, preserveRestoredRoute = savedInstanceState != null)
+        } else {
+            pendingAutomationLaunches.addAll(restoredAutomationLaunches)
+            preparePendingAutomationLaunches()
         }
         // NavController handles Activity.intent when its graph is created. Keep inbound
         // links in the shell so the onboarding and app-lock gates can defer them.
@@ -135,17 +142,23 @@ class MainActivity : AppCompatActivity() {
         setContent {
             val startupState by viewModel.startupState.collectAsStateWithLifecycle()
             var contentStarted by rememberSaveable { mutableStateOf(false) }
-            if (contentStarted || startupState.readiness != AppStartupReadinessState.Pending) {
+            var readyContentStarted by remember { mutableStateOf(false) }
+            val prepared by automationPrepared.collectAsStateWithLifecycle()
+            val waitingForAutomation = !readyContentStarted && !prepared && startupState.isReady
+            val showContent = contentStarted || startupState.readiness != AppStartupReadinessState.Pending
+            if (showContent && !waitingForAutomation) {
                 // After a failure, keep the retry screen visible when recovery starts again.
                 SideEffect {
                     startupContentComposed = true
                     contentStarted = true
+                    if (startupState.isReady) readyContentStarted = true
                 }
                 CompositionLocalProvider(LocalOnboardingBadgeAnchor provides badgeAnchor) {
                     ProvideDeviceHourCycle {
                         MainActivityContent(
                             viewModel = viewModel,
                             controller = shellController,
+                            startupState = startupState,
                             exportPreview = exportPreview,
                         )
                     }
@@ -161,6 +174,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBundle(PendingLaunchRequestsStateKey, shellController.savePendingLaunchRequests())
+        if (pendingAutomationLaunches.isNotEmpty()) {
+            outState.putParcelableArrayList(PendingAutomationLaunchesStateKey, ArrayList(pendingAutomationLaunches))
+        }
         super.onSaveInstanceState(outState)
     }
 
@@ -169,6 +185,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.startupState.first { state ->
             state.readiness == AppStartupReadinessState.Ready
         }
+        automationPrepared.first { it }
         try {
             processDeathResumeCoordinator.resumeIfNeeded()
         } catch (cancellation: CancellationException) {
@@ -182,12 +199,59 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(safeMainActivityIntent(this))
         applySelectorSelection(intent)
-        val automationConfig =
-            automationController
-                .map { controller -> controller.prepareLaunch(intent) }
-                .orElse(null)
-        shellController.onNewIntent(intent)
-        shellController.setLaunchRouteRequest(automationConfig?.startRoute ?: navigationRouteFrom(intent)?.stableRoute)
+        prepareLaunchRoute(intent, preserveRestoredRoute = false, isNewIntent = true)
+    }
+
+    private fun prepareLaunchRoute(
+        intent: Intent?,
+        preserveRestoredRoute: Boolean,
+        isNewIntent: Boolean = false,
+    ) {
+        if (!automationController.isPresent) {
+            applyLaunchRoute(intent, null, preserveRestoredRoute, isNewIntent)
+            return
+        }
+        pendingAutomationLaunches.addLast(
+            Bundle().apply {
+                putParcelable(AutomationIntentKey, intent?.let(::Intent))
+                putBoolean(PreserveRestoredRouteKey, preserveRestoredRoute)
+                putBoolean(AutomationNewIntentKey, isNewIntent)
+            },
+        )
+        preparePendingAutomationLaunches()
+    }
+
+    private fun preparePendingAutomationLaunches() {
+        val controller = automationController.orElse(null) ?: return
+        if (!automationPrepared.compareAndSet(expect = true, update = false)) return
+        lifecycleScope.launch {
+            while (pendingAutomationLaunches.isNotEmpty()) {
+                val request = pendingAutomationLaunches.first()
+                val intent = BundleCompat.getParcelable(request, AutomationIntentKey, Intent::class.java)
+                val config = controller.prepareLaunch(intent)
+                applyLaunchRoute(
+                    intent,
+                    config.startRoute,
+                    request.getBoolean(PreserveRestoredRouteKey),
+                    request.getBoolean(AutomationNewIntentKey),
+                )
+                pendingAutomationLaunches.removeFirst()
+            }
+            automationPrepared.value = true
+        }
+    }
+
+    private fun applyLaunchRoute(
+        intent: Intent?,
+        automationRoute: String?,
+        preserveRestoredRoute: Boolean,
+        isNewIntent: Boolean,
+    ) {
+        if (isNewIntent) shellController.onNewIntent(intent)
+        val route = automationRoute ?: navigationRouteFrom(intent)?.stableRoute
+        if (route != null || !preserveRestoredRoute) {
+            shellController.setLaunchRouteRequest(route)
+        }
     }
 
     private fun applySelectorSelection(intent: Intent?) {
@@ -230,6 +294,10 @@ internal fun applySelectorSelectionIntent(
 
 private const val extraOpenHome = "com.poyka.ripdpi.extra.OPEN_HOME"
 private const val PendingLaunchRequestsStateKey = "pending-launch-requests"
+private const val PendingAutomationLaunchesStateKey = "pending-automation-launches"
+private const val AutomationIntentKey = "intent"
+private const val PreserveRestoredRouteKey = "preserve-restored-route"
+private const val AutomationNewIntentKey = "new-intent"
 private const val extraStartConfiguredMode = "com.poyka.ripdpi.extra.START_CONFIGURED_MODE"
 private const val extraStopConfiguredMode = "com.poyka.ripdpi.extra.STOP_CONFIGURED_MODE"
 internal const val internalVpnControlActivityClassName =

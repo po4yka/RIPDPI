@@ -198,7 +198,7 @@ private fun parseString(value: Any?): String? =
     }
 
 interface AutomationController {
-    fun prepareLaunch(intent: Intent?): AutomationLaunchConfig
+    suspend fun prepareLaunch(intent: Intent?): AutomationLaunchConfig
 
     fun currentLaunchConfig(): AutomationLaunchConfig = AutomationLaunchConfig()
 

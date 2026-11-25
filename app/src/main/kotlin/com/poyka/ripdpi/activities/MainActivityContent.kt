@@ -58,11 +58,10 @@ import kotlinx.collections.immutable.persistentListOf
 internal fun MainActivityContent(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
+    startupState: MainStartupState,
     exportPreview: ExportPreviewViewModel,
     pauseViewModelFactory: @Composable () -> StatusPauseViewModel = { hiltViewModel() },
 ) {
-    val startupState by viewModel.startupState.collectAsStateWithLifecycle()
-
     RecompositionReportEffect()
 
     RipDpiTheme(

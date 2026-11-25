@@ -2,6 +2,8 @@ package com.poyka.ripdpi.automation
 
 import android.content.Intent
 import androidx.test.platform.app.InstrumentationRegistry
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
@@ -44,7 +46,9 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.concurrent.atomic.AtomicReference
@@ -72,6 +76,7 @@ private data class AutomationRuntimeState(
 class DebugAutomationController
     @Inject
     constructor(
+        private val appStartupReadiness: AppStartupReadiness,
         private val appSettingsRepository: AppSettingsRepository,
         private val serviceStateStore: ServiceStateStore,
         private val scanRecordStore: DiagnosticsScanRecordStore,
@@ -83,33 +88,38 @@ class DebugAutomationController
     ) : AutomationController,
         ServiceAutomationController {
         private val state = AtomicReference(AutomationRuntimeState())
+        private val launchMutex = Mutex()
 
-        override fun prepareLaunch(intent: Intent?): AutomationLaunchConfig {
-            val previousState = state.get()
-            val config =
-                resolveAutomationLaunchConfig(
-                    instrumentationArgs = instrumentationArgs(),
-                    intentArgs = intentArgs(intent),
-                )
-
-            val nextState =
-                if (config.enabled) {
-                    AutomationRuntimeState(
-                        config = config,
-                        permissionSnapshot = permissionSnapshotFor(config.permissionPreset),
+        override suspend fun prepareLaunch(intent: Intent?): AutomationLaunchConfig =
+            launchMutex.withLock {
+                val previousState = state.get()
+                val config =
+                    resolveAutomationLaunchConfig(
+                        instrumentationArgs = instrumentationArgs(),
+                        intentArgs = intentArgs(intent),
                     )
-                } else {
-                    AutomationRuntimeState()
+
+                if (config.enabled) {
+                    // Startup recovery can delete the settings and diagnostics files before Ready.
+                    appStartupReadiness.readiness.first { it == AppStartupReadinessState.Ready }
                 }
-            state.set(nextState)
 
-            System.setProperty("ripdpi.staticMotion", config.disableMotion.toString())
+                val nextState =
+                    if (config.enabled) {
+                        AutomationRuntimeState(
+                            config = config,
+                            permissionSnapshot = permissionSnapshotFor(config.permissionPreset),
+                        )
+                    } else {
+                        AutomationRuntimeState()
+                    }
+                state.set(nextState)
 
-            runBlocking {
+                System.setProperty("ripdpi.staticMotion", config.disableMotion.toString())
+
                 if (config.enabled) {
                     if (config.resetState) {
                         historyResetStore.clearRuntimeHistory()
-                        appSettingsRepository.replace(AppSettingsSerializer.defaultValue)
                     }
 
                     val seededSettings = buildSeedSettings(config)
@@ -130,10 +140,9 @@ class DebugAutomationController
                 ) {
                     applyIdleServiceState(serviceStateStore.status.value.second)
                 }
-            }
 
-            return config
-        }
+                config
+            }
 
         override fun currentLaunchConfig(): AutomationLaunchConfig = state.get().config
 

@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.automation
 
 import android.content.Intent
+import com.poyka.ripdpi.AppStartupReadiness
+import com.poyka.ripdpi.AppStartupReadinessState
+import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppStatus
@@ -18,6 +21,8 @@ import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.security.PinVerifier
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -66,20 +71,21 @@ class DebugAutomationControllerTest {
         }
 
     @Test
-    fun `permission preset overrides provider snapshot`() {
-        val controller = newController()
+    fun `permission preset overrides provider snapshot`() =
+        runTest {
+            val controller = newController()
 
-        controller.prepareLaunch(
-            automationIntent(
-                permissionPreset = AutomationPermissionPreset.NotificationsMissing,
-            ),
-        )
+            controller.prepareLaunch(
+                automationIntent(
+                    permissionPreset = AutomationPermissionPreset.NotificationsMissing,
+                ),
+            )
 
-        val snapshot = controller.currentPermissionSnapshot(PermissionSnapshot())
-        assertEquals(PermissionStatus.Granted, snapshot.vpnConsent)
-        assertEquals(PermissionStatus.RequiresSystemPrompt, snapshot.notifications)
-        assertEquals(PermissionStatus.Granted, snapshot.batteryOptimization)
-    }
+            val snapshot = controller.currentPermissionSnapshot(PermissionSnapshot())
+            assertEquals(PermissionStatus.Granted, snapshot.vpnConsent)
+            assertEquals(PermissionStatus.RequiresSystemPrompt, snapshot.notifications)
+            assertEquals(PermissionStatus.Granted, snapshot.batteryOptimization)
+        }
 
     @Test
     fun `biometric locked preset seeds the app lock gate`() =
@@ -174,6 +180,45 @@ class DebugAutomationControllerTest {
         }
 
     @Test
+    fun `automation keeps diagnostics and settings untouched until startup recovery succeeds`() =
+        runTest {
+            val resetStore = FakeDiagnosticsHistoryResetStore()
+            val repository = FakeAppSettingsRepository()
+            val readiness =
+                object : AppStartupReadiness {
+                    override val readiness = MutableStateFlow(AppStartupReadinessState.Pending)
+
+                    override fun retryRecovery() {
+                        readiness.value = AppStartupReadinessState.Pending
+                    }
+                }
+            val controller =
+                newController(
+                    appSettingsRepository = repository,
+                    historyResetStore = resetStore,
+                    appStartupReadiness = readiness,
+                )
+
+            val preparation =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    controller.prepareLaunch(automationIntent(dataPreset = AutomationDataPreset.SettingsReady))
+                }
+
+            assertEquals(0, resetStore.clearCount)
+            assertFalse(repository.snapshot().onboardingComplete)
+            readiness.readiness.value = AppStartupReadinessState.Failed
+            testScheduler.runCurrent()
+            assertFalse(preparation.isCompleted)
+            assertEquals(0, resetStore.clearCount)
+
+            readiness.retryRecovery()
+            readiness.readiness.value = AppStartupReadinessState.Ready
+            assertTrue(preparation.await().enabled)
+            assertEquals(1, resetStore.clearCount)
+            assertTrue(repository.snapshot().onboardingComplete)
+        }
+
+    @Test
     fun `clean home preset keeps onboarding reachable`() =
         runTest {
             val repository = FakeAppSettingsRepository()
@@ -189,22 +234,23 @@ class DebugAutomationControllerTest {
         }
 
     @Test
-    fun `fake start and stop mutate service state when preset is not live`() {
-        val serviceStateStore = FakeServiceStateStore()
-        val controller = newController(serviceStateStore = serviceStateStore)
+    fun `fake start and stop mutate service state when preset is not live`() =
+        runTest {
+            val serviceStateStore = FakeServiceStateStore()
+            val controller = newController(serviceStateStore = serviceStateStore)
 
-        controller.prepareLaunch(
-            automationIntent(
-                servicePreset = AutomationServicePreset.Idle,
-            ),
-        )
+            controller.prepareLaunch(
+                automationIntent(
+                    servicePreset = AutomationServicePreset.Idle,
+                ),
+            )
 
-        assertTrue(controller.interceptStart(Mode.VPN))
-        assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
+            assertTrue(controller.interceptStart(Mode.VPN))
+            assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
 
-        assertTrue(controller.interceptStop(Mode.VPN))
-        assertEquals(AppStatus.Halted to Mode.VPN, serviceStateStore.status.value)
-    }
+            assertTrue(controller.interceptStop(Mode.VPN))
+            assertEquals(AppStatus.Halted to Mode.VPN, serviceStateStore.status.value)
+        }
 
     @Test
     fun `live service preset preserves real service state`() =
@@ -247,8 +293,10 @@ class DebugAutomationControllerTest {
         scanRecordStore: FakeDiagnosticsScanRecordStore = FakeDiagnosticsScanRecordStore(),
         historyResetStore: FakeDiagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
         artifactWriteStore: RecordingArtifactWriteStore = RecordingArtifactWriteStore(),
+        appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
     ): DebugAutomationController =
         DebugAutomationController(
+            appStartupReadiness = appStartupReadiness,
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             scanRecordStore = scanRecordStore,

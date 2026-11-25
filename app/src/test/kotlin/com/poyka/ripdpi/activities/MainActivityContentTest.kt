@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.AppStartupReadiness
 import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.ReadyAppStartupReadiness
@@ -119,6 +120,7 @@ class MainActivityContentTest {
         composeRule.setContent {
             recomposeTrigger.intValue
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -152,6 +154,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = {
                     SideEffect { rootCompositions.incrementAndGet() }
                     rememberPauseViewModelForTest()
@@ -206,6 +209,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
@@ -239,6 +243,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview =
                     androidx.compose.runtime.remember {
@@ -277,6 +282,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -324,6 +330,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -394,6 +401,7 @@ class MainActivityContentTest {
             )
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -417,6 +425,7 @@ class MainActivityContentTest {
         val viewModel = createViewModel()
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -446,6 +455,7 @@ class MainActivityContentTest {
 
         composeRule.setContent {
             MainActivityContent(
+                startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 pauseViewModelFactory = { rememberPauseViewModelForTest() },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
