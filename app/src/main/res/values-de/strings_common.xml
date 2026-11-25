@@ -12,6 +12,7 @@
     <string name="confirm_rotate_telemetry_salt_body">Zuvor erfasste Netzwerk-Fingerprint-Hashes können nicht mehr mit zukünftigen Sitzungen korreliert werden.</string>
     <string name="copied_to_clipboard">In die Zwischenablage kopiert</string>
     <string name="failed_to_start">Start von %1$s fehlgeschlagen</string>
+    <string name="failure_awg_unreachable">Der AmneziaWG-Server hat nicht geantwortet. Prüfen Sie die Serveradresse, den Port und die Schlüssel und verbinden Sie sich erneut.</string>
     <string name="notice_activation_window_reset_message">RIPDPI wird die aktive Bypass-Strategie-Gruppe beim nächsten Start nicht mehr nach Runde, Nutzlastgröße oder Stream-Byte-Position filtern.</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI kehrt nach dem nächsten Neustart oder erneuten Verbinden zu einer festen Fake-TTL für die aktive Gruppe zurück.</string>
     <string name="notice_fake_payload_reset_next_start_title">Fake-Payload-Voreinstellungen für den nächsten Start zurückgesetzt</string>

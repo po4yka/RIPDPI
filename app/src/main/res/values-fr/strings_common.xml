@@ -12,6 +12,7 @@
     <string name="confirm_rotate_telemetry_salt_body">Les empreintes de réseau précédemment enregistrées ne pourront plus être corrélées avec les futures sessions.</string>
     <string name="copied_to_clipboard">Copié dans le presse-papiers</string>
     <string name="failed_to_start">Échec du démarrage de %1$s</string>
+    <string name="failure_awg_unreachable">Le serveur AmneziaWG n’a pas répondu. Vérifiez l’adresse du serveur, le port et les clés, puis reconnectez-vous.</string>
     <string name="notice_activation_window_reset_message">RIPDPI cessera de filtrer le groupe stratégie de contournement actif par cycle, taille de charge utile ou position d\'octet de flux au prochain démarrage.</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI reviendra à un faux TTL fixe pour le groupe actif après le prochain redémarrage ou la prochaine reconnexion.</string>
     <string name="notice_fake_payload_reset_next_start_title">Préréglages de charges utiles factices réinitialisés au prochain démarrage</string>

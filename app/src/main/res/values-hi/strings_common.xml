@@ -47,6 +47,7 @@
     <string name="version">संस्करण</string>
     <string name="source_code_link">स्रोत कोड</string>
     <string name="failed_to_start">%1$s शुरू करने में विफल</string>
+    <string name="failure_awg_unreachable">AmneziaWG सर्वर ने जवाब नहीं दिया। सर्वर का पता, पोर्ट और कुंजियाँ जाँचें, फिर दोबारा कनेक्ट करें।</string>
     <string name="use_command_line_settings">कमांड लाइन सेटिंग्स का उपयोग करें</string>
     <string name="command_line_arguments">कमांड लाइन आर्ग्युमेंट</string>
     <string name="notice_pin_key_lost_title">बैकअप PIN रीसेट</string>

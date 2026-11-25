@@ -111,6 +111,7 @@
     <string name="confirm_rotate_telemetry_salt_title">重置遥测盐值?</string>
     <string name="crash_report_dismiss">关闭</string>
     <string name="failed_to_start">无法启动 %1$s</string>
+    <string name="failure_awg_unreachable">AmneziaWG 服务器没有响应。请检查服务器地址、端口和密钥，然后重新连接。</string>
     <string name="network_strategy_memory_enabled_body">为当前网络指纹存储已验证的路由策略,并在后续启动时复用。</string>
     <string name="notice_activation_window_reset_message">RIPDPI 将在下次启动时停止按轮次、载荷大小或流字节位置门控活动的 绕过策略 组。</string>
     <string name="notice_adaptive_ttl_reset_message">RIPDPI 将在下次启动时停止学习 fake TTL 值,改用固定的 fake TTL。</string>

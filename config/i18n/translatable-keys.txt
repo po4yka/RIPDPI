@@ -2990,6 +2990,7 @@ app:export_preview_summary
 app:export_preview_summary_only
 app:export_preview_title
 app:failed_to_start
+app:failure_awg_unreachable
 app:fake_order_card_body
 app:fake_order_card_dsl_only
 app:fake_order_card_hostfake_order_locked

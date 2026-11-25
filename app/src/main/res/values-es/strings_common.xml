@@ -12,6 +12,7 @@
     <string name="confirm_rotate_telemetry_salt_body">Los hashes de huella digital de red registrados previamente ya no se podrán correlacionar con sesiones futuras.</string>
     <string name="copied_to_clipboard">Copiado al portapapeles</string>
     <string name="failed_to_start">No se pudo iniciar %1$s</string>
+    <string name="failure_awg_unreachable">El servidor AmneziaWG no respondió. Comprueba la dirección del servidor, el puerto y las claves, y vuelve a conectarte.</string>
     <string name="notice_activation_window_reset_message">RIPDPI dejará de restringir el grupo de estrategia de bypass activo por ronda, tamaño de carga útil o posición de bytes en el flujo a partir del próximo inicio.</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI volverá a un TTL fake fijo para el grupo activo tras el próximo reinicio o reconexión.</string>
     <string name="notice_fake_payload_reset_next_start_title">Preajustes de carga útil fake restablecidos para el próximo inicio</string>

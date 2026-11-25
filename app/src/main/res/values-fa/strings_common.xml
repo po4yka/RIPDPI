@@ -99,6 +99,7 @@
     <string name="confirm_rotate_telemetry_salt_confirm">بازنشانی</string>
     <string name="crash_report_dismiss">رد کردن</string>
     <string name="failed_to_start">راه‌اندازی %1$s ناموفق بود</string>
+    <string name="failure_awg_unreachable">سرور AmneziaWG پاسخ نداد. نشانی سرور، درگاه و کلیدها را بررسی کنید و دوباره وصل شوید.</string>
     <string name="notice_activation_window_reset_next_start_title">پنجره فعال‌سازی برای راه‌اندازی بعدی بازنشانی شد</string>
     <string name="notice_adaptive_ttl_reset_next_start_message">RIPDPI پس از راه‌اندازی مجدد یا اتصال مجدد بعدی، برای گروه فعال به یک fake TTL ثابت بازخواهد گشت.</string>
     <string name="notice_fake_payload_reset_message">RIPDPI در راه‌اندازی بعدی از پیش‌فرض‌های fake payload سازگار برای HTTP، TLS و UDP استفاده خواهد کرد.</string>

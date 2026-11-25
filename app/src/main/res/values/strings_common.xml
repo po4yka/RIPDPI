@@ -49,6 +49,7 @@
     <string name="version">Version</string>
     <string name="source_code_link">Source code</string>
     <string name="failed_to_start">Failed to start %1$s</string>
+    <string name="failure_awg_unreachable">The AmneziaWG server did not answer. Check the endpoint address, the port, and the keys, then connect again.</string>
     <string name="use_command_line_settings">Use command line settings</string>
     <string name="command_line_arguments">Command line arguments</string>
     <string name="notice_pin_key_lost_title">Backup PIN reset</string>

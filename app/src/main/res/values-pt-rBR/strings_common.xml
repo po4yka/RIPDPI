@@ -48,6 +48,7 @@
     <string name="version">Versão</string>
     <string name="source_code_link">Código-fonte</string>
     <string name="failed_to_start">Falha ao iniciar %1$s</string>
+    <string name="failure_awg_unreachable">O servidor AmneziaWG não respondeu. Verifique o endereço do servidor, a porta e as chaves e conecte novamente.</string>
     <string name="use_command_line_settings">Usar configurações da linha de comando</string>
     <string name="command_line_arguments">Argumentos de linha de comando</string>
     <string name="notice_pin_key_lost_title">Redefinição do PIN de backup</string>

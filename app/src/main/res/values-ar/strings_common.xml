@@ -48,6 +48,7 @@
     <string name="version">الإصدار</string>
     <string name="source_code_link">الشيفرة المصدرية</string>
     <string name="failed_to_start">فشل بدء %1$s</string>
+    <string name="failure_awg_unreachable">لم يستجب خادم AmneziaWG. تحقّق من عنوان الخادم والمنفذ والمفاتيح، ثم أعد الاتصال.</string>
     <string name="use_command_line_settings">استخدام إعدادات سطر الأوامر</string>
     <string name="command_line_arguments">وسيطات سطر الأوامر</string>
     <string name="notice_pin_key_lost_title">تمت إعادة تعيين رمز PIN الاحتياطي</string>

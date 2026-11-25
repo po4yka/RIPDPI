@@ -39,6 +39,7 @@
     <string name="version">Версия</string>
     <string name="source_code_link">Исходный код</string>
     <string name="failed_to_start">Не удалось запустить %1$s</string>
+    <string name="failure_awg_unreachable">Сервер AmneziaWG не ответил. Проверьте адрес сервера, порт и ключи, затем подключитесь снова.</string>
     <string name="use_command_line_settings">Использовать параметры командной строки</string>
     <string name="command_line_arguments">Аргументы командной строки</string>
     <string name="notice_pin_key_lost_title">Резервный PIN сброшен</string>
