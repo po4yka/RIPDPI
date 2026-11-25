@@ -2,7 +2,7 @@
 id: UIX-1795615858043815
 title: Complete the AmneziaWG editor
 kind: feature
-status: doing
+status: review
 area: ui
 priority: medium
 owner: awg-editor
