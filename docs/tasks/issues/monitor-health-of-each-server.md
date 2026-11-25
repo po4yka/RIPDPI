@@ -2,10 +2,10 @@
 id: DGN-1795615859682455
 title: Monitor the health of each server
 kind: feature
-status: backlog
+status: review
 area: diagnostics
 priority: medium
-owner: unassigned
+owner: server-health
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required
