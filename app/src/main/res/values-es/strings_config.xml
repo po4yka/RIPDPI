@@ -50,8 +50,8 @@
     <string name="config_overrides_section">Anulaciones</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_title">Perfil manual</string>
-    <string name="config_presets_section">Perfiles</string>
+    <string name="config_preset_custom_title">Ajuste predefinido manual</string>
+    <string name="config_presets_section">Ajustes predefinidos y servidores</string>
     <string name="config_relay_hysteria_salamander">Clave Salamander</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_private_key">Clave privada del cliente (PEM)</string>
@@ -425,7 +425,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_xhttp_path">Ruta xHTTP</string>
     <string name="config_udp_chain_hint">Las ráfagas fake UDP ahora viven dentro del editor de estrategia de bypass como contadores fake_burst.</string>
     <string name="config_vpn_credentials_summary">Claves o contraseñas del servidor de relay, guardadas en el almacenamiento seguro de este dispositivo</string>
-    <string name="config_vpn_add_profile_title">Añadir perfil</string>
+    <string name="config_vpn_add_profile_title">Añadir servidor</string>
     <string name="config_vpn_add_server_paste">Pegar enlace</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>
     <string name="config_vpn_profiles_title">Servidores</string>
@@ -784,11 +784,11 @@ Origen: %2$s</string>
     <string name="config_network_section">Red</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
-    <string name="config_preset_custom_body">Perfil para DNS manual, endpoint de proxy, valores del motor y anulaciones opcionales de línea de comandos.</string>
+    <string name="config_preset_custom_body">Ajuste predefinido para DNS manual, endpoint de proxy, valores del motor y anulaciones opcionales de línea de comandos.</string>
     <string name="config_preset_reset_title">¿Usar los ajustes recomendados?</string>
-    <string name="config_preset_reset_body">Esto sustituye tus ajustes actuales de DNS, evasión y relay.</string>
+    <string name="config_preset_reset_body">Esto sustituye tus ajustes actuales de DNS y evasión. El servidor seleccionado se mantiene.</string>
     <string name="config_preset_reset_confirm">Usar</string>
-    <string name="config_preset_recommended_title">Perfil recomendado</string>
+    <string name="config_preset_recommended_title">Ajuste predefinido recomendado</string>
     <string name="config_relay_chain_editor_intro">Crea una cadena ordenada de perfiles de relé guardados. El primer salto es la entrada y el último es la salida. Mantén pulsado un salto para arrastrarlo a su lugar. UDP está desactivado para las cadenas.</string>
     <string name="config_relay_chain_hop_entry">Salto %1$d · Entrada</string>
     <string name="config_relay_chain_hop_exit">Salto %1$d · Salida</string>
@@ -1023,8 +1023,8 @@ Origen: %2$s</string>
     <string name="config_import_certificate_failed">Error al importar el certificado.</string>
     <string name="config_import_private_key_failed">Error al importar la clave privada.</string>
     <string name="config_import_pkcs12_failed">Error al importar PKCS#12.</string>
-    <string name="config_presets_loading_title">Cargando perfiles…</string>
-    <string name="config_presets_loading_body">Restaurando tus perfiles de configuración guardados.</string>
+    <string name="config_presets_loading_title">Cargando ajustes predefinidos…</string>
+    <string name="config_presets_loading_body">Restaurando tus ajustes predefinidos guardados.</string>
     <string name="config_chain_step_detail_tcp_send">Paso de envío TCP</string>
     <string name="config_chain_step_detail_tls_prelude">Preludio TLS</string>
     <string name="config_chain_step_detail_udp_quic">Paso UDP/QUIC</string>
@@ -1241,8 +1241,8 @@ Origen: %2$s</string>
     <string name="profile_search_all">Todos</string>
     <string name="profile_search_no_results">Ningún perfil coincide con la búsqueda y el filtro.</string>
     <string name="profile_search_reset">Restablecer búsqueda y filtro</string>
-    <string name="profile_search_open">Buscar en todos los perfiles</string>
-    <string name="profile_utility_title">Perfiles</string>
+    <string name="profile_search_open">Buscar en todos los servidores</string>
+    <string name="profile_utility_title">Comprobación de servidores</string>
     <string name="profile_utility_favorites">Favoritos</string>
     <string name="profile_utility_recents">Usados recientemente</string>
     <string name="profile_utility_saved">Perfiles guardados</string>
@@ -1356,4 +1356,17 @@ Origen: %2$s</string>
     <string name="config_relay_apps_script_export_ca">Exportar CA del relé</string>
     <string name="config_relay_apps_script_ca_trust">Este relé descifra HTTPS en el dispositivo y envía los datos a su endpoint de Apps Script. Inicie el relé una vez y exporte la CA pública. Instálela solo en los clientes que deban confiar en el relé. La fijación de certificados sigue activa. Elimine la CA cuando deje de usar el relé.</string>
     <string name="config_relay_apps_script_ca_unavailable">No se pudo exportar la CA. Inicie el relé Apps Script e inténtelo de nuevo.</string>
+    <string name="server_actions">Acciones</string>
+    <string name="server_action_rename">Cambiar nombre</string>
+    <string name="server_action_duplicate">Duplicar</string>
+    <string name="server_action_delete">Eliminar</string>
+    <string name="server_rename_title">Cambiar nombre del servidor</string>
+    <string name="server_rename_label">Nombre</string>
+    <string name="server_delete_title">¿Eliminar %1$s?</string>
+    <string name="server_delete_body">Se eliminarán el servidor y sus credenciales guardadas.</string>
+    <string name="server_copy_name">%1$s (copia)</string>
+    <string name="server_action_refused_title">Servidor sin cambios</string>
+    <string name="server_action_in_use">La conexión, una cadena o una suscripción usa este servidor.</string>
+    <string name="server_action_name_taken">Ya existe un servidor con este nombre.</string>
+    <string name="server_action_failed">No se pudo guardar el cambio. Inténtalo de nuevo.</string>
 </resources>

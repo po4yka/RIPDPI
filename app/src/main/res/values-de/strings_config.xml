@@ -50,8 +50,8 @@
     <string name="config_overrides_section">Overrides</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
-    <string name="config_preset_custom_title">Manuelles Profil</string>
-    <string name="config_presets_section">Profile</string>
+    <string name="config_preset_custom_title">Manuelle Voreinstellung</string>
+    <string name="config_presets_section">Voreinstellungen und Server</string>
     <string name="config_relay_hysteria_salamander">Salamander-Schlüssel</string>
     <string name="config_relay_masque_auth_cloudflare_direct">Cloudflare Direct</string>
     <string name="config_relay_masque_client_private_key">Client-Private-Key (PEM)</string>
@@ -425,7 +425,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_xhttp_path">xHTTP-Pfad</string>
     <string name="config_udp_chain_hint">UDP-Fake-Bursts befinden sich jetzt im Bypass-Strategie-Editor als fake_burst-Anzahl.</string>
     <string name="config_vpn_credentials_summary">Schlüssel oder Passwörter für den Relay-Server, sicher auf diesem Gerät gespeichert</string>
-    <string name="config_vpn_add_profile_title">Profil hinzufügen</string>
+    <string name="config_vpn_add_profile_title">Server hinzufügen</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
     <string name="config_vpn_add_server_scan">QR scannen</string>
     <string name="config_vpn_profiles_title">Server</string>
@@ -784,11 +784,11 @@ Quelle: %2$s</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
-    <string name="config_preset_custom_body">Profil für manuelles DNS, Proxy-Endpunkt, Engine-Werte und optionale Kommandozeilenüberschreibungen.</string>
+    <string name="config_preset_custom_body">Voreinstellung für manuelles DNS, Proxy-Endpunkt, Engine-Werte und optionale Kommandozeilenüberschreibungen.</string>
     <string name="config_preset_reset_title">Empfohlene Einstellungen verwenden?</string>
-    <string name="config_preset_reset_body">Dies ersetzt deine aktuellen DNS-, Umgehungs- und Relay-Einstellungen.</string>
+    <string name="config_preset_reset_body">Dies ersetzt deine aktuellen DNS- und Umgehungseinstellungen. Der ausgewählte Server bleibt.</string>
     <string name="config_preset_reset_confirm">Verwenden</string>
-    <string name="config_preset_recommended_title">Empfohlenes Profil</string>
+    <string name="config_preset_recommended_title">Empfohlene Voreinstellung</string>
     <string name="config_relay_chain_editor_intro">Erstellen Sie eine geordnete Kette aus gespeicherten Relay-Profilen. Der erste Hop ist der Eingang, der letzte der Ausgang. Halten Sie einen Hop gedrückt, um ihn an die richtige Stelle zu ziehen. UDP ist für Ketten deaktiviert.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Eingang</string>
     <string name="config_relay_chain_hop_exit">Hop %1$d · Ausgang</string>
@@ -1023,8 +1023,8 @@ Quelle: %2$s</string>
     <string name="config_import_certificate_failed">Zertifikatsimport fehlgeschlagen.</string>
     <string name="config_import_private_key_failed">Import des privaten Schlüssels fehlgeschlagen.</string>
     <string name="config_import_pkcs12_failed">PKCS#12-Import fehlgeschlagen.</string>
-    <string name="config_presets_loading_title">Profile werden geladen…</string>
-    <string name="config_presets_loading_body">Ihre gespeicherten Konfigurationsprofile werden wiederhergestellt.</string>
+    <string name="config_presets_loading_title">Voreinstellungen werden geladen…</string>
+    <string name="config_presets_loading_body">Deine gespeicherten Voreinstellungen werden wiederhergestellt.</string>
     <string name="config_chain_step_detail_tcp_send">TCP-Sendeschritt</string>
     <string name="config_chain_step_detail_tls_prelude">TLS-Prelude</string>
     <string name="config_chain_step_detail_udp_quic">UDP/QUIC-Schritt</string>
@@ -1241,8 +1241,8 @@ Quelle: %2$s</string>
     <string name="profile_search_all">Alle</string>
     <string name="profile_search_no_results">Keine Profile entsprechen der Suche und dem Filter.</string>
     <string name="profile_search_reset">Suche und Filter zurücksetzen</string>
-    <string name="profile_search_open">Alle Profile durchsuchen</string>
-    <string name="profile_utility_title">Profile</string>
+    <string name="profile_search_open">Alle Server durchsuchen</string>
+    <string name="profile_utility_title">Serverprüfung</string>
     <string name="profile_utility_favorites">Favoriten</string>
     <string name="profile_utility_recents">Zuletzt verwendet</string>
     <string name="profile_utility_saved">Gespeicherte Profile</string>
@@ -1349,4 +1349,17 @@ Quelle: %2$s</string>
     <string name="config_relay_apps_script_export_ca">Relay-CA exportieren</string>
     <string name="config_relay_apps_script_ca_trust">Dieses Relay entschlüsselt HTTPS auf dem Gerät und sendet Daten an Ihren Apps-Script-Endpunkt. Starten Sie das Relay einmal und exportieren Sie die öffentliche CA. Installieren Sie sie nur in Clients, die dem Relay vertrauen sollen. Certificate Pinning bleibt aktiv. Entfernen Sie die CA nach der Nutzung.</string>
     <string name="config_relay_apps_script_ca_unavailable">CA konnte nicht exportiert werden. Starten Sie das Apps-Script-Relay und versuchen Sie es erneut.</string>
+    <string name="server_actions">Aktionen</string>
+    <string name="server_action_rename">Umbenennen</string>
+    <string name="server_action_duplicate">Duplizieren</string>
+    <string name="server_action_delete">Löschen</string>
+    <string name="server_rename_title">Server umbenennen</string>
+    <string name="server_rename_label">Name</string>
+    <string name="server_delete_title">%1$s löschen?</string>
+    <string name="server_delete_body">Der Server und seine gespeicherten Zugangsdaten werden entfernt.</string>
+    <string name="server_copy_name">%1$s (Kopie)</string>
+    <string name="server_action_refused_title">Server nicht geändert</string>
+    <string name="server_action_in_use">Die Verbindung, eine Kette oder ein Abonnement verwendet diesen Server.</string>
+    <string name="server_action_name_taken">Ein anderer Server hat diesen Namen.</string>
+    <string name="server_action_failed">Die Änderung konnte nicht gespeichert werden. Versuche es erneut.</string>
 </resources>
