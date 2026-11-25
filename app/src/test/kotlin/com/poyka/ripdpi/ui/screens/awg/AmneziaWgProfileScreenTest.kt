@@ -118,6 +118,7 @@ class AmneziaWgProfileScreenTest {
             clipboard,
             com.poyka.ripdpi.activities
                 .FakeAppliedRuntimeConfigurationSource(),
+            FakeWarpKeyPairGenerator(),
         )
 
     @Test
@@ -515,12 +516,15 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         uiState = uiState,
         onBack = {},
         onFieldChanged = viewModel::onFieldChanged,
+        onNameChanged = viewModel::onNameChanged,
+        onGenerateKeyPair = viewModel::onGenerateKeyPair,
         onCohortSelected = viewModel::onCohortSelected,
         onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = {},
         onRevealPrivateKey = viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,
         onConnect = viewModel::onConnect,
+        onSave = viewModel::onSave,
         onRevealHeaderProtectionKey = viewModel::onHeaderProtectionKeyRevealAuthorized,
         onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
         onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,

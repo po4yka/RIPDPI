@@ -6,23 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
-
-@Serializable
-data class WarpKeyPair(
-    val privateKey: String,
-    val publicKey: String,
-) {
-    override fun toString(): String = "WarpKeyPair([REDACTED])"
-}
-
-interface WarpKeyPairGenerator {
-    suspend fun generate(): WarpKeyPair
-}
 
 @Singleton
 class NativeWarpKeyPairGenerator

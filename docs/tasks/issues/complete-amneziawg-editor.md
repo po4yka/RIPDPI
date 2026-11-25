@@ -2,10 +2,10 @@
 id: UIX-1795615858043815
 title: Complete the AmneziaWG editor
 kind: feature
-status: backlog
+status: doing
 area: ui
 priority: medium
-owner: unassigned
+owner: awg-editor
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required

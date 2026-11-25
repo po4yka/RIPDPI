@@ -2,6 +2,9 @@ package com.poyka.ripdpi.ui.screens.awg
 
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -11,9 +14,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
@@ -28,6 +33,7 @@ import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -49,6 +55,7 @@ import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -110,6 +117,8 @@ fun AmneziaWgProfileRoute(
         uiState = uiState,
         onBack = onBack,
         onFieldChanged = viewModel::onFieldChanged,
+        onNameChanged = viewModel::onNameChanged,
+        onGenerateKeyPair = viewModel::onGenerateKeyPair,
         onCohortSelected = viewModel::onCohortSelected,
         onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
         onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
@@ -119,6 +128,7 @@ fun AmneziaWgProfileRoute(
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: revealPresharedKey,
         onRevealHeaderProtectionKey = revealHeaderProtectionKey,
         onConnect = viewModel::onConnect,
+        onSave = viewModel::onSave,
         onDelete = viewModel::onDelete,
         modifier = modifier,
     )
@@ -129,12 +139,15 @@ internal fun AmneziaWgProfileScreen(
     uiState: AmneziaWgProfileUiState,
     onBack: () -> Unit,
     onFieldChanged: (AwgEditorField, String) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onGenerateKeyPair: () -> Unit,
     onCohortSelected: (String) -> Unit,
     onCarrierSelected: (String) -> Unit,
     onPasteConf: () -> Unit,
     onRevealPrivateKey: () -> Unit,
     onRevealPresharedKey: () -> Unit,
     onConnect: () -> Unit,
+    onSave: () -> Unit,
     onRevealHeaderProtectionKey: () -> Unit,
     onConfirmCohortReplacement: () -> Unit,
     onCancelCohortReplacement: () -> Unit,
@@ -164,12 +177,17 @@ internal fun AmneziaWgProfileScreen(
         hintRes =
             when {
                 connectFailed -> R.string.awg_connect_error
+                uiState.saveFailed -> R.string.awg_save_error
+                uiState.keyGenerationFailed -> R.string.awg_key_generation_error
                 uiState.deleteFailed -> R.string.awg_delete_failed
                 uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
+                uiState.saved -> R.string.awg_saved_hint
                 uiState.canActivate -> R.string.awg_connect_ready_hint
                 else -> R.string.awg_connect_incomplete_hint
             },
-        hintIsError = connectFailed || uiState.deleteFailed || uiState.subscriptionServerChanged,
+        hintIsError =
+            connectFailed || uiState.saveFailed || uiState.keyGenerationFailed || uiState.deleteFailed ||
+                uiState.subscriptionServerChanged,
     ) {
         // A saved profile replaces the whole form when it loads, so nothing is shown to edit before then.
         if (uiState.loadingProfile) return@RelayEditorScaffold
@@ -182,7 +200,7 @@ internal fun AmneziaWgProfileScreen(
             leadingIcon = RipDpiIcons.Paste,
         )
         AwgConfImportFeedback(uiState)
-        InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
+        InterfaceSection(uiState, onFieldChanged, onNameChanged, onGenerateKeyPair, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged)
         AwgAdvancedSection(
             uiState = uiState,
@@ -191,6 +209,17 @@ internal fun AmneziaWgProfileScreen(
             onCarrierSelected = onCarrierSelected,
             onRevealPresharedKey = onRevealPresharedKey,
             onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
+        )
+        // Save stores the profile without asking for VPN consent or connecting.
+        RipDpiButton(
+            text = stringResource(R.string.awg_save_action),
+            onClick = onSave,
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgSaveAction),
+            variant = RipDpiButtonVariant.Secondary,
+            enabled =
+                uiState.canActivate && !uiState.deleting &&
+                    uiState.activationStatus != AwgActivationStatus.Connecting,
+            loading = uiState.saving,
         )
         if (uiState.deletable) AwgDeleteProfileAction(uiState, onDelete)
     }
@@ -378,11 +407,23 @@ private fun CarrierSection(
 private fun InterfaceSection(
     uiState: AmneziaWgProfileUiState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
+    onNameChanged: (String) -> Unit,
+    onGenerateKeyPair: () -> Unit,
     onRevealPrivateKey: () -> Unit,
 ) {
     val editor = uiState.editor
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.awg_section_interface))
+        RipDpiTextField(
+            value = uiState.name,
+            onValueChange = onNameChanged,
+            modifier = Modifier.fillMaxWidth(),
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.awg_field_name),
+                    testTag = RipDpiTestTags.AwgNameField,
+                ),
+        )
         RelaySecretField(
             testTag = RipDpiTestTags.awgField(AwgEditorField.INTERFACE_PRIVATE_KEY.name),
             label = stringResource(R.string.awg_field_private_key),
@@ -396,6 +437,15 @@ private fun InterfaceSection(
                     editor.hasFieldError(AwgEditorField.INTERFACE_PRIVATE_KEY),
                 ),
         )
+        if (editor.form.interfacePrivateKey.isBlank()) {
+            RipDpiButton(
+                text = stringResource(R.string.awg_generate_key_action),
+                onClick = onGenerateKeyPair,
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgGenerateKeyAction),
+                variant = RipDpiButtonVariant.Secondary,
+            )
+        }
+        uiState.generatedPublicKey?.let { AwgPublicKeyField(it) }
         PlainField(AwgEditorField.SERVER, R.string.awg_field_server, editor, onFieldChanged)
         PlainField(
             AwgEditorField.SERVER_PORT,
@@ -411,6 +461,32 @@ private fun InterfaceSection(
             placeholder = stringResource(R.string.awg_address_placeholder),
         )
     }
+}
+
+/** The generated public key, read-only, for the server's peer entry. It is not a secret, so the clip is plain. */
+@Composable
+private fun AwgPublicKeyField(publicKey: String) {
+    val context = LocalContext.current
+    val clipboard = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+    val label = stringResource(R.string.awg_field_public_key)
+    RipDpiTextField(
+        value = publicKey,
+        onValueChange = {},
+        modifier = Modifier.fillMaxWidth(),
+        decoration = RipDpiTextFieldDecoration(label = label, testTag = RipDpiTestTags.AwgPublicKeyField),
+        behavior = RipDpiTextFieldBehavior(readOnly = true),
+        trailingContent = {
+            RipDpiIconButton(
+                icon = RipDpiIcons.Copy,
+                contentDescription = stringResource(R.string.awg_copy_public_key_action),
+                onClick = {
+                    clipboard?.setPrimaryClip(ClipData.newPlainText(label, publicKey))
+                    Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
+                },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AwgCopyPublicKeyAction),
+            )
+        },
+    )
 }
 
 @Composable

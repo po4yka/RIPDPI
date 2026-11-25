@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import com.poyka.ripdpi.core.WarpKeyPair
+import com.poyka.ripdpi.core.WarpKeyPairGenerator
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import java.util.Base64
@@ -33,3 +35,17 @@ internal fun activatableAwgEditor(): AmneziaWgEditorState =
 
 internal val AwgPrivateTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
 internal val AwgPeerTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
+internal val AwgGeneratedPrivateTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
+internal val AwgGeneratedPublicTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 4 })
+
+/** Returns a fixed pair, or throws [failure] when set, without loading the native library. */
+internal class FakeWarpKeyPairGenerator : WarpKeyPairGenerator {
+    var failure: Exception? = null
+    var calls = 0
+
+    override suspend fun generate(): WarpKeyPair {
+        calls += 1
+        failure?.let { throw it }
+        return WarpKeyPair(AwgGeneratedPrivateTestKey, AwgGeneratedPublicTestKey)
+    }
+}
