@@ -1,0 +1,6 @@
+interface:
+  display_name: "Delete Comments"
+  short_description: "Classify and delete source comments under the comment ratchet"
+  default_prompt: "Use $delete-comment to classify and delete the comments in the requested area."
+policy:
+  allow_implicit_invocation: false
