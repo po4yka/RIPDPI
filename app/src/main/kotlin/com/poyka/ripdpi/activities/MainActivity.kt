@@ -131,10 +131,13 @@ class MainActivity : AppCompatActivity() {
             viewModel.startupState.value.run { isReady && startDestination == Route.Onboarding }
         }
         val holdForBadge = splashHoldForBadge(badgeAnchor)
-        var startupContentComposed = false
+        var startupShellComposed = false
         splashScreen.setKeepOnScreenCondition {
-            !startupContentComposed ||
-                viewModel.startupState.value.readiness == AppStartupReadinessState.Pending ||
+            val readiness = viewModel.startupState.value.readiness
+            // Let the splash exit without waiting for a Compose frame it can block.
+            !startupShellComposed ||
+                readiness == AppStartupReadinessState.Pending ||
+                (readiness == AppStartupReadinessState.Ready && !automationPrepared.value) ||
                 holdForBadge(startsOnOnboarding())
         }
         splashScreen.setRipDpiExit(badgeAnchor, startsOnOnboarding)
@@ -146,10 +149,10 @@ class MainActivity : AppCompatActivity() {
             val prepared by automationPrepared.collectAsStateWithLifecycle()
             val waitingForAutomation = !readyContentStarted && !prepared && startupState.isReady
             val showContent = contentStarted || startupState.readiness != AppStartupReadinessState.Pending
+            SideEffect { startupShellComposed = true }
             if (showContent && !waitingForAutomation) {
                 // After a failure, keep the retry screen visible when recovery starts again.
                 SideEffect {
-                    startupContentComposed = true
                     contentStarted = true
                     if (startupState.isReady) readyContentStarted = true
                 }
