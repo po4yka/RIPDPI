@@ -54,3 +54,18 @@ A device or local integration smoke test MUST prove that traffic entering the RI
 - **WHEN** RIPDPI VPN is started with Xray selected and a controlled peer profile
 - **THEN** traffic sent through the VPN to an approved fixture destination MUST be received by the controlled Xray peer
 - **AND** the smoke evidence MUST distinguish Xray peer receipt from direct host reachability
+
+### Requirement: REQ-ENG-1795610462793424-001 — The Xray provider uses a single managed TUN handoff
+
+The Xray provider runtime configuration MUST expose the local inbound port as its only handoff setting. It MUST keep DNS ownership in the managed tunnel.
+
+#### Scenario: Resolve the Xray upstream
+
+- **WHEN** the Xray provider starts with a valid local inbound port
+- **THEN** the managed tunnel MUST use the Xray SOCKS inbound at that port on loopback
+- **AND** the managed tunnel MUST own DNS resolution
+
+#### Scenario: Reject an invalid inbound port
+
+- **WHEN** the Xray provider starts with an invalid local inbound port
+- **THEN** startup MUST fail before starting the provider or the tunnel

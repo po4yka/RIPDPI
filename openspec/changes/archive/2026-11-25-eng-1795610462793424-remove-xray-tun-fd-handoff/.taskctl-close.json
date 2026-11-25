@@ -1,0 +1,11 @@
+{
+  "change": "eng-1795610462793424-remove-xray-tun-fd-handoff",
+  "evidence_summary": "Removed the unsupported Xray handoff. 5337 JVM tests and Ktlint passed for the affected modules. Verified default and custom loopback ports, tunnel DNS ownership, invalid port rejection before startup, and the diagnostic topology label.",
+  "execution_sha256": "a9d0643b711b8af2bdb493d9171fa5e8dfd5de2037724205d29a2e193c650b2e",
+  "issue_sha256": "744ac5ea8370c48851df5530fa8d00bdae8072e209817a7047d51933c93a91d4",
+  "outcome": "done",
+  "prepared_at": "2026-11-25T14:53:47Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "ENG-1795610462793424"
+}

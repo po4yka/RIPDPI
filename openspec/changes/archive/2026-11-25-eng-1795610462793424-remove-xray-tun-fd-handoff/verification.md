@@ -1,7 +1,7 @@
 ---
 task_id: ENG-1795610462793424
 change: eng-1795610462793424-remove-xray-tun-fd-handoff
-commit_sha: null
+commit_sha: 552b563ad5f2ea7f3effe3547c596ac24f825d3c
 local: passed
 local_evidence: 5337 JVM tests passed in runtime-state, catalog, engine-api, and both service variants. Ktlint passed in all four modules.
 remote_ci: not_applicable

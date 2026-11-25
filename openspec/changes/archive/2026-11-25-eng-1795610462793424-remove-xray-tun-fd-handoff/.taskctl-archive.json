@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-25T14:53:46Z",
+  "change": "eng-1795610462793424-remove-xray-tun-fd-handoff",
+  "commit_sha": "552b563ad5f2ea7f3effe3547c596ac24f825d3c",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "ENG-1795610462793424"
+}
