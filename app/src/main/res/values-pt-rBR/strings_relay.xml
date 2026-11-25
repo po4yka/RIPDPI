@@ -144,6 +144,14 @@
     <string name="awg_connect_ready_hint">Pronto para conectar.</string>
     <string name="awg_connect_incomplete_hint">Preencha servidor, porta, chave privada, chave pública do par e endereço para conectar.</string>
     <string name="awg_connect_error">Não foi possível conectar. Confira os detalhes do servidor e tente novamente.</string>
+    <string name="awg_field_name">Nome</string>
+    <string name="awg_save_action">Salvar</string>
+    <string name="awg_save_error">Não foi possível salvar o perfil. Tente novamente.</string>
+    <string name="awg_saved_hint">Salvo.</string>
+    <string name="awg_generate_key_action">Gerar par de chaves</string>
+    <string name="awg_key_generation_error">Não foi possível gerar o par de chaves. Tente novamente.</string>
+    <string name="awg_field_public_key">Chave pública</string>
+    <string name="awg_copy_public_key_action">Copiar chave pública</string>
     <string name="anytls_editor_title">Perfil AnyTLS</string>
     <string name="anytls_section_endpoint">Endpoint</string>
     <string name="anytls_section_tls">TLS</string>

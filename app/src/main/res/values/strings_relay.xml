@@ -147,6 +147,14 @@
     <string name="awg_connect_ready_hint">Ready to connect.</string>
     <string name="awg_connect_incomplete_hint">Fill in the server, port, private key, peer public key, and address to connect.</string>
     <string name="awg_connect_error">Couldn\'t connect. Check the server details and try again.</string>
+    <string name="awg_field_name">Name</string>
+    <string name="awg_save_action">Save</string>
+    <string name="awg_save_error">Couldn\'t save the profile. Try again.</string>
+    <string name="awg_saved_hint">Saved.</string>
+    <string name="awg_generate_key_action">Generate key pair</string>
+    <string name="awg_key_generation_error">Couldn\'t generate a key pair. Try again.</string>
+    <string name="awg_field_public_key">Public key</string>
+    <string name="awg_copy_public_key_action">Copy public key</string>
     <!-- VMess profile editor (legacy outbound) -->
     <string name="anytls_editor_title">AnyTLS profile</string>
     <string name="anytls_section_endpoint">Endpoint</string>

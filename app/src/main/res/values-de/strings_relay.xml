@@ -145,6 +145,14 @@
     <string name="awg_connect_ready_hint">Bereit zum Verbinden.</string>
     <string name="awg_connect_incomplete_hint">Geben Sie Server, Port, privaten Schlüssel, öffentlichen Peer-Schlüssel und Adresse ein, um zu verbinden.</string>
     <string name="awg_connect_error">Verbindung fehlgeschlagen. Prüfen Sie die Serverdaten und versuchen Sie es erneut.</string>
+    <string name="awg_field_name">Name</string>
+    <string name="awg_save_action">Speichern</string>
+    <string name="awg_save_error">Profil konnte nicht gespeichert werden. Versuche es erneut.</string>
+    <string name="awg_saved_hint">Gespeichert.</string>
+    <string name="awg_generate_key_action">Schlüsselpaar erzeugen</string>
+    <string name="awg_key_generation_error">Schlüsselpaar konnte nicht erzeugt werden. Versuche es erneut.</string>
+    <string name="awg_field_public_key">Öffentlicher Schlüssel</string>
+    <string name="awg_copy_public_key_action">Öffentlichen Schlüssel kopieren</string>
     <!-- VMess profile editor (legacy outbound) -->
     <string name="anytls_editor_title">AnyTLS-Profil</string>
     <string name="anytls_section_endpoint">Endpunkt</string>

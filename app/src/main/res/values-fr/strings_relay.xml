@@ -145,6 +145,14 @@
     <string name="awg_connect_ready_hint">Prêt à se connecter.</string>
     <string name="awg_connect_incomplete_hint">Renseignez le serveur, le port, la clé privée, la clé publique du pair et l\'adresse pour vous connecter.</string>
     <string name="awg_connect_error">Échec de la connexion. Vérifiez les informations du serveur et réessayez.</string>
+    <string name="awg_field_name">Nom</string>
+    <string name="awg_save_action">Enregistrer</string>
+    <string name="awg_save_error">Impossible d\'enregistrer le profil. Réessayez.</string>
+    <string name="awg_saved_hint">Enregistré.</string>
+    <string name="awg_generate_key_action">Générer une paire de clés</string>
+    <string name="awg_key_generation_error">Impossible de générer une paire de clés. Réessayez.</string>
+    <string name="awg_field_public_key">Clé publique</string>
+    <string name="awg_copy_public_key_action">Copier la clé publique</string>
     <!-- VMess profile editor (legacy outbound) -->
     <string name="anytls_editor_title">Profil AnyTLS</string>
     <string name="anytls_section_endpoint">Point de connexion</string>

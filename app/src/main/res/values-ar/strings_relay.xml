@@ -144,6 +144,14 @@
     <string name="awg_connect_ready_hint">جاهز للاتصال.</string>
     <string name="awg_connect_incomplete_hint">أدخل الخادم والمنفذ والمفتاح الخاص والمفتاح العام للنظير والعنوان للاتصال.</string>
     <string name="awg_connect_error">تعذّر الاتصال. تحقّق من بيانات الخادم وحاول مرة أخرى.</string>
+    <string name="awg_field_name">الاسم</string>
+    <string name="awg_save_action">حفظ</string>
+    <string name="awg_save_error">تعذّر حفظ الملف الشخصي. حاول مرة أخرى.</string>
+    <string name="awg_saved_hint">تم الحفظ.</string>
+    <string name="awg_generate_key_action">إنشاء زوج مفاتيح</string>
+    <string name="awg_key_generation_error">تعذّر إنشاء زوج المفاتيح. حاول مرة أخرى.</string>
+    <string name="awg_field_public_key">المفتاح العام</string>
+    <string name="awg_copy_public_key_action">نسخ المفتاح العام</string>
     <string name="outbound_group_fallback">المجموعة رقم %1$d</string>
     <string name="outbound_profile_fallback">الملف الشخصي رقم %1$d</string>
     <string name="xray_capability_vpn_privacy_title">خصوصية VPN</string>

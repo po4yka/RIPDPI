@@ -145,6 +145,14 @@
     <string name="awg_connect_ready_hint">آماده برای اتصال.</string>
     <string name="awg_connect_incomplete_hint">برای اتصال، سرور، درگاه، کلید خصوصی، کلید عمومی همتا و نشانی را وارد کنید.</string>
     <string name="awg_connect_error">اتصال برقرار نشد. اطلاعات سرور را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="awg_field_name">نام</string>
+    <string name="awg_save_action">ذخیره</string>
+    <string name="awg_save_error">ذخیره نمایه ممکن نشد. دوباره تلاش کنید.</string>
+    <string name="awg_saved_hint">ذخیره شد.</string>
+    <string name="awg_generate_key_action">ساخت جفت کلید</string>
+    <string name="awg_key_generation_error">ساخت جفت کلید ممکن نشد. دوباره تلاش کنید.</string>
+    <string name="awg_field_public_key">کلید عمومی</string>
+    <string name="awg_copy_public_key_action">کپی کلید عمومی</string>
     <!-- VMess profile editor (legacy outbound) -->
     <string name="anytls_editor_title">نمایه AnyTLS</string>
     <string name="anytls_section_endpoint">نقطه اتصال</string>

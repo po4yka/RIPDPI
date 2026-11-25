@@ -144,6 +144,14 @@
     <string name="awg_connect_ready_hint">Готово к подключению.</string>
     <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>
     <string name="awg_connect_error">Не удалось подключиться. Проверьте данные сервера и попробуйте снова.</string>
+    <string name="awg_field_name">Название</string>
+    <string name="awg_save_action">Сохранить</string>
+    <string name="awg_save_error">Не удалось сохранить профиль. Повторите попытку.</string>
+    <string name="awg_saved_hint">Сохранено.</string>
+    <string name="awg_generate_key_action">Создать пару ключей</string>
+    <string name="awg_key_generation_error">Не удалось создать пару ключей. Повторите попытку.</string>
+    <string name="awg_field_public_key">Публичный ключ</string>
+    <string name="awg_copy_public_key_action">Копировать публичный ключ</string>
     <string name="anytls_editor_title">Профиль AnyTLS</string>
     <string name="anytls_section_endpoint">Адрес сервера</string>
     <string name="anytls_section_tls">TLS</string>

@@ -189,6 +189,14 @@
     <string name="awg_connect_ready_hint">कनेक्ट करने के लिए तैयार।</string>
     <string name="awg_connect_incomplete_hint">कनेक्ट करने के लिए सर्वर, पोर्ट, private key, peer public key, और पता भरें।</string>
     <string name="awg_connect_error">कनेक्ट नहीं हो सका। सर्वर का विवरण जाँचें और फिर से प्रयास करें।</string>
+    <string name="awg_field_name">नाम</string>
+    <string name="awg_save_action">सहेजें</string>
+    <string name="awg_save_error">प्रोफ़ाइल सहेजी नहीं जा सकी। फिर से कोशिश करें।</string>
+    <string name="awg_saved_hint">सहेजा गया।</string>
+    <string name="awg_generate_key_action">कुंजी जोड़ी बनाएँ</string>
+    <string name="awg_key_generation_error">कुंजी जोड़ी नहीं बनाई जा सकी। फिर से कोशिश करें।</string>
+    <string name="awg_field_public_key">सार्वजनिक कुंजी</string>
+    <string name="awg_copy_public_key_action">सार्वजनिक कुंजी कॉपी करें</string>
     <string name="anytls_editor_title">AnyTLS प्रोफ़ाइल</string>
     <string name="anytls_section_endpoint">एंडपॉइंट</string>
     <string name="anytls_section_tls">TLS</string>
