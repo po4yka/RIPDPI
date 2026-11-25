@@ -2,10 +2,10 @@
 id: UIX-1795615852980919
 title: Manage all servers in one list
 kind: feature
-status: backlog
+status: doing
 area: ui
 priority: high
-owner: unassigned
+owner: server-list
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required
