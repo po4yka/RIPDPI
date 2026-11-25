@@ -2,10 +2,10 @@
 id: UIX-1795615850526190
 title: Add an own-server entry point to onboarding and home
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: high
-owner: unassigned
+owner: own-server-entry
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required

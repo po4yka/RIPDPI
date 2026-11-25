@@ -1,13 +1,13 @@
 ---
 task_id: UIX-1795615850526190
 change: uix-1795615850526190-add-own-server-entry-to-onboarding-and-home
-commit_sha: null
+commit_sha: b87e737d907392bd4d14886695c24b72b383b5bf
 local: required
-local_evidence: null
+local_evidence: "./gradlew :app:verifyRoborazziGithubDebug (all 4293 app unit tests plus every Roborazzi golden) BUILD SUCCESSFUL; ./gradlew :app:lintGithubDebug BUILD SUCCESSFUL; just ci-gates exit 0; ktlint on changed files exit 0"
 remote_ci: required
 remote_ci_evidence: null
 device: required
-device_evidence: null
+device_evidence: "Pending: not run on a device or emulator in the implementation session"
 artifact: not_applicable
 artifact_evidence: No distributable artifact is required for this change.
 deployment: not_applicable
@@ -20,8 +20,8 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-UIX-1795615850526190-001 | UIX-1795615851095684 | Pending | required |
-| REQ-UIX-1795615850526190-002 | UIX-1795615851521470 | Pending | required |
-| REQ-UIX-1795615850526190-003 | UIX-1795615851952693 | Pending | required |
-| REQ-UIX-1795615850526190-004 | UIX-1795615852383192 | Pending | required |
-| REQ-UIX-1795615850526190-005 | UIX-1795615852801246 | Pending | required |
+| REQ-UIX-1795615850526190-001 | UIX-1795615851095684 | `OnboardingStepsScreenTest` own server step test (paste, scan, import, add manually, Continue skips); golden `onboardingOwnServerScreen` | pass (local) |
+| REQ-UIX-1795615850526190-002 | UIX-1795615851521470 | `StatusScreenTest` add server shows only while offered; `SavedServersViewModel` gates it on no saved server; route `config/add_server` covered by `RipDpiNavHostLogicTest` | pass (local) |
+| REQ-UIX-1795615850526190-003 | UIX-1795615851952693 | `ConnectionSummaryTest` add server row opens the add actions on the Direct path and the add-server route opens them; goldens `configScreen`, `configMediumScreen` | pass (local) |
+| REQ-UIX-1795615850526190-004 | UIX-1795615852383192 | `onboarding_test_permission_note` and `onboarding_test_failed_permission` no longer claim no remote server, in all 10 locales; golden `onboardingValidationIdleScreen` | pass (local) |
+| REQ-UIX-1795615850526190-005 | UIX-1795615852801246 | 3 new keys and 1 deleted key in all 10 locales, `translatable-keys.txt` regenerated, `lintGithubDebug` pass; 30 goldens re-recorded and 1 new golden, `verifyRoborazziGithubDebug` green | pass (local) |
