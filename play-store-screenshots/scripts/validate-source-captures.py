@@ -8,22 +8,44 @@ import struct
 import re
 from pathlib import Path
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, RELAY_EDGE_CONTROLS, RELAY_SECTIONS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, ROOT, SCREENS, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport, matches_control_size
+
+
+def complete_control_bounds(observed: object, controls: tuple[str, ...]) -> bool:
+    return (isinstance(observed, dict) and set(observed) == set(controls)
+            and all(isinstance(control, dict)
+                    and whole_control_in_viewport(control.get("bounds"), control.get("viewport"))
+                    for control in observed.values()))
 
 
 def complete_viewports(receipts: object, controls: tuple[str, ...]) -> bool:
-    if not isinstance(receipts, dict) or set(receipts) != set(LOCALES):
+    return (isinstance(receipts, dict) and set(receipts) == set(LOCALES)
+            and all(isinstance(receipt, dict) and receipt.get("observedAtUtc")
+                    and complete_control_bounds(receipt.get("controls"), controls)
+                    for receipt in receipts.values()))
+
+
+def complete_relay_viewports(relays: object, sizes: object) -> bool:
+    if not (isinstance(relays, dict) and isinstance(sizes, dict) and set(relays) == set(sizes) == set(LOCALES)):
         return False
-    for receipt in receipts.values():
-        if not isinstance(receipt, dict) or not receipt.get("observedAtUtc"):
+    for locale, receipt in relays.items():
+        if not isinstance(receipt, dict) or receipt.get("unchangedObservations") != 3:
             return False
-        observed = receipt.get("controls")
-        if not isinstance(observed, dict) or set(observed) != set(controls):
+        sections = receipt.get("sections")
+        references = sizes[locale]
+        if (not complete_control_bounds(sections, RELAY_SECTIONS + RELAY_EDGE_CONTROLS)
+                or not isinstance(references, dict) or set(references) != set(RELAY_EDGE_CONTROLS)):
             return False
-        if any(not isinstance(control, dict)
-               or not whole_control_in_viewport(control.get("bounds"), control.get("viewport"))
-               for control in observed.values()):
-            return False
+        for tag, reference in references.items():
+            if not isinstance(reference, dict) or reference.get("unchangedObservations") != 3:
+                return False
+            bounds, viewport = reference.get("bounds"), reference.get("viewport")
+            if not whole_control_in_viewport(bounds, viewport):
+                return False
+            width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+            if (reference.get("width") != width or reference.get("height") != height
+                    or not matches_control_size(sections[tag]["bounds"], width, height)):
+                return False
     return True
 
 
@@ -106,6 +128,8 @@ def validate(manifest_path: Path = MANIFEST, root: Path = ROOT) -> list[str]:
     displays = receipts.get("displayFrames", {})
     expected_displays = {f"{locale}/{name}": {**display_profile(locale, name), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
                          for locale in LOCALES for name in DISPLAY_PROFILES}
+    if not complete_relay_viewports(receipts.get("relaySections"), receipts.get("relayIntrinsic")):
+        errors.append("Missing actual relay editor viewport receipts.")
     if not complete_viewports(receipts.get("dnsFocus", {}), DNS_CONTROLS):
         errors.append("Missing actual DNS editor viewport receipts.")
     if not complete_viewports(receipts.get("backupFocus", {}), BACKUP_CONTROLS):

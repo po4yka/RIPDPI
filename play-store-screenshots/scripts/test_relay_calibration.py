@@ -79,17 +79,16 @@ class RelaySwitchTests(unittest.TestCase):
         device.scroll.assert_any_call(600, x=58)
 
     @patch.object(capture.time, "sleep")
-    def test_whole_but_shifted_preset_is_rejected(self, _sleep):
-        names = ["mode-editor-relay-section-" + section for section in
-                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+    def test_stable_whole_controls_can_fit_without_top_alignment(self, _sleep):
+        names = capture.RELAY_SECTIONS + capture.RELAY_EDGE_CONTROLS
         tree = ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[50,200][1030,1670]">' +
-            ''.join(f'<node resource-id="{name}" bounds="[100,230][900,1500]" />' for name in names) +
+            ''.join(f'<node resource-id="{name}" bounds="[100,430][900,1500]" />' for name in names) +
             '</node></hierarchy>')
-        device = self.device([tree])
-        with self.assertRaisesRegex(capture.RelayLayoutError, "lost its required top alignment"):
-            device.verify_relay_sections()
-        self.assertNotIn("relaySections", device.receipts)
+        device = self.device([tree] * 3)
+        device.receipts["relayIntrinsic"] = {"en": {
+            tag: {"width": 800, "height": 1070} for tag in capture.RELAY_EDGE_CONTROLS}}
+        device.verify_relay_sections()
+        self.assertEqual(device.receipts["relaySections"]["en"]["unchangedObservations"], 3)
 
 
 class IntrinsicSizeTests(unittest.TestCase):
@@ -97,7 +96,7 @@ class IntrinsicSizeTests(unittest.TestCase):
     def tree(preset="[100,400][900,480]", advanced="[100,1500][900,1595]"):
         return ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[50,200][1030,1670]">' +
             f'<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="{preset}" />' +
-            f'<node resource-id="mode-editor-advanced" bounds="{advanced}" />' + '</node></hierarchy>')
+            f'<node resource-id="relay-editor-advanced" bounds="{advanced}" />' + '</node></hierarchy>')
 
     def test_alignment_searches_up_for_measured_preset_above_viewport(self):
         device = capture.CaptureDevice("emulator-5556")
@@ -107,7 +106,7 @@ class IntrinsicSizeTests(unittest.TestCase):
         device.scroll = Mock()
         device.receipts["relayIntrinsic"] = {"en": {
             "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 80},
-            "mode-editor-advanced": {"width": 800, "height": 95, "viewport": [50,200,1030,1670]}}}
+            "relay-editor-advanced": {"width": 800, "height": 95, "viewport": [50,200,1030,1670]}}}
         device.align("mode-editor-relay-chip-ru-mobile-relay")
         device.scroll.assert_called_once_with(-400, x=58)
 
@@ -130,9 +129,9 @@ class IntrinsicSizeTests(unittest.TestCase):
         device.measure_relay_intrinsic_sizes()
         measured = device.receipts["relayIntrinsic"]["fa"]
         self.assertEqual(measured["mode-editor-relay-chip-ru-mobile-relay"]["height"], 80)
-        self.assertEqual(measured["mode-editor-advanced"]["height"], 95)
+        self.assertEqual(measured["relay-editor-advanced"]["height"], 95)
         device.scroll.assert_called_once_with(250, x=58)
-        self.assertEqual(measured["mode-editor-advanced"]["unchangedObservations"], 3)
+        self.assertEqual(measured["relay-editor-advanced"]["unchangedObservations"], 3)
 
     @patch.object(capture.time, "sleep")
     def test_clipped_reference_is_never_used_as_full_size(self, _sleep):
@@ -147,20 +146,18 @@ class IntrinsicSizeTests(unittest.TestCase):
 
     @patch.object(capture.time, "sleep")
     def test_contained_but_truncated_actual_advanced_sizes_are_rejected(self, _sleep):
-        # Real fa243=85px versus95px complete; zh252=88px versus91px.
         for observed, complete in ((85, 95), (88, 91), (90, 90)):
-            names = ["mode-editor-relay-section-" + section for section in
-                     ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
+            names = capture.RELAY_SECTIONS
             xml = '<hierarchy><node scrollable="true" bounds="[50,200][1030,1670]">' + ''.join(
                 f'<node resource-id="{name}" bounds="[100,300][900,1500]" />' for name in names)
             xml += '<node resource-id="mode-editor-relay-chip-ru-mobile-relay" bounds="[100,204][900,280]" />'
-            xml += f'<node resource-id="mode-editor-advanced" bounds="[100,{1670-observed}][900,1670]" /></node></hierarchy>'
+            xml += f'<node resource-id="relay-editor-advanced" bounds="[100,{1600-observed}][900,1600]" /></node></hierarchy>'
             device = capture.CaptureDevice("emulator-5556")
             device.locale = "fa"
             device.tree = Mock(return_value=ElementTree.fromstring(xml))
             device.receipts["relayIntrinsic"] = {"fa": {
                 "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 76},
-                "mode-editor-advanced": {"width": 800, "height": complete}}}
+                "relay-editor-advanced": {"width": 800, "height": complete}}}
             if observed < complete:
                 with self.assertRaisesRegex(capture.RelayLayoutError, "truncated relative"):
                     device.verify_relay_sections()

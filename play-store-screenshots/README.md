@@ -52,7 +52,7 @@ The base display uses 360 dpi and font scale 1.0. Diagnostics and strategy confi
 
 Home capture requires at least two observed RTT samples. Home starts at the top of its content. The manifest records its native scroll offset and checks it against zero with a four-pixel tolerance. Persian Home uses 255 dpi and a 0.8 font scale to fit the RTT count in the frame. DNS capture shows the prefilled custom DoH form and the Advanced entry. DNS and backup captures record the bounds of their controls and the scroll viewport in each locale. Validation requires the DoH URL, bootstrap addresses, Save and Advanced controls, and the backup export, share and import buttons to fit inside their scroll viewports.
 
-The English relay density is 271 dpi so the current editor can align the last recommended preset without clipping the preceding preset. Localized relay densities similarly fit the observed current transport groups and Advanced block. Every relay capture checks three stable observations of the last preset, all transport groups and Advanced wholly inside the actual scroll viewport. Chinese uses the same exact preset alignment rather than an additional bottom scroll that would clip it. Failed independent presentation routes are collected for diagnosis across locales, but any failure prevents writing a new manifest; live connection or scan failures abort immediately. Failure artifacts preserve raw partial frames and geometry before display cleanup, and are never publishable source captures.
+The relay capture uses the bottom of the editor. In each locale, it checks three stable observations of the last recommended preset, the TLS, proxy, QUIC and Tor groups, and the relay-specific Advanced control. The preset and Advanced control must match their full dimensions from an interior observation. A failure on a presentation route records the frame and geometry before display cleanup, then continues to the next route. A live connection or scan failure stops capture immediately. The workflow writes the source manifest only when all routes pass.
 
 Inspect all 42 source frames at full size. Check the captured state and whole content blocks, not just the PNG dimensions. In particular, the diagnostics poster must show an actual completed check, not demo results or the run warning screen. Connection data must come from the real service. Do not use a simulated connected preset. A warning that applies to the captured state must stay visible.
 
@@ -87,7 +87,7 @@ For layout diagnosis only, add `calibrate_relay=true`. This runs the finite,
 committed density candidates twice per accepted locale with unchanged physical
 pixels and font scales. Every trial retains raw PNG/XML/display evidence; the
 switch must be observed enabled and the preset, all transport sections and
-Advanced must be fully visible and stable at the exact required alignment.
+the relay Advanced control must be fully visible and stable in one viewport.
 Calibration never writes source frames or a source manifest and never renders
 marketing assets. Review its proposed profiles and commit any validated profile
 changes before a separate, fixed-profile full capture.

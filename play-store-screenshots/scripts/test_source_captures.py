@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import patch, Mock
 from xml.etree import ElementTree
 
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, SOURCE_SCHEMA_VERSION, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, RELAY_ADVANCED, RELAY_EDGE_CONTROLS, RELAY_SECTIONS, SOURCE_SCHEMA_VERSION, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, SCREENS, input_hashes, inputs_sha256, sha256
 
 spec = importlib.util.spec_from_file_location("validator", Path(__file__).with_name("validate-source-captures.py"))
 validator = importlib.util.module_from_spec(spec)
@@ -104,12 +104,15 @@ class SourceCaptureTests(unittest.TestCase):
         checked = ElementTree.fromstring(proxy.format("true"))
         device.tree = Mock(side_effect=[unchecked, checked, checked])
         device.tap = Mock()
-        device.align = Mock()
+        device.scroll = Mock()
         device.verify_relay_sections = Mock()
         device.enable_relay_for_capture = Mock()
         device.measure_relay_intrinsic_sizes = Mock()
+        device.receipts["relayIntrinsic"] = {
+            locale: {RELAY_ADVANCED: {"viewport": [79, 230, 1001, 1662]}}
+            for locale in ("en", "zh-CN")}
         device.show_relay_fields()
-        device.align.assert_called_once_with("mode-editor-relay-chip-ru-mobile-relay")
+        device.scroll.assert_called_once_with(600, x=87)
         device.locale = "zh-CN"
         device.show_relay_fields()
         device.tap.assert_called_once_with(unchecked[0])
@@ -156,15 +159,13 @@ class SourceCaptureTests(unittest.TestCase):
                          {"densityDpi": 251, "fontScale": 1.5294118})
 
     def test_relay_sections_require_complete_visible_bounds(self):
-        names = ["mode-editor-relay-section-" + section for section in
-                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        names = RELAY_SECTIONS + RELAY_EDGE_CONTROLS
         for bad in (None, "missing", "clipped-top", "clipped-bottom", "clipped-side"):
             with self.subTest(bad=bad):
                 nodes = []
-                for index, name in enumerate(names):
-                    bounds = "[100,214][900,290]" if index == 5 else "[100,300][900,1500]"
-                    if index == 6:
+                for name in names:
+                    bounds = "[100,214][900,290]" if name == RELAY_EDGE_CONTROLS[0] else "[100,300][900,1500]"
+                    if name == RELAY_ADVANCED:
                         if bad == "missing":
                             continue
                         bounds = {"clipped-top": "[100,209][900,1500]",
@@ -175,7 +176,7 @@ class SourceCaptureTests(unittest.TestCase):
                 device.locale = "en"
                 device.receipts["relayIntrinsic"] = {"en": {
                     "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 76},
-                    "mode-editor-advanced": {"width": 800, "height": 1200}}}
+                    RELAY_ADVANCED: {"width": 800, "height": 1200}}}
                 device.tree = Mock(return_value=ElementTree.fromstring(
                     '<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
                     + "".join(nodes) + '</node></hierarchy>'))
@@ -184,24 +185,27 @@ class SourceCaptureTests(unittest.TestCase):
                         device.verify_relay_sections()
                 else:
                     device.verify_relay_sections()
-                    self.assertEqual(len(device.receipts["relaySections"]["en"]["sections"]), 7)
+                    self.assertEqual(len(device.receipts["relaySections"]["en"]["sections"]), 6)
                     self.assertEqual(device.receipts["relaySections"]["en"]["unchangedObservations"], 3)
 
     @patch.object(capture.time, "sleep")
     def test_relay_sections_reject_a_clipped_preset_and_unstable_layout(self, _sleep):
-        names = ["mode-editor-relay-section-" + section for section in
-                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        names = RELAY_SECTIONS + RELAY_EDGE_CONTROLS
         def tree(offset=0, clipped=False):
-            nodes = [f'<node resource-id="{name}" bounds="[100,{(200 if clipped else 214) if index == 5 else 300 + offset}][900,{1500 if index == 5 else 1500 + offset}]" />'
-                     for index, name in enumerate(names)]
+            nodes = []
+            for name in names:
+                if name == RELAY_EDGE_CONTROLS[0]:
+                    top, bottom = (200 if clipped else 214), 1500
+                else:
+                    top, bottom = 300 + offset, 1500 + offset
+                nodes.append(f'<node resource-id="{name}" bounds="[100,{top}][900,{bottom}]" />')
             return ElementTree.fromstring('<hierarchy><node scrollable="true" bounds="[45,210][1035,1665]">'
                                           + "".join(nodes) + '</node></hierarchy>')
         device = capture.CaptureDevice("emulator-5556")
         device.locale = "zh-CN"
         device.receipts["relayIntrinsic"] = {"zh-CN": {
             "mode-editor-relay-chip-ru-mobile-relay": {"width": 800, "height": 1286},
-            "mode-editor-advanced": {"width": 800, "height": 1200}}}
+            RELAY_ADVANCED: {"width": 800, "height": 1200}}}
         device.tree = Mock(return_value=tree(clipped=True))
         with self.assertRaisesRegex(RuntimeError, "clipped"):
             device.verify_relay_sections()
@@ -300,6 +304,16 @@ class SourceCaptureTests(unittest.TestCase):
                           "viewport": [0, 54, 1080, 1800]}
                     for index, tag in enumerate(controls)}}
                 for locale in LOCALES}
+        self.data["runReceipts"]["relaySections"] = {
+            locale: {"unchangedObservations": 3, "sections": {
+                tag: {"bounds": [100, 300, 900, 1500], "viewport": [45, 210, 1035, 1665]}
+                for tag in RELAY_SECTIONS + RELAY_EDGE_CONTROLS}}
+            for locale in LOCALES}
+        self.data["runReceipts"]["relayIntrinsic"] = {
+            locale: {tag: {"bounds": [100, 300, 900, 1500], "viewport": [45, 210, 1035, 1665],
+                           "width": 800, "height": 1200, "unchangedObservations": 3}
+                     for tag in RELAY_EDGE_CONTROLS}
+            for locale in LOCALES}
         self.save()
 
     def save(self):
@@ -358,6 +372,17 @@ class SourceCaptureTests(unittest.TestCase):
                 self.assertTrue(any("per-frame density" in error for error in self.validate()))
                 self.data["runReceipts"]["displayFrames"][f"{locale}/relay"] = {
                     **display_profile(locale, "relay"), "physicalDensityDpi": DENSITY_DPI, "screen": "1080x1800"}
+
+    def test_incomplete_relay_viewport_is_rejected(self):
+        del self.data["runReceipts"]["relaySections"]["fr"]["sections"][RELAY_ADVANCED]
+        self.save()
+        self.assertIn("Missing actual relay editor viewport receipts.", self.validate())
+
+    def test_truncated_relay_advanced_is_rejected_inside_the_viewport(self):
+        observed = self.data["runReceipts"]["relaySections"]["en"]["sections"][RELAY_ADVANCED]
+        observed["bounds"][3] -= 3
+        self.save()
+        self.assertIn("Missing actual relay editor viewport receipts.", self.validate())
 
     def test_clipped_backup_focus_is_rejected(self):
         observed = self.data["runReceipts"]["backupFocus"]["fr"]["controls"]

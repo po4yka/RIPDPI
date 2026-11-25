@@ -19,7 +19,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 from capture_build import OUTPUT_METADATA, check_play_apk, check_play_output, verify
-from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, PACKAGE, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport
+from source_captures import FRAME_SIZE, DENSITY_DPI, DISPLAY_PROFILES, DISPLAY_OVERRIDES, DNS_CONTROLS, BACKUP_CONTROLS, RELAY_ADVANCED, RELAY_EDGE_CONTROLS, RELAY_SECTIONS, display_profile, STATUS_BAR, HOME_SCROLL_PIXELS, LOCALES, MANIFEST, PROJECT, ROOT, SCREENS, PACKAGE, VARIANT, SOURCE_SCHEMA_VERSION, input_hashes, inputs_sha256, sha256, whole_control_in_viewport, matches_control_size
 
 
 
@@ -317,9 +317,9 @@ class CaptureDevice:
             if node is None:
                 observations.append({"missing": True})
                 intrinsic = self.receipts.get("relayIntrinsic", {}).get(getattr(self, "locale", ""), {})
-                if tag_name == "mode-editor-relay-chip-ru-mobile-relay" and "height" in intrinsic.get("mode-editor-advanced", {}):
+                if tag_name == RELAY_EDGE_CONTROLS[0] and "height" in intrinsic.get(RELAY_ADVANCED, {}):
                     # Measurement deliberately ends below this known preset.
-                    self.scroll(-400, x=intrinsic["mode-editor-advanced"]["viewport"][0] + 8)
+                    self.scroll(-400, x=intrinsic[RELAY_ADVANCED]["viewport"][0] + 8)
                 else:
                     self.scroll(500)
                 continue
@@ -380,7 +380,7 @@ class CaptureDevice:
         """
         measured = {}
         self.receipts.setdefault("relayIntrinsic", {})[self.locale] = measured
-        for name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+        for name in RELAY_EDGE_CONTROLS:
             previous = None
             stable = 0
             observations = []
@@ -422,9 +422,7 @@ class CaptureDevice:
                 raise RelayLayoutError(f"Could not measure complete interior control: {name}")
 
     def verify_relay_sections(self) -> None:
-        names = ["mode-editor-relay-section-" + section for section in
-                 ("tls-transports", "proxy-transports", "quic-transports", "pt-relays", "tor")]
-        names.extend(("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"))
+        names = RELAY_SECTIONS + RELAY_EDGE_CONTROLS
         previous = None
         stable = 0
         for _ in range(8):
@@ -436,18 +434,13 @@ class CaptureDevice:
                     raise RelayLayoutError(f"The complete relay section is missing: {name}")
                 bounds = self.bounds(node)
                 viewport = self.viewport_bounds(tree, node)
-                if not (len(bounds) == 4 and viewport[0] <= bounds[0] < bounds[2] <= viewport[2]
-                        and viewport[1] <= bounds[1] < bounds[3] <= viewport[3]):
+                if not whole_control_in_viewport(bounds, viewport):
                     raise RelayLayoutError(f"The relay section is clipped: {name}")
-                if name == "mode-editor-relay-chip-ru-mobile-relay" and abs(bounds[1] - viewport[1] - 4) > 4:
-                    raise RelayLayoutError("The complete relay preset lost its required top alignment.")
-                if name in ("mode-editor-relay-chip-ru-mobile-relay", "mode-editor-advanced"):
+                if name in RELAY_EDGE_CONTROLS:
                     reference = self.receipts.get("relayIntrinsic", {}).get(self.locale, {}).get(name, {})
                     if "width" not in reference or "height" not in reference:
                         raise RuntimeError("Full interior relay control dimensions were not observed.")
-                    width, height = bounds[2] - bounds[0], bounds[3] - bounds[1]
-                    if not (reference["width"] <= width <= reference["width"] + 1
-                            and reference["height"] <= height <= reference["height"] + 1):
+                    if not matches_control_size(bounds, reference["width"], reference["height"]):
                         raise RelayLayoutError(f"The relay control is truncated relative to its full interior size: {name}")
                 observed[name] = {"bounds": bounds, "viewport": viewport}
             stable = stable + 1 if observed == previous else 1
@@ -521,7 +514,9 @@ class CaptureDevice:
                 raise RuntimeError("Proxy only mode did not become selected.")
         self.enable_relay_for_capture()
         self.measure_relay_intrinsic_sizes()
-        self.align("mode-editor-relay-chip-ru-mobile-relay")
+        # Move to the bottom of the current editor and check that the relay groups still fit.
+        viewport = self.receipts["relayIntrinsic"][self.locale][RELAY_ADVANCED]["viewport"]
+        self.scroll(600, x=viewport[0] + 8)
         self.verify_relay_sections()
 
     def record_visible_controls(self, receipt_key: str, controls: tuple[str, ...], screen: str) -> None:

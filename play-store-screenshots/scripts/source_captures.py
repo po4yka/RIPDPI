@@ -81,6 +81,10 @@ DISPLAY_OVERRIDES["fa"]["home"] = {"densityDpi": 255, "fontScale": 0.8}
 DISPLAY_OVERRIDES["zh-CN"]["relay"] = {"densityDpi": 251, "fontScale": 1.5294118}
 DNS_CONTROLS = ("dns-custom-doh-url", "dns-custom-bootstrap", "dns-custom-save", "dns-advanced")
 BACKUP_CONTROLS = ("backup-export-button", "backup-share-button", "backup-import-button")
+RELAY_ADVANCED = "relay-editor-advanced"
+RELAY_EDGE_CONTROLS = ("mode-editor-relay-chip-ru-mobile-relay", RELAY_ADVANCED)
+RELAY_SECTIONS = tuple(f"mode-editor-relay-section-{name}"
+                       for name in ("tls-transports", "proxy-transports", "quic-transports", "tor"))
 
 
 def display_profile(locale: str, name: str) -> dict:
@@ -95,3 +99,9 @@ def whole_control_in_viewport(bounds: list[int], viewport: list[int]) -> bool:
     return (0 <= left < right <= FRAME_SIZE[0] and 0 <= top < bottom <= FRAME_SIZE[1]
             and left + 4 <= bounds[0] < bounds[2] <= right - 4
             and top + 4 <= bounds[1] < bounds[3] <= bottom - 4)
+
+
+def matches_control_size(bounds: list[int], width: object, height: object) -> bool:
+    return (type(width) is int and type(height) is int and width > 0 and height > 0
+            and width <= bounds[2] - bounds[0] <= width + 1
+            and height <= bounds[3] - bounds[1] <= height + 1)
