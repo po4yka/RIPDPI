@@ -2,10 +2,10 @@
 id: UIX-1795615855953573
 title: Confirm imports and offer to connect to the new server
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: medium
-owner: unassigned
+owner: import-confirm
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required

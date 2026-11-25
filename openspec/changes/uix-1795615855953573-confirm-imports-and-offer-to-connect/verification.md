@@ -3,7 +3,7 @@ task_id: UIX-1795615855953573
 change: uix-1795615855953573-confirm-imports-and-offer-to-connect
 commit_sha: null
 local: required
-local_evidence: null
+local_evidence: "verifyRoborazziGithubDebug: 4299 app unit tests, BUILD SUCCESSFUL (2026-11-25); lintGithubDebug for locale parity"
 remote_ci: required
 remote_ci_evidence: null
 device: required
@@ -20,7 +20,11 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-UIX-1795615855953573-001 | UIX-1795615856525622 | Pending | required |
-| REQ-UIX-1795615855953573-002 | UIX-1795615856992293 | Pending | required |
-| REQ-UIX-1795615855953573-003 | UIX-1795615857443258 | Pending | required |
-| REQ-UIX-1795615855953573-004 | UIX-1795615857865767 | Pending | required |
+| REQ-UIX-1795615855953573-001 | UIX-1795615856525622 | `ImportResultFeedbackTest` (Added name, Connect and Select shown, Connect emits a start request), `ImportConfirmViewModelTest` (Select uses the import id; a failed selection shows an error), screenshot `ProfileImportConfirmScreenshotTest.savedState`. Link, QR code, and a file holding a link all open this screen. A RIPDPI bundle file goes through the subscription flow and gets no Select/Connect; see design.md non-goals. | partial |
+| REQ-UIX-1795615855953573-002 | UIX-1795615856992293 | `ClipboardImportViewModelTest` (a typed link after an empty clipboard routes to import, no second clipboard read, no clear). | pass (unit) |
+| REQ-UIX-1795615855953573-003 | UIX-1795615857443258 | `SubscriptionInitialImportTest` (Check shows the server count and saves nothing; Add saves that fetch with one request), `SetupInteractionQualityTest` (host name before Check, title and server count after), screenshot `checkedSubscription`. | pass (unit) |
+| REQ-UIX-1795615855953573-004 | UIX-1795615857865767 | `SubscriptionInitialImportTest` (404 on Check and 503 on Add carry the status), `SetupInteractionQualityTest` (HTTP status text), screenshot `failedCheck`; network, format, size, expiry, and invalid-link texts in all ten locales. | pass (unit) |
+
+Independent review (pr-reviewer) found a stale Check result, reconnect warnings read as selection failures, HTTP status text hiding a named cause, a double-tap gap, and a possible double start; all are fixed in a4db1a6611 and covered by the focused app tests (proxyimport, subscription, connection, SetupInteractionQualityTest: BUILD SUCCESSFUL). `:core:data:runtime-state:testDebugUnitTest` passes.
+
+Device evidence: not collected. The Kaspresso subscription journeys were updated for the Check step but not run. Remote CI: not run; the parent session integrates and pushes.
