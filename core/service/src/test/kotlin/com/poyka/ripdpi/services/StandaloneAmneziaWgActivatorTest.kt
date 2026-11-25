@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DurableCommandReceipt
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseIntentAuthority
@@ -264,6 +265,70 @@ class StandaloneAmneziaWgActivatorTest {
             assertEquals(previousProvider, provider.snapshotRecord())
             assertNull(activator.selectedAwgEgress())
         }
+
+    @Test
+    fun `failed switch from a running tunnel restarts the previous connection`() =
+        runTest {
+            val fixture = FailedSwitchFixture()
+
+            val result = fixture.activateAndFail(this)
+
+            assertTrue(result.isFailure)
+            assertEquals("awg-old", fixture.store.awgProfileId)
+            assertEquals(listOf(Mode.VPN, Mode.VPN), fixture.controller.startCalls)
+            assertEquals(1, fixture.controller.prepareStartCalls)
+        }
+
+    @Test
+    fun `failed cold start does not start a connection that was not running`() =
+        runTest {
+            val fixture = FailedSwitchFixture(AppStatus.Halted to Mode.VPN)
+
+            val result = fixture.activateAndFail(this)
+
+            assertTrue(result.isFailure)
+            assertEquals("awg-old", fixture.store.awgProfileId)
+            assertEquals(listOf(Mode.VPN), fixture.controller.startCalls)
+            assertEquals(0, fixture.controller.prepareStartCalls)
+        }
+
+    @Test
+    fun `user stop during a failed switch is not overridden by the restore`() =
+        runTest {
+            val fixture = FailedSwitchFixture()
+
+            val result = fixture.activateAndFail(this) { fixture.controller.intentArbiter.userStop {} }
+
+            assertTrue(result.isFailure)
+            assertEquals(listOf(Mode.VPN), fixture.controller.startCalls)
+            assertEquals(0, fixture.controller.prepareStartCalls)
+        }
+
+    private inner class FailedSwitchFixture(
+        initialStatus: Pair<AppStatus, Mode> = AppStatus.Running to Mode.VPN,
+    ) {
+        val controller = RecordingServiceController()
+        val store = RecordingProfileSelectionStore("awg-old")
+        private val serviceState = TestServiceStateStore(initialStatus)
+        val activator = newActivator(controller, store, { sampleRequest("awg-old") }, serviceState = serviceState)
+
+        init {
+            controller.appliedCallback = { check(controller.tracker.claimApplying(controller.requestId)) }
+        }
+
+        suspend fun activateAndFail(
+            scope: kotlinx.coroutines.test.TestScope,
+            whileApplying: () -> Unit = {},
+        ): Result<Unit> {
+            val activation = scope.async { runCatching { activator.activate(sampleRequest("awg-unreachable")) } }
+            scope.runCurrent()
+            whileApplying()
+            serviceState.setStatus(AppStatus.Halted, Mode.VPN)
+            check(controller.tracker.recordRuntimeFailure(controller.requestId, rollbackSafe = true))
+            controller.tracker.releaseRuntimeOwnership(controller.requestId)
+            return activation.await()
+        }
+    }
 
     @Test
     fun `cleared durable authority cannot be revived by cached request`() =
@@ -566,6 +631,7 @@ class StandaloneAmneziaWgActivatorTest {
         loadProfile: suspend (String) -> AwgActivationRequest?,
         providerSelectionStore: FakeSelectionStore = FakeSelectionStore(),
         serviceIntentArbiter: ServiceIntentArbiter = serviceController.intentArbiter,
+        serviceState: TestServiceStateStore = TestServiceStateStore(),
     ): DefaultStandaloneAmneziaWgActivator {
         val tracker = TransportFailoverApplyTracker()
         serviceController.tracker = tracker
@@ -589,6 +655,7 @@ class StandaloneAmneziaWgActivatorTest {
             serviceIntentArbiter,
             serviceController.testAuthority,
             mutations,
+            FailedSwitchRestorer(serviceController, serviceState, serviceIntentArbiter),
         )
     }
 

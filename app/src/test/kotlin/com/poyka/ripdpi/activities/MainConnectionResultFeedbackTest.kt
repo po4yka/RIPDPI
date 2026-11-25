@@ -353,6 +353,17 @@ class MainConnectionResultFeedbackTest {
         }
 
     @Test
+    fun `amneziawg handshake timeout shows the actionable message`() =
+        runTest {
+            val fixture = ConnectionFeedbackFixture(backgroundScope)
+            runCurrent()
+            fixture.store.emitFailed(Sender.VPN, FailureReason.AmneziaWgUnreachable)
+            runCurrent()
+            val message = checkNotNull(fixture.state.value.errorMessage)
+            assertTrue(message.endsWith(": ${com.poyka.ripdpi.R.string.failure_awg_unreachable}"))
+        }
+
+    @Test
     fun `changed non-user runtime failure remains visible`() =
         runTest {
             val fixture = ConnectionFeedbackFixture(backgroundScope)

@@ -344,7 +344,12 @@ internal class MainConnectionActions(
             }
             return
         }
-        val detail = reason.displayMessage
+        val detail =
+            if (reason == FailureReason.AmneziaWgUnreachable) {
+                stringResolver.getString(R.string.failure_awg_unreachable)
+            } else {
+                reason.displayMessage
+            }
         val message = stringResolver.getString(R.string.failed_to_start, sender.senderName) + ": $detail"
         showError(message)
     }

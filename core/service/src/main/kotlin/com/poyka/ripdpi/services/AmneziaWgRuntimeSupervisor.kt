@@ -2,10 +2,15 @@
 
 package com.poyka.ripdpi.services
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
 import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
+import com.poyka.ripdpi.core.RuntimeReadinessTimeoutException
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NumericIp
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortCatalog
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
@@ -88,7 +93,13 @@ internal class AmneziaWgRuntimeSupervisor(
                     // Retry startup with fresh native state within the selected cohort budget.
                 }
             }
-            startAttempt(request, onUnexpectedExit, token)
+            try {
+                startAttempt(request, onUnexpectedExit, token)
+            } catch (failure: SupervisorStartupFailureException) {
+                val timeout = failure.exitCause.throwable as? RuntimeReadinessTimeoutException ?: throw failure
+                Logger.withTag(LogTags.SERVICE).w { timeout.message.orEmpty() }
+                throw ServiceStartupRejectedException(FailureReason.AmneziaWgUnreachable)
+            }
         }
     }
 

@@ -212,6 +212,7 @@ internal fun FailureReason?.startupJournalKind(): String =
         is FailureReason.RelayFingerprintPolicyRejected -> "relay_fingerprint_policy_rejected"
         is FailureReason.RelayConfigRejected -> "relay_config_rejected"
         is FailureReason.InitialTransportSelectionFailed -> "initial_transport_selection_failed"
+        FailureReason.AmneziaWgUnreachable -> "amneziawg_unreachable"
         is FailureReason.Unexpected -> "unexpected"
         is FailureReason.PermissionLost -> "permission_lost"
         null -> "unavailable"

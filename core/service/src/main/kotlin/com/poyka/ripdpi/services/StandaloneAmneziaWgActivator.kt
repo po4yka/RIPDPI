@@ -55,6 +55,7 @@ internal class DefaultStandaloneAmneziaWgActivator
         private val serviceIntentArbiter: ServiceIntentArbiter,
         private val pauseAuthority: PauseIntentAuthority,
         private val profileMutations: ProfileMutationCoordinator,
+        private val failedSwitchRestorer: FailedSwitchRestorer,
     ) : StandaloneAmneziaWgActivator,
         AwgEgressSelectionSource {
         @Inject
@@ -67,6 +68,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             serviceIntentArbiter: ServiceIntentArbiter,
             pauseAuthority: PauseIntentAuthority,
             profileMutations: ProfileMutationCoordinator,
+            failedSwitchRestorer: FailedSwitchRestorer,
         ) : this(
             serviceController = serviceController,
             profileSelections = profileSelections,
@@ -76,6 +78,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             serviceIntentArbiter = serviceIntentArbiter,
             pauseAuthority = pauseAuthority,
             profileMutations = profileMutations,
+            failedSwitchRestorer = failedSwitchRestorer,
         )
 
         internal constructor(
@@ -87,6 +90,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             serviceIntentArbiter: ServiceIntentArbiter,
             pauseAuthority: PauseIntentAuthority,
             profileMutations: ProfileMutationCoordinator,
+            failedSwitchRestorer: FailedSwitchRestorer,
         ) : this(
             serviceController,
             profileSelections,
@@ -96,6 +100,7 @@ internal class DefaultStandaloneAmneziaWgActivator
             serviceIntentArbiter,
             pauseAuthority,
             profileMutations,
+            failedSwitchRestorer,
         )
 
         // Explicit standalone selection wins until a normal/simple start clears its pointer.
@@ -110,6 +115,7 @@ internal class DefaultStandaloneAmneziaWgActivator
         override suspend fun activate(request: AwgActivationRequest) {
             request.requireRuntimeReady()
             val preparation = profileMutations.captureMutation(ProfileMutationOrigin.ExplicitActivation)
+            val origin = failedSwitchRestorer.captureRunning()
             lifecycleLock.withLock {
                 val requestId = applyTracker.begin()
                 var activationReceipt: ProfileActivationReceipt? = null
@@ -151,7 +157,12 @@ internal class DefaultStandaloneAmneziaWgActivator
                                     transportApplyWaitMillis(TransportKindAmneziaWg),
                                 )
                             if (outcome == TransportFailoverApplyOutcome.RollbackSafeFailure) {
-                                activationReceipt?.let { rollbackSelection(request.profileId, it) }
+                                val switchGeneration = selectionLock.withLock { selectedGeneration }
+                                val reverted =
+                                    activationReceipt?.let { rollbackSelection(request.profileId, it) } == true
+                                if (reverted && origin != null && switchGeneration != null) {
+                                    failedSwitchRestorer.restore(origin.copy(intentGeneration = switchGeneration))
+                                }
                             }
                         }
                     } catch (cleanupFailure: Exception) {
@@ -198,14 +209,15 @@ internal class DefaultStandaloneAmneziaWgActivator
         private suspend fun rollbackSelection(
             profileId: String,
             receipt: ProfileActivationReceipt,
-        ) {
+        ): Boolean =
             selectionLock.withLock {
-                if (profileMutations.compensateStandaloneAwg(receipt, profileId)) {
-                    selectedRequest = null
-                    selectedGeneration = null
+                profileMutations.compensateStandaloneAwg(receipt, profileId).also { compensated ->
+                    if (compensated) {
+                        selectedRequest = null
+                        selectedGeneration = null
+                    }
                 }
             }
-        }
 
         override suspend fun deactivate() = deactivate(requireLatestIntent = true)
 

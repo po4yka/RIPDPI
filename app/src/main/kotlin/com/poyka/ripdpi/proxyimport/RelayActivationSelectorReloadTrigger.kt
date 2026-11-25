@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationApplyFailure
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.runningConfiguration
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
+import com.poyka.ripdpi.services.FailedSwitchRestorer
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
@@ -69,6 +70,7 @@ class RelayActivationSelectorReloadTrigger
         private val selectionProvider: ActiveSelectorSelectionProvider,
         private val applied: AppliedRuntimeConfigurationSource,
         private val switches: RejectedSwitchReverter,
+        private val failedSwitchRestorer: FailedSwitchRestorer,
     ) : SelectorReloadTrigger {
         private val activationMutex = Mutex()
         private var preparedProfile: ProxyProfile? = null
@@ -133,13 +135,17 @@ class RelayActivationSelectorReloadTrigger
                 current?.runningConfiguration()?.takeIf { intent == RuntimePolicyReloadIntent.Automatic }?.let {
                     AutomaticReload(group, selection, it, authority.reference())
                 }
+            val origin = failedSwitchRestorer.captureRunning()
             val reason = dispatchReload(intent, automatic != null) { isCurrent(group, selection, profile) }
             val manual = request.manualReceipt
             if (automatic != null) {
                 reconcileAutomatic(automatic, reason)
             } else if (reason != null && manual != null) {
                 val restored = switches.revertRejectedSwitch(manual)
-                Logger.w(tag = LogTags.UI) { "Selector reload $reason; previous selection restored: $restored" }
+                val restarted = restored && origin != null && failedSwitchRestorer.restore(origin)
+                Logger.w(tag = LogTags.UI) {
+                    "Selector reload $reason; previous selection restored: $restored, restarted: $restarted"
+                }
             }
         }
 

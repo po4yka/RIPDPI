@@ -2,10 +2,10 @@
 id: SVC-1795615848338894
 title: Keep the working tunnel when a new server fails to start
 kind: bug
-status: backlog
+status: doing
 area: service
 priority: high
-owner: unassigned
+owner: tunnel-fallback
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: required

@@ -21,7 +21,7 @@ import kotlinx.coroutines.withTimeoutOrNull
  *   completes [startupSignal] and returns.
  *
  * If neither happens within [timeoutMillis] the loop throws
- * `IllegalStateException` whose message is
+ * [RuntimeReadinessTimeoutException] whose message is
  * `"<timeoutMessagePrefix> state=<lastState>[ lastEvent=<lastEvent>]"`, after
  * invoking [onTimeout] with that same string so the caller can log it. The
  * `runtime_ready` check, the polling interval and the timeout semantics are
@@ -86,9 +86,13 @@ internal suspend fun awaitRuntimeReady(
                 }
             }
         onTimeout(details)
-        error(details)
+        throw RuntimeReadinessTimeoutException(details)
     }
 }
+
+class RuntimeReadinessTimeoutException(
+    message: String,
+) : IllegalStateException(message)
 
 private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }
 

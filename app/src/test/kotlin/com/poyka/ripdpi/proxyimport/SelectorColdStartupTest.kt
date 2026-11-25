@@ -141,6 +141,19 @@ class SelectorColdStartupTest {
                 com.poyka.ripdpi.activities
                     .FakeAppliedRuntimeConfigurationSource(),
                 persistence.coordinator,
+                com.poyka.ripdpi.services.FailedSwitchRestorer(
+                    object : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+                        override fun recordStart(
+                            mode: com.poyka.ripdpi.data.Mode,
+                            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+                        ) = error("Unexpected restart")
+
+                        override fun recordStop() = Unit
+                    },
+                    FakeServiceStateStore(),
+                    com.poyka.ripdpi.services
+                        .ServiceIntentArbiter(persistence.authority),
+                ),
             )
         private val coordinator = SelectorReloadCoordinator(scope, provider.selectionChanges(), trigger)
         val listener =

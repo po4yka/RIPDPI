@@ -253,7 +253,7 @@ fun classifyFailureClass(
             failureReason.failureClass
         }
 
-        is FailureReason.InitialTransportSelectionFailed -> {
+        is FailureReason.InitialTransportSelectionFailed, FailureReason.AmneziaWgUnreachable -> {
             FailureClass.Timeout
         }
 

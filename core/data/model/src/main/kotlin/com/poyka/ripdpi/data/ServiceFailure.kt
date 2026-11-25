@@ -33,6 +33,8 @@ sealed interface FailureReason {
         val message: String,
     ) : FailureReason
 
+    data object AmneziaWgUnreachable : FailureReason
+
     data class Unexpected(
         val cause: Throwable,
     ) : FailureReason
@@ -60,6 +62,7 @@ val FailureReason.displayMessage: String
             is FailureReason.RelayFingerprintPolicyRejected -> message
             is FailureReason.RelayConfigRejected -> message
             is FailureReason.InitialTransportSelectionFailed -> message
+            FailureReason.AmneziaWgUnreachable -> "AmneziaWG server did not answer"
             is FailureReason.Unexpected -> cause.message ?: "Unexpected error"
             is FailureReason.PermissionLost -> "Required permission revoked: $permission"
         }

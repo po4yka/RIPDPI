@@ -19,6 +19,7 @@ class MeasuredProfileActivationCoordinator
         private val controller: ServiceController,
         private val measured: MeasuredActivationRegistry,
         private val runtimes: ServiceRuntimeRegistry,
+        private val failedSwitchRestorer: FailedSwitchRestorer,
     ) {
         suspend fun select(lease: MeasuredProfileSelectionLease): MeasuredProfileActivationFailure? {
             val mode =
@@ -43,6 +44,7 @@ class MeasuredProfileActivationCoordinator
             mode: Mode,
         ): MeasuredProfileActivationFailure? {
             var bound: com.poyka.ripdpi.data.RuntimeActivationReceipt? = null
+            val origin = failedSwitchRestorer.captureRunning()
             val outcome =
                 runCatching {
                     measured.register(selected.receipt, lease, selected.catalogGeneration)
@@ -56,11 +58,13 @@ class MeasuredProfileActivationCoordinator
                 }
             if (outcome.isFailure || outcome.getOrNull() != null) {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
-                    // Traffic stays on the previous selection, so the stored rows go back to it.
+                    // The stored rows go back to the previous selection; a failed reload stopped it, so restart it.
                     val cleanupFailure =
                         runCatching {
                             cancelOwned(selected.receipt, bound)
-                            mutations.revertRejectedSwitch(selected.receipt)
+                            if (mutations.revertRejectedSwitch(selected.receipt) && origin != null) {
+                                failedSwitchRestorer.restore(origin)
+                            }
                         }.exceptionOrNull()
                     if (cleanupFailure != null) {
                         val original = outcome.exceptionOrNull()

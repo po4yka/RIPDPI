@@ -259,50 +259,105 @@ class RelayActivationSelectorReloadTriggerTest {
     @Test
     fun `a rejected manual pick puts back the previous member and its automatic origin`() =
         runTest {
-            val persistence =
-                com.poyka.ripdpi.data.testing.RoomProfileFixture(
-                    androidx.test.core.app.ApplicationProvider
-                        .getApplicationContext(),
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                )
-            try {
-                persistence.initialize()
-                persistence.groups.add(selectorGroup(listOf(member("a"), member("b"))))
-                val selections = persistence.selectorSelections
-                assertTrue(selections.selectAutomatically("selector", selections.snapshot("selector"), "a") { true })
-                persistence.selectorActiveGroup.restoreActiveGroup("selector")
-                selections.select("selector", "b")
-                val receipt = selections.manualReceipt("selector") ?: error("Manual pick published no reservation")
-                val trigger =
-                    RelayActivationSelectorReloadTrigger(
-                        groupRepository = persistence.groups,
-                        selections = selections,
-                        authority = persistence.authority,
-                        stateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) },
-                        relayRefresher = RejectingRefresher(),
-                        selectionProvider =
-                            ActiveSelectorSelectionProvider(
-                                persistence.groups,
-                                selections,
-                                persistence.selectorActiveGroup,
-                            ),
-                        applied =
-                            com.poyka.ripdpi.activities
-                                .FakeAppliedRuntimeConfigurationSource(),
-                        switches = persistence.coordinator,
-                    )
-
-                trigger.hotReload(SelectorReloadRequest("selector", "b", receipt))
-
-                assertEquals("a", selections.snapshot("selector").profileId)
-                assertFalse(selections.snapshot("selector").isManual)
-                assertEquals("selector", persistence.selectorActiveGroup.snapshotActiveGroupId())
-                assertEquals(null, selections.manualReceipt("selector"))
-            } finally {
-                persistence.close()
-            }
+            val starts =
+                manualPickInRoom(RejectingRefresher()) { selections ->
+                    assertEquals("a", selections.snapshot("selector").profileId)
+                    assertFalse(selections.snapshot("selector").isManual)
+                    assertEquals(null, selections.manualReceipt("selector"))
+                }
+            assertEquals(emptyList<Mode>(), starts)
         }
+
+    @Test
+    fun `a manual pick whose server fails restarts the previous member`() =
+        runTest {
+            val stateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val failing =
+                object : RunningRelayRefresher {
+                    override suspend fun refresh(
+                        intent: RuntimePolicyReloadIntent,
+                        isCurrent: suspend () -> Boolean,
+                    ): Boolean {
+                        stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+                        error("Relay server could not be reached")
+                    }
+
+                    override suspend fun teardown() = Unit
+                }
+
+            val starts =
+                manualPickInRoom(failing, stateStore) { selections ->
+                    assertEquals("a", selections.snapshot("selector").profileId)
+                }
+
+            assertEquals(listOf(Mode.VPN), starts)
+        }
+
+    private suspend fun manualPickInRoom(
+        refresher: RunningRelayRefresher,
+        stateStore: FakeServiceStateStore = FakeServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) },
+        verify: suspend (com.poyka.ripdpi.data.selector.SelectorSelectionStore) -> Unit,
+    ): List<Mode> {
+        val persistence =
+            com.poyka.ripdpi.data.testing.RoomProfileFixture(
+                androidx.test.core.app.ApplicationProvider
+                    .getApplicationContext(),
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            )
+        try {
+            persistence.initialize()
+            persistence.groups.add(selectorGroup(listOf(member("a"), member("b"))))
+            val selections = persistence.selectorSelections
+            assertTrue(selections.selectAutomatically("selector", selections.snapshot("selector"), "a") { true })
+            persistence.selectorActiveGroup.restoreActiveGroup("selector")
+            selections.select("selector", "b")
+            val receipt = selections.manualReceipt("selector") ?: error("Manual pick published no reservation")
+            val controller = RestartRecordingController()
+            val trigger =
+                RelayActivationSelectorReloadTrigger(
+                    groupRepository = persistence.groups,
+                    selections = selections,
+                    authority = persistence.authority,
+                    stateStore = stateStore,
+                    relayRefresher = refresher,
+                    selectionProvider =
+                        ActiveSelectorSelectionProvider(
+                            persistence.groups,
+                            selections,
+                            persistence.selectorActiveGroup,
+                        ),
+                    applied =
+                        com.poyka.ripdpi.activities
+                            .FakeAppliedRuntimeConfigurationSource(),
+                    switches = persistence.coordinator,
+                    failedSwitchRestorer = restorer(stateStore, controller),
+                )
+
+            trigger.hotReload(SelectorReloadRequest("selector", "b", receipt))
+
+            verify(selections)
+            assertEquals("selector", persistence.selectorActiveGroup.snapshotActiveGroupId())
+            return controller.starts
+        } finally {
+            persistence.close()
+        }
+    }
+
+    private class RestartRecordingController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+        val starts = mutableListOf<Mode>()
+
+        override fun recordStart(
+            mode: Mode,
+            receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+        ): com.poyka.ripdpi.services.ServiceStartResult {
+            starts += mode
+            return com.poyka.ripdpi.services.ServiceStartResult
+                .Accepted(checkNotNull(receipt))
+        }
+
+        override fun recordStop() = Unit
+    }
 
     private class RejectingRefresher : RunningRelayRefresher {
         var refreshes = 0
@@ -854,6 +909,7 @@ class RelayActivationSelectorReloadTriggerTest {
                     object : com.poyka.ripdpi.data.RejectedSwitchReverter {
                         override suspend fun revertRejectedSwitch(receipt: DurableCommandReceipt) = false
                     },
+                failedSwitchRestorer = restorer(stateStore),
             )
 
         suspend fun transientSelection(): SelectorRelayProfileMapping {
@@ -977,3 +1033,17 @@ class RelayActivationSelectorReloadTriggerTest {
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
     }
 }
+
+private fun restorer(
+    stateStore: com.poyka.ripdpi.data.ServiceStateStore,
+    controller: com.poyka.ripdpi.services.TestSynchronousServiceController =
+        object : com.poyka.ripdpi.services.TestSynchronousServiceController() {
+            override fun recordStart(
+                mode: Mode,
+                receipt: com.poyka.ripdpi.data.RuntimeActivationReceipt?,
+            ) = error("Unexpected restart")
+
+            override fun recordStop() = Unit
+        },
+) = com.poyka.ripdpi.services
+    .FailedSwitchRestorer(controller, stateStore, controller.intentArbiter)

@@ -4,8 +4,11 @@ import com.poyka.ripdpi.core.ResolvedRipDpiAmneziaWgConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
 import com.poyka.ripdpi.core.RipDpiAmneziaWgObfuscationConfig
 import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
+import com.poyka.ripdpi.core.RuntimeReadinessTimeoutException
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
+import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
@@ -230,6 +233,36 @@ class AmneziaWgRuntimeSupervisorTest {
                 assertEquals("handshake dropped $budget", error?.message)
                 assertEquals(null, supervisor.runtime)
             }
+        }
+
+    @Test
+    fun readinessTimeoutAfterEveryAttemptFailsWithTypedReasonWithoutRawState() =
+        runTest {
+            val factory =
+                TestRipDpiAmneziaWgFactory {
+                    TestAmneziaWgRuntime().apply {
+                        awaitReadyFailure = RuntimeReadinessTimeoutException("AmneziaWG readiness timed out state=idle")
+                    }
+                }
+            val supervisor =
+                AmneziaWgRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    amneziaWgFactory = factory,
+                    runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
+                    handshakeAttempts = { 2 },
+                )
+
+            val error = runCatching { supervisor.start(sampleRequest()) {} }.exceptionOrNull()
+
+            assertEquals(2, factory.runtimes.size)
+            assertEquals(
+                FailureReason.AmneziaWgUnreachable,
+                (error as ServiceStartupRejectedException).reason,
+            )
+            assertTrue(error.message?.contains("state=") == false)
+            assertEquals(null, supervisor.runtime)
         }
 
     private fun sampleRequest(): AwgActivationRequest =

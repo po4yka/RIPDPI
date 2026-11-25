@@ -1092,6 +1092,13 @@ private class Fixture(
                 controller,
                 measured,
                 runtimeRegistry,
+                com.poyka.ripdpi.services.FailedSwitchRestorer(
+                    controller,
+                    com.poyka.ripdpi.testsupport
+                        .FakeServiceStateStore(),
+                    com.poyka.ripdpi.services
+                        .ServiceIntentArbiter(authority),
+                ),
             ),
             controlledMeasurement,
             xrayProbe,
