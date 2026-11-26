@@ -31,7 +31,6 @@ internal data class SelectiveMatrixTargetDefinition(
 internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition =
     DiagnosticsProfileDefinition(
         id = "selective-availability-matrix",
-        // Version 2 adds target class and AS; the importer re-imports a saved profile only when this rises.
         version = 2,
         name = "Selective availability matrix",
         family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
@@ -147,7 +146,6 @@ internal fun DiagnosticsProfileDefinition.validateSelectiveMatrix() {
         require(target.id.isNotBlank() && target.label.isNotBlank() && target.infrastructureGroup.isNotBlank()) {
             "Matrix target metadata is missing for ${target.id}"
         }
-        // Same class set and AS ranges as :core:diagnostics SelectiveMatrixModels; build-logic cannot depend on it.
         require(
             target.targetClass in setOf("domestic_hosting", "foreign_datacenter", "cdn") &&
                 target.destinationAsn in 1L..4_199_999_999L &&

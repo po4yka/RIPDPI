@@ -141,7 +141,6 @@ class BundledDiagnosticsProfileImporterTest {
                     updatedAt = 1L,
                 ),
             )
-            // A copy that missed the upgrade must still run, as unattributed, rather than fail every scan.
             classless.validate()
             classless.withUserHosts(listOf("example.com"))
 

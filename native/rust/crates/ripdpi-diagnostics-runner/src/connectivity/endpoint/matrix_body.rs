@@ -34,7 +34,6 @@ pub(super) fn read_response<R: Read>(
     result
 }
 
-// A peer reset and a stalled or deadline-cut read look alike only if they share a reason; reports must tell them apart.
 fn read_failure(kind: std::io::ErrorKind) -> &'static str {
     use std::io::ErrorKind::{BrokenPipe, ConnectionAborted, ConnectionReset, Interrupted, TimedOut, WouldBlock};
     match kind {
