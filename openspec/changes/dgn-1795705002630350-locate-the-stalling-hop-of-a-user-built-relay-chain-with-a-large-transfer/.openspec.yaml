@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-26
+goal: DGN-1795705002630350 Locate the stalling hop of a user-built relay chain
+  with a large transfer

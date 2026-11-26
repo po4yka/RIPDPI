@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-26
+goal: DGN-1795704974460888 Split selective-availability targets into domestic,
+  foreign datacenter and CDN classes

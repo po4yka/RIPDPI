@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-26
+goal: DAT-1795704964813672 Skip non-surviving bundle entries when allowlist mode
+  is detected

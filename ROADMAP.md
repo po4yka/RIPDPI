@@ -11,7 +11,7 @@ For completed work see:
 
 These items have an owning architecture note or design doc and are not blocking the current release.
 
-- Offline Learner: shared-priors release infrastructure. The Rust verifier, Kotlin Retrofit transport, JNI bridge, and 24h `SharedPriorsRefreshWorker` are landed; the pipeline rejects with `NoProductionKey` until the ed25519 release public key and manifest/priors URLs are embedded. Tracked in architecture notes.
+- Offline Learner: shared-priors release infrastructure. The Rust verifier, Kotlin Retrofit transport, JNI bridge, and 24h `SharedPriorsRefreshWorker` are landed; the pipeline rejects with `NoProductionKey` until the ed25519 release public key and manifest/priors URLs are embedded. Tracked in architecture notes. Research input, not yet scoped: remembered network policies as an aggregated, opt-in prior (DAT-1795705030545238).
 - Offline Learner: emulator / sim-to-field calibration. Type-system segregation and Android `EnvironmentDetector` are landed; per-family calibration factors remain a research spike. Tracked in architecture notes.
 
 ## Roadmap Hygiene

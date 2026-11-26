@@ -4,14 +4,14 @@ title: Send opt-in anonymous aggregated field reports
 kind: feature
 status: review
 area: diagnostics
-priority: high
+priority: critical
 owner: Diagnostics engineer
 parent: EPC-1795085162356362
 blocked_by: [DGN-1795085357320979, DAT-1795085420746769]
 spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
-updated: 2026-11-20
+updated: 2026-11-26
 status_detail: Gradle gates passed on 2026-11-20; owner waived local counsel and approved the AGENTS.md wording; device run and remote CI remain
 ---
 
@@ -25,3 +25,7 @@ Opt-in, anonymous, aggregated hourly field reports sent only through the active 
 - Reports validate against client-field-report v1; buckets under 5 attempts are suppressed.
 - Daily cap respected; failure drops the report.
 - client-legal-safety and legal-check reviews recorded.
+
+## Priority rationale
+
+Raised from high to critical on 2026-11-26. Nearly all external blocking evidence available to the project is single-vantage: one author, one network, one date, with conclusions that readers inferred. Aggregated opt-in reports keyed by client ASN and server ASN, with no addresses, are the only source that can close that gap. The same reports are the input that the paired server's block-detection alert needs, so a delay here also delays that alert. The scope and the privacy limits above do not change.
