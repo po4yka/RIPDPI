@@ -17,7 +17,7 @@ status_detail: Gradle gates passed on 2026-11-20; owner waived local counsel and
 
 ## Goal
 
-Opt-in, anonymous, aggregated hourly field reports sent only through the active tunnel. Counterparts: deploy D1, D2, D6, D7.
+Opt-in, anonymous, aggregated hourly field reports sent only through the active tunnel. Server counterparts: `po4yka/ripdpi-vpn-deploy#SEC-1795086333272606` (ingest) under epic `po4yka/ripdpi-vpn-deploy#EPC-1795085241910080`.
 
 ## Acceptance criteria
 

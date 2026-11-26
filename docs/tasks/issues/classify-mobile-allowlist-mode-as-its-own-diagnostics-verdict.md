@@ -24,6 +24,8 @@ Mobile allowlist mode means that destinations in a permitted set stay reachable 
 
 The observations report address-level filtering outside a permitted set, server-name matching per entry, broad blocking of UDP toward addresses outside the permitted set, and only standard HTTPS completing on permitted segments.
 
+Server counterpart: `po4yka/ripdpi-vpn-deploy#SCR-1795705796387934` (optional per-entry allowlist-survivability label in bundle v3, consumed by DAT-1795704964813672).
+
 The verdict needs a probe set that includes permitted-domain targets, foreign targets and UDP targets on the same network. Universal failure on all targets means offline or a captive state, not allowlist mode.
 
 ## Acceptance criteria
