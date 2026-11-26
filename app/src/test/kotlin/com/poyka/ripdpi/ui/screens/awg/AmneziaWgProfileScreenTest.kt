@@ -118,7 +118,7 @@ class AmneziaWgProfileScreenTest {
             clipboard,
             com.poyka.ripdpi.activities
                 .FakeAppliedRuntimeConfigurationSource(),
-            FakeWarpKeyPairGenerator(),
+            FakeTunnelKeyPairGenerator(),
         )
 
     @Test

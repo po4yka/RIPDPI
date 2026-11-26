@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.WarpKeyPairGenerator
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
+import com.poyka.ripdpi.services.TunnelKeyPairGenerator
 import com.poyka.ripdpi.ui.screens.connection.awgProfileId
 import com.poyka.ripdpi.ui.screens.connection.runningSelections
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -135,7 +135,7 @@ class AmneziaWgProfileViewModel
         private val permissionPlatformBridge: PermissionPlatformBridge,
         private val clipboardReader: ClipboardReader,
         private val applied: AppliedRuntimeConfigurationSource,
-        private val keyPairGenerator: WarpKeyPairGenerator,
+        private val keyPairGenerator: TunnelKeyPairGenerator,
     ) : ViewModel() {
         private val catalog: AwgCohortCatalogData = catalogProvider.catalog()
 

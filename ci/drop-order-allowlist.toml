@@ -32,7 +32,17 @@
 #   2. If the comment is genuinely redundant, add an entry here.
 #   Never lower the scanner or remove the multi-resource detection.
 #
-# As of 2026-05-17 the workspace has ZERO allowlist entries -- every
-# qualifying struct carries an inline `Drop order:` marker comment.
 
-# entries = []
+[[entries]]
+file = "native/rust/crates/ripdpi-shadowtls/src/loopback.rs"
+type_name = "ShadowTlsLoopback"
+reason = "explicit shutdown method: Drop sends the oneshot stop signal from its body; dropping the JoinHandle afterwards only detaches the accept task, so field order does not matter."
+owner = "ripdpi-shadowtls"
+review_date = "2027-05-26"
+
+[[entries]]
+file = "native/rust/crates/ripdpi-shadowtls/src/loopback.rs"
+type_name = "ShadowTlsV2RejectLoopback"
+reason = "explicit shutdown method: Drop sends the oneshot stop signal from its body; dropping the JoinHandle afterwards only detaches the accept task, so field order does not matter."
+owner = "ripdpi-shadowtls"
+review_date = "2027-05-26"

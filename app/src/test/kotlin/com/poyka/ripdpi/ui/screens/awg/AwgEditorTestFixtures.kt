@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.screens.awg
 
-import com.poyka.ripdpi.core.WarpKeyPair
-import com.poyka.ripdpi.core.WarpKeyPairGenerator
 import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
+import com.poyka.ripdpi.services.TunnelKeyPair
+import com.poyka.ripdpi.services.TunnelKeyPairGenerator
 import java.util.Base64
 
 internal val RtkSouthTestPreset =
@@ -38,13 +38,13 @@ internal val AwgPeerTestKey = Base64.getEncoder().encodeToString(ByteArray(32) {
 internal val AwgGeneratedPrivateTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 3 })
 internal val AwgGeneratedPublicTestKey = Base64.getEncoder().encodeToString(ByteArray(32) { 4 })
 
-internal class FakeWarpKeyPairGenerator : WarpKeyPairGenerator {
+internal class FakeTunnelKeyPairGenerator : TunnelKeyPairGenerator {
     var failure: Exception? = null
     var calls = 0
 
-    override suspend fun generate(): WarpKeyPair {
+    override suspend fun generate(): TunnelKeyPair {
         calls += 1
         failure?.let { throw it }
-        return WarpKeyPair(AwgGeneratedPrivateTestKey, AwgGeneratedPublicTestKey)
+        return TunnelKeyPair(AwgGeneratedPrivateTestKey, AwgGeneratedPublicTestKey)
     }
 }

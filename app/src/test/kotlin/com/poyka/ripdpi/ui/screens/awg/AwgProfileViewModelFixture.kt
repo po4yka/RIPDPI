@@ -48,7 +48,7 @@ internal class AwgProfileViewModelFixture : TestWatcher() {
         )
     val permissionBridge = FakePermissionPlatformBridge(vpnPermissionIntent = null)
     val applied = FakeAppliedRuntimeConfigurationSource()
-    val keyPairGenerator = FakeWarpKeyPairGenerator()
+    val keyPairGenerator = FakeTunnelKeyPairGenerator()
 
     fun viewModel() =
         AmneziaWgProfileViewModel(

@@ -106,6 +106,7 @@ mod tests {
             ws_carrier_handshake_failures: 1,
             listener_address: Some("127.0.0.1:11090".to_string()),
             upstream_address: Some("vpn.example.test:51820".to_string()),
+            upstream_rtt_ms: None,
             profile_id: Some("awg-profile".to_string()),
             last_error: None,
             captured_at: 0,
