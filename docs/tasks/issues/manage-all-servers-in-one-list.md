@@ -2,7 +2,7 @@
 id: UIX-1795615852980919
 title: Manage all servers in one list
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: server-list
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: uix-1795615852980919-manage-all-servers-in-one-list
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 ---
 
 ## Goal
@@ -26,8 +26,8 @@ Found in the 2026-11-25 on-device user-flow audit (Pixel 8 Pro, githubDebug at 6
 
 - The Add menu offers every relay kind that has an editor in `RelayKindDescriptors`, plus AmneziaWG.
 - Saved AmneziaWG profiles appear in the same Servers list as relay profiles.
-- Each server has rename, duplicate, share, and delete actions; long-press opens these actions.
-- UI text uses one term for servers and a different term for DPI presets in all ten locales.
+- Each relay server has rename, duplicate, share, and delete actions, each AmneziaWG server has rename, duplicate, and delete actions, and long-press opens these actions; AmneziaWG share is tracked in UIX-1795661310559744.
+- The Connection sheet, Add server menu, server editors, and share action use one term for servers and a different term for DPI presets in all ten locales; the remaining strings are tracked in UIX-1795661374629256.
 - Selecting a server does not change the DPI preset without telling the user.
 - The Connection screen keeps the selected Relay view when the user returns to it.
 

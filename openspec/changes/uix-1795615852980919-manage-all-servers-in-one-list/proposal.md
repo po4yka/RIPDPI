@@ -10,8 +10,8 @@ The user sees, adds, selects, and manages every saved server in one list, with o
 
 - The Add menu offers every relay kind that has an editor in `RelayKindDescriptors`, plus AmneziaWG.
 - Saved AmneziaWG profiles appear in the same Servers list as relay profiles.
-- Each server has rename, duplicate, share, and delete actions; long-press opens these actions.
-- UI text uses one term for servers and a different term for DPI presets in all ten locales.
+- Each relay server has rename, duplicate, share, and delete actions, each AmneziaWG server has rename, duplicate, and delete actions, and long-press opens these actions; AmneziaWG share is tracked in UIX-1795661310559744.
+- The Connection sheet, Add server menu, server editors, and share action use one term for servers and a different term for DPI presets in all ten locales; the remaining strings are tracked in UIX-1795661374629256.
 - Selecting a server does not change the DPI preset without telling the user.
 - The Connection screen keeps the selected Relay view when the user returns to it.
 

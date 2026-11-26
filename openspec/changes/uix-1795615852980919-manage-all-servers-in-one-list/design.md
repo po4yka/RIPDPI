@@ -14,7 +14,7 @@ Portfolio task `UIX-1795615852980919` owns this change. The user sees, adds, sel
 - "Server" names every saved relay profile and every saved AmneziaWG profile. The Connection sheet section is "Servers", its button is "Add server", its search is "Search all servers", the dedicated editors are "AmneziaWG server", "AnyTLS server", "Mieru server", and "SSH server", and the share action is "Share server".
 - "Preset" names the DPI settings: "Recommended preset" and "Manual preset". The sheet that holds both is "Presets and servers".
 - The Profiles utility screen, which checks and selects subscription servers, is "Server checks".
-- Other UI sessions use the same two terms. Older strings that still say "profile" for a server (share sheets, editor titles, subscription text) are outside this change and listed as a follow-up.
+- Other UI sessions use the same two terms. Older strings that still say "profile" for a server (share sheets, import confirmations, subscription text) are outside this change; UIX-1795661374629256 owns them.
 
 ### Add menu
 
@@ -35,7 +35,7 @@ Portfolio task `UIX-1795615852980919` owns this change. The user sees, adds, sel
 - Relay delete and rename are new journaled profile mutations (`relay_delete`, `relay_rename`) behind a separate `RelayCatalogMutationCoordinator`, so the existing coordinator fakes stay unchanged. Both refuse a profile that a chain or proxy group uses; delete also refuses the active relay. Rename follows the active selection. Replay after a crash is idempotent.
 - The relay id is the server name, so rename changes the id. Duplicate saves `<id>-copy` without selecting it.
 - AWG rename and duplicate use `AwgProfileRepository.save`; a duplicate is a local server, not subscription-owned. AWG delete refuses the running tunnel and subscription rows, as the AWG editor does.
-- AWG servers have no Share action yet: there is no AmneziaWG `.conf` exporter for `AwgActivationRequest`, and one must carry the AWG 3.x obfuscation fields. This is a known gap, recorded as a follow-up, not a refusal path presented as done.
+- AWG servers have no Share action yet: there is no AmneziaWG `.conf` exporter for `AwgActivationRequest`, and one must carry the AWG 3.x obfuscation fields. The acceptance criterion was narrowed to rename, duplicate, and delete for AmneziaWG; UIX-1795661310559744 owns the exporter and the Share action.
 - A refused or failed action shows a dismissible banner in the Servers card.
 
 ### Preset versus server
