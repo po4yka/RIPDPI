@@ -118,6 +118,7 @@ fun OnboardingRoute(
         unknownContentScheme = clipboardImportState.unknownContentScheme,
         clipboardEmpty = clipboardImportState.clipboardEmpty,
         onDismiss = clipboardImportViewModel::dismissError,
+        onLinkEntered = clipboardImportViewModel::onLinkEntered,
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
