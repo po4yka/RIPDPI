@@ -177,7 +177,6 @@
     <string name="status_diagnostics_dns_resolver_unknown">نتیجهٔ ارزیابی DNS قطعی نیست.</string>
     <string name="status_diagnostics_quick_scan">پویش سریع</string>
     <string name="status_stat_mode">حالت</string>
-    <string name="status_stat_route">مسیر</string>
     <string name="status_stat_quality">کیفیت</string>
     <string name="status_quality_excellent">عالی</string>
     <string name="status_quality_good">خوب</string>

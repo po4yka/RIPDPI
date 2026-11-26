@@ -54,5 +54,4 @@ internal fun BypassStrategySignature.localizedStatusStrategyFacets(
                 strings.getString(R.string.config_local_bypass_enabled),
             )
         }
-        routeGroup?.let { facet(strings.getString(R.string.status_stat_route), it) }
     }.toImmutableList()

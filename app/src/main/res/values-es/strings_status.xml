@@ -99,7 +99,6 @@
     <string name="status_remediation_quic_relay_step_open_mode_editor">Abre el Editor de perfil.</string>
     <string name="status_remediation_review_step_rerun">Ejecuta otro análisis si aún necesitas una ruta verificada.</string>
     <string name="status_remediation_stale_title">Este resultado es obsoleto</string>
-    <string name="status_stat_route">Ruta</string>
     <string name="status_connecting">Conectando</string>
     <string name="status_network_condition_captive_title">Inicio de sesión requerido</string>
     <string name="status_network_condition_captive_body">Esta red requiere que inicies sesión antes de que pase el tráfico. La asistencia de portal cautivo está activada y se desactivará automáticamente.</string>

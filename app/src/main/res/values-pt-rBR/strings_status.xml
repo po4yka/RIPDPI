@@ -177,7 +177,6 @@
     <string name="status_diagnostics_dns_resolver_unknown">A caracterização do DNS ficou inconclusiva.</string>
     <string name="status_diagnostics_quick_scan">Varredura rápida</string>
     <string name="status_stat_mode">Modo</string>
-    <string name="status_stat_route">Rota</string>
     <string name="status_stat_quality">Qualidade</string>
     <string name="status_quality_excellent">Excelente</string>
     <string name="status_quality_good">Boa</string>

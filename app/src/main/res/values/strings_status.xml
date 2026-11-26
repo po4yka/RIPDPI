@@ -178,7 +178,6 @@
     <string name="status_diagnostics_dns_resolver_unknown">DNS characterization inconclusive.</string>
     <string name="status_diagnostics_quick_scan">Quick scan</string>
     <string name="status_stat_mode">Mode</string>
-    <string name="status_stat_route">Route</string>
     <string name="status_stat_quality">Quality</string>
     <string name="status_quality_excellent">Excellent</string>
     <string name="status_quality_good">Good</string>

@@ -4898,7 +4898,6 @@ app:status_server_metric
 app:status_server_uptime_metric
 app:status_stat_mode
 app:status_stat_quality
-app:status_stat_route
 app:status_strategy_details
 app:status_strategy_dpi_reads
 app:status_strategy_family_cut

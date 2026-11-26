@@ -41,7 +41,6 @@ class StatusStrategyLabelTest {
                 "QUIC" to "Disabled",
                 "DNS" to "Cloudflare DoH",
                 "TLS record split" to "On",
-                "Route" to "7",
             ),
             facets.map { it.label to it.value },
         )
@@ -55,7 +54,7 @@ class StatusStrategyLabelTest {
         assertEquals("HTTP, HTTPS, UDP", facets["Протоколы"])
         assertEquals("Отключено", facets["QUIC"])
         assertEquals("Cloudflare DoH", facets["DNS"])
-        assertEquals("7", facets["Маршрут"])
+        assertFalse("Маршрут" in facets)
         assertEquals("Вкл.", facets["Разделение TLS-записи"])
         assertFalse(facets.keys.any { it.contains("Autolearn") })
         assertEquals(stableId, signature.stableId())
@@ -67,7 +66,7 @@ class StatusStrategyLabelTest {
         val facets = signature.facetMap()
         assertEquals("غیرفعال", facets["QUIC"])
         assertEquals("Cloudflare DoH", facets["DNS"])
-        assertEquals("7", facets["مسیر"])
+        assertFalse("مسیر" in facets)
     }
 
     @Test
@@ -79,7 +78,7 @@ class StatusStrategyLabelTest {
         )
         val facets =
             signature
-                .copy(quicStrategyFamily = "quic_sni_split", tlsRecordSplitEnabled = false, routeGroup = null)
+                .copy(quicStrategyFamily = "quic_sni_split", tlsRecordSplitEnabled = false)
                 .facetMap()
         assertEquals("QUIC SNI split", facets["QUIC"])
         assertEquals(

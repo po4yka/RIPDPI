@@ -137,7 +137,6 @@
     <string name="status_diagnostics_no_settings_applied">Настройки автоматически не применялись.</string>
     <string name="status_diagnostics_stage_results_label">Результаты этапов</string>
     <string name="status_stat_mode">Режим</string>
-    <string name="status_stat_route">Маршрут</string>
     <string name="status_mode_vpn">Всё устройство</string>
     <string name="status_mode_proxy">Только прокси</string>
     <string name="splash_subtitle">Локальный инструмент подключения</string>

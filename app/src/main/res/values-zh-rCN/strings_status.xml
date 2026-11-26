@@ -142,7 +142,6 @@
     <string name="status_remediation_quic_relay_step_enable_relay">为您当前的模式启用上游中继路径。</string>
     <string name="status_remediation_review_step_compare_results">检查哪些阶段失败或不完整。</string>
     <string name="status_remediation_stale_step_open_diagnostics">打开诊断。</string>
-    <string name="status_stat_route">路由</string>
     <string name="shortcut_quick_connect_disabled">连接不可用</string>
     <string name="status_diagnostics_actionable_section">下一步操作</string>
     <string name="status_diagnostics_bufferbloat_summary">等级 %1$s · 空闲 %2$s · 负载 %3$s</string>

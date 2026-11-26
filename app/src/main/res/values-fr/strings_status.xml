@@ -99,7 +99,6 @@
     <string name="status_remediation_quic_relay_step_open_mode_editor">Ouvrez l\'éditeur de profil.</string>
     <string name="status_remediation_review_step_rerun">Lancez une autre analyse si vous avez toujours besoin d\'un chemin vérifié.</string>
     <string name="status_remediation_stale_title">Ce résultat est obsolète</string>
-    <string name="status_stat_route">Route</string>
     <string name="status_connecting">Connexion en cours</string>
     <string name="status_network_condition_captive_title">Connexion requise</string>
     <string name="status_network_condition_captive_body">Ce réseau exige une connexion avant que le trafic puisse passer. L\'assistance au portail captif est activée et se désactivera automatiquement.</string>

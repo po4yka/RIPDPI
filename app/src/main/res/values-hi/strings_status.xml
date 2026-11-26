@@ -176,7 +176,6 @@
     <string name="status_diagnostics_dns_resolver_unknown">DNS विश्लेषण अनिर्णायक रहा.</string>
     <string name="status_diagnostics_quick_scan">त्वरित स्कैन</string>
     <string name="status_stat_mode">मोड</string>
-    <string name="status_stat_route">रूट</string>
     <string name="status_stat_quality">गुणवत्ता</string>
     <string name="status_quality_excellent">उत्कृष्ट</string>
     <string name="status_quality_good">अच्छा</string>

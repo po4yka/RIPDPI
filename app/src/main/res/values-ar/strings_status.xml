@@ -177,7 +177,6 @@
     <string name="status_diagnostics_dns_resolver_unknown">تحليل DNS غير حاسم.</string>
     <string name="status_diagnostics_quick_scan">فحص سريع</string>
     <string name="status_stat_mode">الوضع</string>
-    <string name="status_stat_route">المسار</string>
     <string name="status_stat_quality">الجودة</string>
     <string name="status_quality_excellent">ممتاز</string>
     <string name="status_quality_good">جيد</string>

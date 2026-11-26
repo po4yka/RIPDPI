@@ -99,7 +99,6 @@
     <string name="status_remediation_quic_relay_step_open_mode_editor">Profil-Editor öffnen.</string>
     <string name="status_remediation_review_step_rerun">Führen Sie eine weitere Analyse aus, wenn Sie noch einen verifizierten Pfad benötigen.</string>
     <string name="status_remediation_stale_title">Dieses Ergebnis ist veraltet</string>
-    <string name="status_stat_route">Route</string>
     <string name="status_connecting">Verbinden…</string>
     <string name="status_network_condition_captive_title">Anmeldung erforderlich</string>
     <string name="status_network_condition_captive_body">Dieses Netzwerk verlangt eine Anmeldung, bevor Datenverkehr durchgelassen wird. Die Captive-Portal-Hilfe ist aktiv und schaltet sich automatisch ab.</string>
