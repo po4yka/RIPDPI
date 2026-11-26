@@ -34,9 +34,7 @@ data class SelectiveMatrixTarget(
     val sourceDate: String,
     val lastVerifiedAt: String? = null,
     val connectIps: List<String> = emptyList(),
-    // Both or neither: a saved or overridden catalog without them stays runnable and reports as unattributed.
     val targetClass: String? = null,
-    // Catalog-declared origin AS of the host, not an observed address of any network.
     val destinationAsn: Long? = null,
 )
 
@@ -123,7 +121,6 @@ const val TargetClassDomesticHosting = "domestic_hosting"
 const val TargetClassForeignDatacenter = "foreign_datacenter"
 const val TargetClassCdn = "cdn"
 
-// Rejects 0, AS_TRANS, documentation, private and IANA-reserved ranges, as the native contract does.
 private fun Long.isPublicAsn() = this in 1..MaxAsn && this != AsTrans && this !in ReservedAsns && this < PrivateAsn32
 
 private const val MaxAsn = 4_294_967_295L

@@ -8,10 +8,8 @@ pub struct SelectiveMatrixTarget {
     pub url: String,
     pub cohort: String,
     pub infrastructure_group: String,
-    /// One of `domestic_hosting`, `foreign_datacenter`, `cdn`. Present together with `destination_asn` or not at all.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_class: Option<String>,
-    /// Catalog-declared origin AS of the target host; never an observed or user-network address.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub destination_asn: Option<u32>,
     pub source_url: String,
@@ -98,14 +96,12 @@ impl SelectiveMatrixConfig {
 
 fn valid_class_and_asn(target: &SelectiveMatrixTarget) -> bool {
     match (target.target_class.as_deref(), target.destination_asn) {
-        // A saved or overridden catalog without a class stays runnable and reports as unattributed.
         (None, None) => true,
         (Some("domestic_hosting" | "foreign_datacenter" | "cdn"), Some(asn)) => is_public_asn(asn),
         _ => false,
     }
 }
 
-/// Rejects 0, AS_TRANS, documentation, private and IANA-reserved ranges.
 fn is_public_asn(asn: u32) -> bool {
     !matches!(asn, 0 | 23456 | 64496..=131071 | 4_200_000_000..=u32::MAX)
 }

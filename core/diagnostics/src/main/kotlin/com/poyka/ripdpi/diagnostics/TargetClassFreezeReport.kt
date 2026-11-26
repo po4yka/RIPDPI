@@ -2,7 +2,6 @@ package com.poyka.ripdpi.diagnostics
 
 internal enum class ResponseClass { Freeze, ServerResponse, ConnectionReset, ConnectionClosed, Complete, Other }
 
-/** Why a row has no class: groups that do not describe the same thing must never share a row. */
 internal enum class GroupSource(
     val token: String,
 ) {
@@ -25,7 +24,6 @@ internal data class TargetGroupCounts(
 
 private const val NoValue = "none"
 
-// Only a stalled or deadline-cut read is a freeze. A reset or a clean close shows an active peer or middlebox.
 private val MatrixStallReasons = setOf("read_timeout", "cancelled")
 private val FreezeOutcomes = setOf("tcp_freeze_after_threshold", "connection_freeze", "verified_download_timeout")
 private val ServerResponseOutcomes = setOf("verified_download_size_mismatch", "verified_download_hash_mismatch")
@@ -56,7 +54,6 @@ internal fun ProbeResult.responseClass(): ResponseClass? {
         }
 
         outcome == "verified_download_failed" -> {
-            // Multi-run readings are `|`-joined; a verified download has one run.
             val status = detail("httpStatusCodeReadings")?.substringBefore('|')?.toIntOrNull()
             if (status != null && status != 200) ResponseClass.ServerResponse else ResponseClass.Other
         }
@@ -114,11 +111,6 @@ private fun ProbeResult.targetGroup(volumeTarget: SelectiveMatrixTarget?): Targe
     }
 }
 
-/**
- * Groups freeze and related outcomes by target class and destination AS.
- * Volume-comparison legs carry no class, so the caller passes the catalog target their URL matched;
- * until a session path does that, legs report as `volume_unattributed`.
- */
 internal fun List<ProbeResult>.groupByTargetClassAndAs(
     volumeTarget: SelectiveMatrixTarget? = null,
 ): List<TargetGroupCounts> =
