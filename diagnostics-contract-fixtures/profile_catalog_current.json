@@ -152,7 +152,7 @@
     {
       "id": "selective-availability-matrix",
       "name": "Selective availability matrix",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "selective-availability-matrix",
         "displayName": "Selective availability matrix",

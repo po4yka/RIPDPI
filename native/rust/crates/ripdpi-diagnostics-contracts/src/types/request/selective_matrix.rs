@@ -8,7 +8,7 @@ pub struct SelectiveMatrixTarget {
     pub url: String,
     pub cohort: String,
     pub infrastructure_group: String,
-    /// One of `domestic_hosting`, `foreign_datacenter`, `cdn`; absent only for user-supplied hosts.
+    /// One of `domestic_hosting`, `foreign_datacenter`, `cdn`. Present together with `destination_asn` or not at all.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_class: Option<String>,
     /// Catalog-declared origin AS of the target host; never an observed or user-network address.
@@ -97,11 +97,17 @@ impl SelectiveMatrixConfig {
 }
 
 fn valid_class_and_asn(target: &SelectiveMatrixTarget) -> bool {
-    if target.cohort == "user" {
-        return target.target_class.is_none() && target.destination_asn.is_none();
+    match (target.target_class.as_deref(), target.destination_asn) {
+        // A saved or overridden catalog without a class stays runnable and reports as unattributed.
+        (None, None) => true,
+        (Some("domestic_hosting" | "foreign_datacenter" | "cdn"), Some(asn)) => is_public_asn(asn),
+        _ => false,
     }
-    matches!(target.target_class.as_deref(), Some("domestic_hosting" | "foreign_datacenter" | "cdn"))
-        && target.destination_asn.is_some_and(|asn| asn > 0)
+}
+
+/// Rejects 0, AS_TRANS, documentation, private and IANA-reserved ranges.
+fn is_public_asn(asn: u32) -> bool {
+    !matches!(asn, 0 | 23456 | 64496..=131071 | 4_200_000_000..=u32::MAX)
 }
 
 fn matrix_host(url: &str) -> Option<&str> {
@@ -157,22 +163,25 @@ mod tests {
         assert!(value.validate().is_err());
     }
     #[test]
-    fn requires_exactly_one_known_class_and_an_asn_except_for_user_hosts() {
+    fn class_and_asn_come_together_and_must_be_public() {
         let mut value = config();
         for class in ["", "cdn ", "global"] {
             value.targets[0].target_class = Some(class.into());
             assert!(value.validate().is_err(), "{class}");
         }
-        value.targets[0].target_class = None;
-        assert!(value.validate().is_err());
         value.targets[0].target_class = Some("foreign_datacenter".into());
         value.targets[0].destination_asn = None;
         assert!(value.validate().is_err());
-        value.targets[0].destination_asn = Some(16276);
-        assert!(value.validate().is_ok());
-        value.targets[0].cohort = "user".into();
-        assert!(value.validate().is_err());
+        for asn in [0, 23456, 64496, 64512, 65535, 65551, 65552, 131071, 4_200_000_000, u32::MAX] {
+            value.targets[0].destination_asn = Some(asn);
+            assert!(value.validate().is_err(), "{asn}");
+        }
+        for asn in [1, 13335, 131072, 396982, 4_199_999_999] {
+            value.targets[0].destination_asn = Some(asn);
+            assert!(value.validate().is_ok(), "{asn}");
+        }
         value.targets[0].target_class = None;
+        assert!(value.validate().is_err());
         value.targets[0].destination_asn = None;
         assert!(value.validate().is_ok());
     }

@@ -21,7 +21,7 @@ internal data class SelectiveMatrixTargetDefinition(
     val cohort: String,
     val infrastructureGroup: String,
     val targetClass: String,
-    val destinationAsn: Int,
+    val destinationAsn: Long,
     val sourceUrl: String,
     val sourceDate: String,
     val lastVerifiedAt: String? = null,
@@ -31,6 +31,8 @@ internal data class SelectiveMatrixTargetDefinition(
 internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition =
     DiagnosticsProfileDefinition(
         id = "selective-availability-matrix",
+        // Version 2 adds target class and AS; the importer re-imports a saved profile only when this rises.
+        version = 2,
         name = "Selective availability matrix",
         family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
         regionTag = "ru",
@@ -47,9 +49,9 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                             "declared_available",
                             "yandex",
                             "domestic_hosting",
-                            13238,
+                            13238L,
                         ),
-                        matrixTarget("vk", "VK", "vk.com", "declared_available", "vk", "domestic_hosting", 47541),
+                        matrixTarget("vk", "VK", "vk.com", "declared_available", "vk", "domestic_hosting", 47541L),
                         matrixTarget(
                             "selectel",
                             "Selectel",
@@ -57,7 +59,7 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                             "domestic",
                             "selectel",
                             "domestic_hosting",
-                            50340,
+                            50340L,
                         ),
                         matrixTarget(
                             "timeweb",
@@ -66,7 +68,7 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                             "domestic",
                             "timeweb",
                             "domestic_hosting",
-                            51115,
+                            51115L,
                         ),
                         matrixTarget(
                             "cloudflare",
@@ -75,7 +77,7 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                             "global",
                             "cloudflare",
                             "cdn",
-                            13335,
+                            13335L,
                         ),
                         matrixTarget(
                             "ovh",
@@ -84,7 +86,7 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                             "global",
                             "ovhcloud",
                             "foreign_datacenter",
-                            16276,
+                            16276L,
                         ),
                     ),
             ),
@@ -97,7 +99,7 @@ private fun matrixTarget(
     cohort: String,
     infrastructureGroup: String,
     targetClass: String,
-    destinationAsn: Int,
+    destinationAsn: Long,
 ): SelectiveMatrixTargetDefinition {
     val declared = cohort == "declared_available"
     return SelectiveMatrixTargetDefinition(
@@ -145,8 +147,12 @@ internal fun DiagnosticsProfileDefinition.validateSelectiveMatrix() {
         require(target.id.isNotBlank() && target.label.isNotBlank() && target.infrastructureGroup.isNotBlank()) {
             "Matrix target metadata is missing for ${target.id}"
         }
+        // Same class set and AS ranges as :core:diagnostics SelectiveMatrixModels; build-logic cannot depend on it.
         require(
-            target.targetClass in setOf("domestic_hosting", "foreign_datacenter", "cdn") && target.destinationAsn > 0,
+            target.targetClass in setOf("domestic_hosting", "foreign_datacenter", "cdn") &&
+                target.destinationAsn in 1L..4_199_999_999L &&
+                target.destinationAsn != 23_456L &&
+                target.destinationAsn !in 64_496L..131_071L,
         ) {
             "Matrix target ${target.id} needs one known class and a destination AS"
         }

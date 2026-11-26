@@ -1,23 +1,23 @@
 package com.poyka.ripdpi.diagnostics
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TargetClassFreezeReportTest {
     private fun matrix(
         outcome: String,
-        targetClass: String,
-        asn: Int,
+        targetClass: String? = "cdn",
+        asn: Long? = 13335,
         bodyReason: String? = null,
+        cohort: String = "global",
     ) = ProbeResult(
         "selective_availability",
         "t",
         outcome,
         listOfNotNull(
-            ProbeDetail("targetClass", targetClass),
-            ProbeDetail("destinationAsn", asn.toString()),
+            ProbeDetail("cohort", cohort),
+            targetClass?.let { ProbeDetail("targetClass", it) },
+            asn?.let { ProbeDetail("destinationAsn", it.toString()) },
             bodyReason?.let { ProbeDetail("bodyReason", it) },
         ),
     )
@@ -33,21 +33,22 @@ class TargetClassFreezeReportTest {
         listOf(ProbeDetail("transferVolumeLeg", leg), ProbeDetail("httpStatusCodeReadings", status)),
     )
 
+    private fun incomplete(reason: String) =
+        matrix("matrix_target_body_incomplete", bodyReason = reason).responseClass()
+
     @Test
-    fun `stall is a freeze while a wrong status or short body is a server response`() {
-        assertEquals(
-            ResponseClass.Freeze,
-            matrix("matrix_target_body_incomplete", "cdn", 1, "read_error").responseClass(),
-        )
-        assertEquals(
-            ResponseClass.ServerResponse,
-            matrix("matrix_target_body_incomplete", "cdn", 1, "early_eof").responseClass(),
-        )
+    fun `only a stall is a freeze while reset, clean close and server answers have their own buckets`() {
+        assertEquals(ResponseClass.Freeze, incomplete("read_timeout"))
+        assertEquals(ResponseClass.ConnectionReset, incomplete("connection_reset"))
+        assertEquals(ResponseClass.ConnectionClosed, incomplete("early_eof"))
+        assertEquals(ResponseClass.Other, incomplete("read_error"))
+        assertEquals(ResponseClass.ServerResponse, incomplete("response_limit"))
         assertEquals(
             ResponseClass.ServerResponse,
-            matrix("matrix_target_http_error", "cdn", 1, "http_status").responseClass(),
+            matrix("matrix_target_http_error", bodyReason = "http_status").responseClass(),
         )
         assertEquals(ResponseClass.Freeze, volume("verified_download_timeout", "long").responseClass())
+        assertEquals(ResponseClass.ConnectionClosed, volume("verified_download_early_eof", "long").responseClass())
         assertEquals(ResponseClass.ServerResponse, volume("verified_download_failed", "long", "403").responseClass())
         assertEquals(ResponseClass.ServerResponse, volume("verified_download_size_mismatch", "long").responseClass())
         assertEquals(ResponseClass.ServerResponse, volume("verified_download_hash_mismatch", "long").responseClass())
@@ -70,7 +71,7 @@ class TargetClassFreezeReportTest {
             )
         val rows =
             listOf(
-                matrix("matrix_target_body_incomplete", "foreign_datacenter", 16276, "read_error"),
+                matrix("matrix_target_body_incomplete", "foreign_datacenter", 16276, "read_timeout"),
                 matrix("matrix_target_available", "foreign_datacenter", 16276),
                 matrix("matrix_target_available", "domestic_hosting", 50340),
                 volume("verified_download_timeout", "long"),
@@ -87,18 +88,20 @@ class TargetClassFreezeReportTest {
     }
 
     @Test
-    fun `report lines carry class and AS but no address or response text`() {
+    fun `unattributed results never share a row`() {
         val lines =
             listOf(
-                matrix("matrix_target_body_incomplete", "cdn", 13335, "read_error"),
+                matrix("matrix_target_available", null, null, cohort = "user"),
+                matrix("matrix_target_available", null, null, cohort = "global"),
                 volume("verified_download_timeout", "long"),
             ).targetGroupSummaryLines()
-        assertTrue(lines.contains("targetGroup class=cdn asn=13335 freeze=1 serverresponse=0 complete=0 other=0"))
-        assertTrue(
-            lines.contains(
-                "targetGroup class=unattributed asn=unattributed freeze=1 serverresponse=0 complete=0 other=0",
-            ),
+        assertEquals(
+            listOf(
+                "targetGroup source=user_host class=none asn=none freeze=0 serverresponse=0 connectionreset=0 connectionclosed=0 complete=1 other=0",
+                "targetGroup source=legacy_no_class class=none asn=none freeze=0 serverresponse=0 connectionreset=0 connectionclosed=0 complete=1 other=0",
+                "targetGroup source=volume_unattributed class=none asn=none freeze=1 serverresponse=0 connectionreset=0 connectionclosed=0 complete=0 other=0",
+            ).sorted(),
+            lines.sorted(),
         )
-        assertFalse(lines.any { Regex("""\d+\.\d+\.\d+\.\d+""").containsMatchIn(it) })
     }
 }
