@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-26
+goal: DNS-1795705017215412 Keep universal DNS and ECH check failures out of
+  block verdicts

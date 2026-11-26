@@ -83,6 +83,7 @@ Rejected. `ChainRelay`'s existing coverage proves client-composed multi-hop dial
 - The client-side deliverable for this ADR is limited to one new regression test extending the composed loopback/chain-hop fixture pattern with a generic forward-only second hop, asserting the client's single-endpoint connect path is unaffected by behind-the-endpoint routing changes.
 - The topology-disclosure field and the diagnostic-verdict heuristic remain explicitly out of scope until their respective gates clear; neither is implied to exist by this ADR.
 - The blocking preconditions for the cascade — RU-hosting posture sign-off and the per-ASN attestation gate — live entirely on the deploy side and are tracked in `ripdpi-vpn-deploy`'s `docs/RU-CASCADE-DECISION.md`. None of them require or imply a client change; this ADR should be cited wherever that deploy-side document or its derived tasks need to state the client-side impact.
+- Per-hop diagnostics that locate the stalling hop of a relay chain apply only to chains that the client builds itself. A server-side cascade stays one opaque endpoint and is never probed per hop by the client.
 - Cross-repo task tracking for any follow-on work (the transparency regression test, and later the gated topology-disclosure and heuristic work) should use the `ripdpi-improvements` unified task schema's `linked_task` field to cross-reference the corresponding `ripdpi-vpn-deploy` issue, consistent with how other cross-repo proposals are tracked under `docs/tasks/issues/`.
 
 ## Revisit Trigger
