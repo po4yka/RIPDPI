@@ -2,7 +2,7 @@
 id: UIX-1795661374629256
 title: Use the server term in all remaining strings
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: unassigned
@@ -32,3 +32,13 @@ Split from UIX-1795615852980919 (Manage all servers in one list). That change se
 ## Ownership
 
 One writer in a dedicated worktree owns all locale resource sets in `app` and `core/service`, the translatable-keys export, and the affected Roborazzi baselines. Locale resource sets are a serialized lane: only this writer changes them while the task is in progress.
+
+## Evidence
+
+- Classification: the change design lists all 192 English strings that contained "profile": 73 server, 11 preset (the DPI settings editor is now "Preset editor"), 108 other (fake-payload, TLS, diagnostics, DNS, WARP and Zero Trust, AmneziaWG shaping, Xray provider, Android work profile). `core/service` had none.
+- Change: 013b3bcecc renames the 84 server and preset strings in all ten locales (90 XML files). Hiddify's own "Add profile" button name in the setup sheet stays. No key was added or removed, so `config/i18n/translatable-keys.txt` is unchanged after `scripts/ci/export-strings-for-translation.sh`.
+- Tests: `RelayFieldsTest` and `OnboardingScreenTest` asserted the old English text; they now assert the new text.
+- Goldens: 51 Roborazzi baselines re-recorded (text-only diffs, reviewed).
+- Gates: `./gradlew :app:verifyRoborazziGithubDebug` (4326 tests), `./gradlew :app:lintGithubDebug :core:service:lintStandardDebug` and `just ci-gates` pass.
+- Not checked: device run and remote CI. The ar, fa and hi plural and gender forms were written without a native-speaker review.
+- After rebase onto main bc95fe0e3e: `:app:lintGithubDebug :core:service:lintStandardDebug` and all Roborazzi comparisons pass. One unit test fails: `RipDpiNavHostLogicTest` "UI audit spec covers or explains every registered route" reports stale tags `logs-actions` and `logs-filters`. It passed before the rebase, this branch changes no Kotlin source or guide spec, so the failure comes from main's commits c470ca7fbc and bc95fe0e3e.
