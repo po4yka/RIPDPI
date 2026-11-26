@@ -455,6 +455,38 @@ class ConnectionScreenRelayTest {
     val composeRule = createComposeRule()
 
     @Test
+    fun `a local AmneziaWG server offers share from its actions menu and long press`() {
+        val shared = mutableListOf<String>()
+        composeRule.setConfigScreen(
+            initialPath = ConnectionPath.Relay,
+            profileActions = ConnectionProfileActions(shareAwg = { shared += it }),
+            awgServers =
+                persistentListOf(
+                    com.poyka.ripdpi.ui.screens.profiles
+                        .AwgProfileItem("awg-own", "Own", needsPrivateKey = false, shareable = true),
+                    com.poyka.ripdpi.ui.screens.profiles
+                        .AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = false),
+                ),
+        )
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerActions("awg-own")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("awg-own", "share")).performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-own"))
+            .performScrollTo()
+            .performTouchInput { longClick() }
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("awg-own", "share")).performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-sub"))
+            .performScrollTo()
+            .performTouchInput { longClick() }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("awg-sub", "rename")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("awg-sub", "share")).assertDoesNotExist()
+        composeRule.runOnIdle { assertEquals(listOf("awg-own", "awg-own"), shared) }
+    }
+
+    @Test
     fun `relay section opens the saved profile picker`() {
         var pickerClicks = 0
         composeRule.setConfigScreen(initialPath = ConnectionPath.Relay, onOpenProfileUtility = { pickerClicks += 1 })

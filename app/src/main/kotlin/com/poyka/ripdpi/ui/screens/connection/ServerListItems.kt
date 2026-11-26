@@ -101,7 +101,7 @@ internal fun AwgServerRow(
             },
         kindLabel = stringResource(R.string.awg_editor_title),
         onOpen = { actions.openAwg(server.id, server.needsPrivateKey) },
-        onShare = null,
+        onShare = { actions.shareAwg(server.id) }.takeIf { server.shareable },
         actions = actions,
         testTag = RipDpiTestTags.connectionAwgServer(server.id),
         rowTestTag = RipDpiTestTags.connectionAwgServerRow(server.id),

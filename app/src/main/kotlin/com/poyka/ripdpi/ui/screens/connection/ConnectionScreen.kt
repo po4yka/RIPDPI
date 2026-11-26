@@ -65,6 +65,7 @@ data class ConnectionProfileActions(
     val delete: (ServerKey) -> Unit = {},
     val dismissMessage: () -> Unit = {},
     val checkAwg: (id: String) -> Unit = {},
+    val shareAwg: (id: String) -> Unit = {},
 )
 
 @Composable
@@ -86,6 +87,7 @@ fun ConnectionRoute(
 ) {
     val awgViewModel: SavedAwgProfilesViewModel = hiltViewModel()
     val serverListViewModel: ServerListViewModel = hiltViewModel()
+    AwgConfShareEffect(serverListViewModel)
     val uiState =
         viewModel.uiState
             .collectAsStateWithLifecycle()

@@ -15,14 +15,18 @@ import com.poyka.ripdpi.data.RelayProfileIdTakenException
 import com.poyka.ripdpi.data.RelayProfileInUseException
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.toWgQuickConf
 import com.poyka.ripdpi.data.loadReplaceableCredential
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.screens.awg.runsAwgProfile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -59,8 +63,22 @@ internal class ServerListViewModel
         private val _message = MutableStateFlow<String?>(null)
         val message: StateFlow<String?> = _message.asStateFlow()
 
+        private val _awgShares = Channel<AwgConfShare>(Channel.BUFFERED)
+        val awgShares: Flow<AwgConfShare> = _awgShares.receiveAsFlow()
+
         fun dismissMessage() {
             _message.value = null
+        }
+
+        fun shareAwg(id: String) =
+            launchAction({}) {
+                val saved = requireNotNull(awgRepository.load(id))
+                require(!saved.subscriptionOwned)
+                _awgShares.send(AwgConfShare(saved.name, saved.request.toWgQuickConf()))
+            }
+
+        fun shareFailed() {
+            _message.value = stringResolver.getString(R.string.server_action_failed)
         }
 
         fun rename(
@@ -186,6 +204,7 @@ internal fun ConnectionProfileActions.withServerActions(
         rename = { server, name -> servers.rename(server, name, changed) },
         duplicate = { server -> servers.duplicate(server, changed) },
         delete = { server -> servers.delete(server, changed) },
+        shareAwg = servers::shareAwg,
         dismissMessage = servers::dismissMessage,
     )
 }

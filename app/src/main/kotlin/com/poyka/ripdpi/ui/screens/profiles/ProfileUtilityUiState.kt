@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.profiles
 
 import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.awg.SavedAwgProfile
+import com.poyka.ripdpi.data.awg.isConfExportable
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentMapOf
@@ -44,11 +45,19 @@ data class AwgProfileItem(
     val name: String,
     val needsPrivateKey: Boolean,
     val measurement: ProfileMeasurementUiState = ProfileMeasurementUiState.NotChecked,
+    val shareable: Boolean = false,
 )
 
 internal fun SavedAwgProfile.toAwgProfileItem(
     measurement: ProfileMeasurementUiState = ProfileMeasurementUiState.NotChecked,
-): AwgProfileItem = AwgProfileItem(id, name, needsPrivateKey = request.privateKey.isBlank(), measurement)
+): AwgProfileItem =
+    AwgProfileItem(
+        id,
+        name,
+        needsPrivateKey = request.privateKey.isBlank(),
+        measurement,
+        shareable = !subscriptionOwned && request.isConfExportable,
+    )
 
 sealed interface ProfileMeasurementUiState {
     data object NotChecked : ProfileMeasurementUiState

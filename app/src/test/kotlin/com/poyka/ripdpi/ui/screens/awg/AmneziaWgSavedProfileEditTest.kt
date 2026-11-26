@@ -257,6 +257,31 @@ class AmneziaWgSavedProfileEditTest {
         }
 
     @Test
+    fun `only a keyed local UDP server offers share, as subscription servers stay with their subscription`() =
+        runTest {
+            val keyed = bundled.copy(privateKey = AwgPrivateTestKey)
+            val subscriptionId =
+                fixture.repository
+                    .saveSubscriptionProfiles(listOf(member.copy(request = keyed)))
+                    .single()
+                    .id
+            val localId = fixture.repository.save("Own", keyed)
+            val wsId =
+                fixture.repository.save(
+                    "Own WS",
+                    keyed.copy(carrier = AwgActivationRequest.CARRIER_WS, carrierWsUrl = "wss://example.com/wg"),
+                )
+
+            val shareable =
+                fixture.repository
+                    .observeProfiles()
+                    .first()
+                    .associate { it.id to it.toAwgProfileItem().shareable }
+
+            assertEquals(mapOf(subscriptionId to false, localId to true, wsId to false), shareable)
+        }
+
+    @Test
     fun `saving a bundle-shaped row with only the key typed keeps every other field`() =
         runTest {
             val template = bundleShaped.copy(profileId = "", privateKey = "")

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    FileProvider paths for the "share profile QR image" flow. The shared QR PNG is written
-    to a dedicated cache subdirectory and granted read access per share intent; the host
-    cleans the file up once the share completes.
+    FileProvider paths for the AmneziaWG server share. The shared .conf is written to a
+    dedicated cache subdirectory and granted read access per share intent; files older
+    than a day are removed on the next app start or share.
 -->
 <paths>
     <cache-path

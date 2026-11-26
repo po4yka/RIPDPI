@@ -478,8 +478,8 @@
         </provider>
 
         <!--
-            FileProvider for the "share profile QR image" flow. Distinct authority from the
-            diagnostics provider so the share-image grant is scoped to the profile-share
+            FileProvider for the AmneziaWG server .conf share. Distinct authority from the
+            diagnostics provider so the share grant is scoped to the profile-share
             cache directory only.
         -->
         <provider

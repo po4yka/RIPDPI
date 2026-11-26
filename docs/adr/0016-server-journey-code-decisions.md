@@ -73,3 +73,13 @@ The interface lets `:app` generate WireGuard-family interface keys without a dep
 ### app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmViewModel.kt#SubscriptionImportConfirmViewModel
 
 After a bundle file import, the view model finds the saved group with `localBundleTarget`, the same rule the import used to pick it, so it needs no group ID in `SubscriptionRefreshResult.Updated`. The result lists the group's members, which are saved as relay profiles under the member ID. Select and Connect call `ImportedServerSelection`, the selector that the server list uses, through `selectReturningStartNeeded`, which the single-link confirm screen also uses. AmneziaWG profiles from the bundle are not listed: the server list has no Select for them, and a profile without its key still opens the key screen when the result closes.
+
+### core/data/runtime-state/src/main/kotlin/com/poyka/ripdpi/data/awg/AwgActivationConf.kt#toWgQuickConf
+
+The exporter reuses `AmneziaWgProfile.toWgQuickConf`, so the share link and the `.conf` share write the same keys. A server with no obfuscation is written as plain WireGuard, so any WireGuard client can import it. `S3`, `S4`, and `I1`-`I5` are written only when set, because the import reads an omitted key as `0` or empty, and AmneziaWG 1.x clients do not know them. A `.conf` has no WebSocket carrier and needs the private key, so a server with the WS carrier or with no key is not exported. `isConfExportable` states this rule once.
+
+### app/src/main/kotlin/com/poyka/ripdpi/ui/screens/connection/AwgConfShare.kt#AwgConfShareEffect
+
+Subscription-owned AmneziaWG servers have no Share action. Subscription relay members are not individual share targets either: their credentials stay in the sealed group catalogue, and the user shares the subscription instead. A subscription AWG row also holds a per-device private key, which another device must not reuse.
+
+The `.conf` holds the private key. The file goes to `cacheDir/profile-share/<random>/`, which only the profile FileProvider grants, one read grant per share intent. The random directory keeps the file name equal to the server name, cut to the 15 characters that wg-quick accepts as an interface name. Files stay for a day, so a recipient that opens the file later can still read it, and are removed on the next app start or share. The text never goes to a log.

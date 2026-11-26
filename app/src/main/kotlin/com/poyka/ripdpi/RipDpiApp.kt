@@ -16,6 +16,7 @@ import com.poyka.ripdpi.diagnostics.FileLogWriter
 import com.poyka.ripdpi.diagnostics.crash.CrashReportWriter
 import com.poyka.ripdpi.platform.MemoryTrimCoordinator
 import com.poyka.ripdpi.services.AndroidRuntimeEvidenceReporter
+import com.poyka.ripdpi.ui.screens.connection.pruneAwgConfShares
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 
@@ -68,6 +69,7 @@ class RipDpiApp :
         )
         super.onCreate()
         BackupShareTempFileOwner().pruneExpired(cacheDir)
+        pruneAwgConfShares(cacheDir)
         Logger.setTag("ripdpi")
         Logger.setLogWriters(platformLogWriter(), fileLogWriter, breadcrumbWriter)
         Logger.setMinSeverity(if (BuildConfig.DEBUG) Severity.Verbose else Severity.Warn)
