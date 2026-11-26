@@ -2,7 +2,7 @@
 id: UIX-1795615862573235
 title: Correct onboarding permission prompts and settings labels
 kind: bug
-status: doing
+status: review
 area: ui
 priority: low
 owner: unassigned
