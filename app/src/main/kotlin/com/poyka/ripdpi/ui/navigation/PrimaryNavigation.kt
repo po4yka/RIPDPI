@@ -127,12 +127,8 @@ private fun NavGraphBuilder.addHomeRoute(
     ) {
         StatusRoute(
             onAddServer =
-                {
-                    navController.navigate(Route.ConnectionAddServer) {
-                        launchSingleTop = true
-                        popUpTo<Route.Status>()
-                    }
-                }.takeIf { LocalHasSavedServer.current == false },
+                { navController.navigateConnectionSubRoute(Route.ConnectionAddServer) }
+                    .takeIf { LocalHasSavedServer.current == false },
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
                 navController.navigate(Route.Diagnostics()) {

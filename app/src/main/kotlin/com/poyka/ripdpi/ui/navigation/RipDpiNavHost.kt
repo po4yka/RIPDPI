@@ -410,7 +410,7 @@ internal fun NavHostController.navigateHome() {
     }
 }
 
-private fun NavHostController.navigateTopLevel(destination: Route) {
+internal fun NavHostController.navigateTopLevel(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true

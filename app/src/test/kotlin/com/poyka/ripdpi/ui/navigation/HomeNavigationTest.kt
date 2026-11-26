@@ -46,6 +46,19 @@ class HomeNavigationTest {
         composeRule.runOnIdle { assertOnlyHome() }
     }
 
+    @Test
+    fun statusTabLeavesAddServer() {
+        showNavigationGraph()
+        composeRule.runOnIdle { navController.navigateConnectionSubRoute(Route.ConnectionAddServer) }
+        composeRule.runOnIdle { navController.navigateTopLevel(Route.Status) }
+        composeRule.runOnIdle { assertOnlyHome() }
+        composeRule.runOnIdle {
+            navController.navigateTopLevel(Route.Connection)
+            navController.navigateTopLevel(Route.Status)
+        }
+        composeRule.runOnIdle { assertOnlyHome() }
+    }
+
     private fun assertOnlyHome() {
         assertTrue(requireNotNull(navController.currentDestination).hasRoute<Route.Status>())
         assertEquals(1, navController.currentBackStack.value.count { it.destination.route != null })
@@ -63,6 +76,10 @@ class HomeNavigationTest {
                 popExitTransition = { ExitTransition.None },
             ) {
                 composable<Route.Status> {}
+                navigation<ConnectionGraph>(startDestination = Route.Connection) {
+                    composable<Route.Connection> {}
+                    composable<Route.ConnectionAddServer> {}
+                }
                 // Import routes are registered inside the settings graph, as in RipDpiNavHost.
                 navigation<SettingsGraph>(startDestination = Route.Settings) {
                     composable<Route.Settings> {}

@@ -173,7 +173,8 @@ class OwnServerJourneyE2ETest :
                 transferThroughAwg(control, "journey-awg")
             }
             step("Status shows the connected server, then the user disconnects") {
-                backToStatus()
+                leaveEditorToAddServer()
+                openTab(Route.Status)
                 composeRule.waitForTag(RipDpiTestTags.StatusServerMetric, ConnectMillis)
                 disconnect()
             }
@@ -201,10 +202,16 @@ class OwnServerJourneyE2ETest :
                 }.let { false }
         }
 
-    private fun backToStatus() =
-        composeRule.waitWithTree("Back never returned to Status", ConnectMillis) {
-            composeRule.tagExists(RipDpiTestTags.screen(Route.Status)) || composeRule.pressBack().let { false }
+    private fun leaveEditorToAddServer() {
+        composeRule.waitWithTree("Editor never closed", ConnectMillis) {
+            val open =
+                composeRule.tagExists(AwgTestTags.AwgConnectAction) ||
+                    composeRule.tagExists(RipDpiTestTags.ConnectionAddServerSheet)
+            if (open) composeRule.pressBack()
+            !open
         }
+        composeRule.waitForTag(RipDpiTestTags.screen(Route.ConnectionAddServer), ConnectMillis)
+    }
 
     private fun tapUntilAccepted(tag: String) {
         var taps = 0
