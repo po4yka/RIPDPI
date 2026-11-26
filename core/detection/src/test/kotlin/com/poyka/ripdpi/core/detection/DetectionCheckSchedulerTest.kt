@@ -227,8 +227,8 @@ class DetectionCheckSchedulerTest {
                         onProgress: (suspend (DetectionProgress) -> Unit)?,
                     ): DetectionCheckResult = cleanResult().copy(verdict = Verdict.DETECTED)
                 }
-            val scheduler =
-                DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(mutableListOf()))
+            val history = mutableListOf(cleanEntry(network("wifi").scopeKey()))
+            val scheduler = DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(history))
 
             scheduler.startObserving(context, this)
             advanceUntilIdle()
@@ -289,6 +289,47 @@ class DetectionCheckSchedulerTest {
             assertFalse(config.includeBypassCheck)
             scheduler.stopObserving()
         }
+
+    @Test
+    fun `first check on a network saves the result without an alert`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val state = DefaultServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult = cleanResult().copy(verdict = Verdict.DETECTED)
+                }
+            val history = mutableListOf<DetectionHistoryEntry>()
+            val scheduler = DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(history))
+
+            scheduler.startObserving(context, this)
+            advanceUntilIdle()
+            scheduler.stopObserving()
+
+            assertEquals(listOf(Verdict.DETECTED.name), history.map { it.verdict })
+            assertTrue(
+                shadowOf(context.getSystemService(NotificationManager::class.java)).allNotifications.isEmpty(),
+            )
+        }
+
+    private fun cleanEntry(networkKey: String) =
+        DetectionHistoryEntry(
+            networkFingerprint = networkKey,
+            networkSummary = "wifi/system",
+            timestamp = 0L,
+            verdict = Verdict.NOT_DETECTED.name,
+            stealthScore = 100,
+            measurementsComplete = true,
+            evidenceCount = 0,
+        )
 
     private fun network(transport: String) = NetworkFingerprint(transport, true, false, "system", emptyList())
 

@@ -137,8 +137,11 @@ class DetectionCheckScheduler
                     return
                 }
                 val score = StealthScore.compute(result)
-
-                if (result.verdict == Verdict.DETECTED || score < 50) {
+                val previous = detectionHistoryStore.findByFingerprint(networkKey)
+                if (isAlarming(result.verdict.name, score) &&
+                    previous != null &&
+                    !isAlarming(previous.verdict, previous.stealthScore)
+                ) {
                     postNotification(context, score, result.verdict)
                 }
 
@@ -163,6 +166,11 @@ class DetectionCheckScheduler
                 Log.w(LogTags.DIAGNOSTICS, "Background detection check failed")
             }
         }
+
+        private fun isAlarming(
+            verdict: String,
+            score: Int,
+        ) = verdict == Verdict.DETECTED.name || score < 50
 
         private fun postNotification(
             context: Context,
