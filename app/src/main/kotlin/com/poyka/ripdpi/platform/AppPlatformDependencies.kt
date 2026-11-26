@@ -170,10 +170,10 @@ class AndroidPermissionPlatformBridge
             automationController
                 .map { controller ->
                     controller.createBatteryOptimizationIntent(
-                        BatteryOptimizationIntents.create(packageName = context.packageName) { true },
+                        BatteryOptimizationIntents.createAppDetailsIntent(context.packageName),
                     )
                 }.orElseGet {
-                    BatteryOptimizationIntents.create(packageName = context.packageName) { true }
+                    BatteryOptimizationIntents.createAppDetailsIntent(context.packageName)
                 }
     }
 

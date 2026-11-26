@@ -106,7 +106,7 @@ class OnboardingViewModel
             }
         }
 
-        /** Opens the system VPN settings or the battery optimization list. It requests no permission. */
+        /** Opens the system VPN settings or the RIPDPI app details. It requests no permission. */
         fun openSystemSettings(vpn: Boolean) {
             val intent =
                 if (vpn) permissionCoordinator.vpnSettingsIntent() else permissionCoordinator.batterySettingsIntent()

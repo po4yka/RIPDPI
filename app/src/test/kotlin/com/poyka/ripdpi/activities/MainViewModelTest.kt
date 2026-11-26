@@ -1397,7 +1397,7 @@ class MainViewModelTest {
         }
 
     @Test
-    fun `missing notifications do not block start`() =
+    fun `start asks for notifications first and continues when the dialog closes`() =
         runTest {
             val serviceController = FakeServiceController()
             val viewModel =
@@ -1416,10 +1416,17 @@ class MainViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.onPrimaryConnectionAction()
-            advanceUntilIdle()
+            viewModel.effects.test {
+                viewModel.onPrimaryConnectionAction()
+                assertEquals(PermissionKind.Notifications, (awaitItem() as MainEffect.RequestPermission).kind)
+                assertEquals(emptyList<Mode>(), serviceController.startedModes)
 
-            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+                viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Cancelled)
+                advanceUntilIdle()
+                assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertNull(viewModel.uiState.value.permissionSummary.issue)
             collector.cancel()
         }
 
@@ -1879,6 +1886,9 @@ class MainViewModelTest {
                         vpnConsent = PermissionStatus.Granted,
                     )
                 viewModel.onPermissionResult(PermissionKind.VpnConsent, PermissionResult.Granted)
+                assertEquals(PermissionKind.Notifications, (awaitItem() as MainEffect.RequestPermission).kind)
+
+                viewModel.onPermissionResult(PermissionKind.Notifications, PermissionResult.Denied)
                 advanceUntilIdle()
 
                 assertEquals(listOf(Mode.VPN), serviceController.startedModes)

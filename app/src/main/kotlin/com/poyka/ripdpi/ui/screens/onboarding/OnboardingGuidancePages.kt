@@ -178,14 +178,14 @@ internal fun OnboardingBackgroundGuidanceContent(
                 icon = RipDpiIcons.Vpn,
                 titleRes = R.string.settings_permissions_always_on_title,
                 bodyRes = R.string.settings_permissions_always_on_needed,
+                actionLabelRes = R.string.settings_permission_action_open_vpn_settings,
+                onAction = onOpenVpnSettings,
+                actionTestTag = RipDpiTestTags.OnboardingVpnSettings,
             )
             OnboardingNote(
                 icon = RipDpiIcons.Lock,
                 titleRes = R.string.settings_permissions_lockdown_title,
                 bodyRes = R.string.settings_permissions_lockdown_needed,
-                actionLabelRes = R.string.settings_permission_action_open_vpn_settings,
-                onAction = onOpenVpnSettings,
-                actionTestTag = RipDpiTestTags.OnboardingVpnSettings,
             )
         }
     }

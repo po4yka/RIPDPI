@@ -31,6 +31,7 @@ internal class MainPermissionActions(
     private var pendingPermissionAction: PermissionAction? = null
     private var pendingVpnAction: PermissionAction? = null
     private var vpnRequestInProgress = false
+    private var notificationPromptOffered = false
     private val _vpnExplanationVisible = MutableStateFlow(false)
     val vpnExplanationVisible = _vpnExplanationVisible.asStateFlow()
     val localNetwork =
@@ -227,48 +228,32 @@ internal class MainPermissionActions(
     }
 
     private fun handleNotificationPermissionResult(result: PermissionResult) {
-        when (result) {
-            PermissionResult.Granted -> {
-                permissionOverrides.remove(PermissionKind.Notifications)
-                refreshPermissionSnapshot()
-                resumePendingAction()
+        val deniedStatus =
+            when (result) {
+                PermissionResult.Denied -> PermissionStatus.Denied
+                PermissionResult.DeniedPermanently -> PermissionStatus.RequiresSettings
+                PermissionResult.Granted, PermissionResult.Cancelled, PermissionResult.ReturnedFromSettings -> null
             }
-
-            PermissionResult.Denied -> {
-                permissionOverrides[PermissionKind.Notifications] = PermissionStatus.Denied
-                pendingPermissionAction = null
-                refreshPermissionSnapshot()
-                onShowPermissionIssue(
-                    createPermissionIssue(
-                        kind = PermissionKind.Notifications,
-                        status = PermissionStatus.Denied,
-                        blocking = false,
-                        stringResolver = stringResolver,
-                    ),
-                )
-            }
-
-            PermissionResult.DeniedPermanently -> {
-                permissionOverrides[PermissionKind.Notifications] = PermissionStatus.RequiresSettings
-                pendingPermissionAction = null
-                refreshPermissionSnapshot()
-                onShowPermissionIssue(
-                    createPermissionIssue(
-                        kind = PermissionKind.Notifications,
-                        status = PermissionStatus.RequiresSettings,
-                        blocking = false,
-                        stringResolver = stringResolver,
-                    ),
-                )
-            }
-
-            PermissionResult.Cancelled,
-            PermissionResult.ReturnedFromSettings,
-            -> {
-                permissionOverrides.remove(PermissionKind.Notifications)
-                pendingPermissionAction = null
-                refreshPermissionSnapshot()
-            }
+        if (deniedStatus == null) {
+            permissionOverrides.remove(PermissionKind.Notifications)
+        } else {
+            permissionOverrides[PermissionKind.Notifications] = deniedStatus
+        }
+        refreshPermissionSnapshot()
+        if (result == PermissionResult.Granted || pendingPermissionAction?.isStartModeAction() == true) {
+            resumePendingAction()
+            return
+        }
+        pendingPermissionAction = null
+        if (deniedStatus != null) {
+            onShowPermissionIssue(
+                createPermissionIssue(
+                    kind = PermissionKind.Notifications,
+                    status = deniedStatus,
+                    blocking = false,
+                    stringResolver = stringResolver,
+                ),
+            )
         }
     }
 
@@ -351,6 +336,16 @@ internal class MainPermissionActions(
     }
 
     private fun continueResolvedAction(action: PermissionAction) {
+        if (
+            action.isStartModeAction() &&
+            !notificationPromptOffered &&
+            permissionState.value.snapshot.notifications == PermissionStatus.RequiresSystemPrompt
+        ) {
+            notificationPromptOffered = true
+            pendingPermissionAction = action
+            mutations.trySend(MainEffect.RequestPermission(kind = PermissionKind.Notifications))
+            return
+        }
         pendingPermissionAction = null
         when (action) {
             PermissionAction.StartConfiguredMode -> {

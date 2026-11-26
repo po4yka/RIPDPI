@@ -287,10 +287,10 @@ private fun buildVpnSettingsPermissionItem(
                     },
                 statusLabel =
                     stringResolver.getString(
-                        when {
-                            status == PermissionStatus.Unknown -> R.string.settings_permission_status_unknown
-                            configuredMode == Mode.VPN -> R.string.settings_permission_status_required
-                            else -> R.string.settings_permission_status_optional
+                        if (status == PermissionStatus.Unknown) {
+                            R.string.settings_permission_status_unknown
+                        } else {
+                            R.string.settings_permission_status_optional
                         },
                     ),
                 actionLabel = stringResolver.getString(R.string.settings_permission_action_open_vpn_settings),
