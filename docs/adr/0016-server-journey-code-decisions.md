@@ -65,3 +65,7 @@ The tunnel is published for telemetry only after the last early return in startu
 The handshake round trip is a telemetry read. It orders nothing else, so `Ordering::Relaxed` is enough for the load. The writer stores the value before it signals readiness, so a reader woken by readiness sees the round trip.
 
 The boringtun library reports whole milliseconds. The writer clamps the value to at least 1 ms, so a sub-millisecond answer still reads as measured and `0` keeps the meaning of "no response yet". The test waits 40 ms before the answer to show that the stored value is the measured round trip and not the clamp.
+
+### core/service/src/main/kotlin/com/poyka/ripdpi/services/TunnelKeyPairGenerator.kt#TunnelKeyPairGenerator
+
+The interface lets `:app` generate WireGuard-family interface keys without a dependency on `:core:engine` types. `DefaultTunnelKeyPairGenerator` adapts the engine generator behind it.

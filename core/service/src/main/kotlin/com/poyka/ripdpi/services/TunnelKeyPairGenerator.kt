@@ -7,7 +7,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 
-/** Base64 Curve25519 key pair for a WireGuard-family interface. */
 data class TunnelKeyPair(
     val privateKey: String,
     val publicKey: String,
@@ -15,7 +14,6 @@ data class TunnelKeyPair(
     override fun toString(): String = "TunnelKeyPair([REDACTED])"
 }
 
-/** Lets `:app` generate interface keys without importing `:core:engine` types. */
 interface TunnelKeyPairGenerator {
     suspend fun generate(): TunnelKeyPair
 }
