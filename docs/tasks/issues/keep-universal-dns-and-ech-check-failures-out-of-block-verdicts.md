@@ -2,7 +2,7 @@
 id: DNS-1795705017215412
 title: Keep universal DNS and ECH check failures out of block verdicts
 kind: bug
-status: backlog
+status: doing
 area: dns
 priority: medium
 owner: Diagnostics engineer
