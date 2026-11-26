@@ -2,7 +2,7 @@
 id: UIX-1795615862573235
 title: Correct onboarding permission prompts and settings labels
 kind: bug
-status: backlog
+status: doing
 area: ui
 priority: low
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 spec_reason: regression-tested-single-module
 ---
 
