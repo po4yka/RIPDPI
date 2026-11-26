@@ -252,25 +252,32 @@ class RipDpiNavHostLogicTest {
     }
 
     private fun assertAuditRequiredTags(auditSpec: String) {
-        val testTagsSource = File("src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt").readText()
+        val tagFiles = listOf("RipDpiTestTags.kt", "FeatureTestTags.kt")
         val staticTestTags =
-            Regex("""const val [A-Za-z0-9_]+ = "([^"]+)"""")
-                .findAll(testTagsSource)
-                .associate { match ->
-                    match.groupValues[1] to
-                        match.value.substringAfter("const val ").substringBefore(" =")
-                }
+            tagFiles
+                .flatMap { fileName ->
+                    File("src/main/kotlin/com/poyka/ripdpi/ui/testing/$fileName")
+                        .readText()
+                        .split(Regex("""(?m)^internal object """))
+                        .drop(1)
+                        .flatMap { block ->
+                            val tagObject = block.substringBefore(" ")
+                            Regex("""const val ([A-Za-z0-9_]+) = "([^"]+)"""")
+                                .findAll(block)
+                                .map { match -> match.groupValues[2] to "$tagObject.${match.groupValues[1]}" }
+                        }
+                }.toMap()
         val usedStaticTagNames =
             File("src/main/kotlin")
                 .walkTopDown()
                 .filter { file ->
                     file.isFile &&
                         file.extension == "kt" &&
-                        file.name != "RipDpiTestTags.kt"
+                        file.name !in tagFiles
                 }.flatMap { file ->
-                    Regex("""RipDpiTestTags\.([A-Za-z0-9_]+)""")
+                    Regex("""\b[A-Za-z]+TestTags\.[A-Za-z0-9_]+""")
                         .findAll(file.readText())
-                        .map { match -> match.groupValues[1] }
+                        .map { match -> match.value }
                 }.toSet()
         val usedStaticTestTags =
             staticTestTags
