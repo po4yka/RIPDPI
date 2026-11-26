@@ -23,6 +23,8 @@ A design note says which RIPDPI transports expose a TLS-in-TLS pattern to a traf
 
 An academic preprint dated 2026-11-23 reports that shaping a proxy to mimic one TLS server cut a classifier's detection rate from over 85% to about 3% at a 1% false-positive rate. The data came from a non-Russian ISP. This is abstract-level evidence from one source and is unverified here.
 
+Server counterpart: `po4yka/ripdpi-vpn-deploy#SEC-1795706124070316` studies the same TLS-in-TLS exposure. This repository owns the measurement; the server repository consumes the conclusion for its XHTTP profile.
+
 The epic rule applies: research first, a design note or field matrix before any implementation task, and a drop when the payoff is weak.
 
 ## Acceptance criteria

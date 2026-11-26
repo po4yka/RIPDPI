@@ -7,7 +7,7 @@ area: ui
 priority: medium
 owner: AmneziaWG editor engineer
 parent: null
-blocked_by: []
+blocked_by: [UIX-1795661310559744, TRN-1792776081374051]
 spec_mode: required
 openspec_change: uix-1795704986857984-warn-about-default-shaped-amneziawg-settings-on-import-and-share
 created: 2026-11-26
@@ -21,6 +21,8 @@ Importing or sharing an AmneziaWG config warns the user when its handshake looks
 ## Context
 
 A public write-up dated 2026-11-14 reports many servers that carry the same default I1 packet, which imitates a DNS response that no real resolver would return. Byte-identical packets across servers can become a one-rule signature. This is a risk assessment, not a measured block. The source is single and unverified here.
+
+Server counterpart: `po4yka/ripdpi-vpn-deploy#ANS-1795705936932681` (server-side refusal of repeated or default signature packets).
 
 Related work: UIX-1795661310559744 (share AmneziaWG servers) adds the exporter that this lint hooks into. TRN-1792776081374051 (header ranges and signature packets) defines the fields. DAT-1791479983861691 validates subscription cohort metadata and does not check obfuscation values.
 

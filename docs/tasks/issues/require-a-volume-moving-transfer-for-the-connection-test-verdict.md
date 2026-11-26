@@ -7,7 +7,7 @@ area: diagnostics
 priority: high
 owner: Diagnostics engineer
 parent: EPC-1795615697939690
-blocked_by: []
+blocked_by: [SVC-1795615846684850, DAT-1795085420746769]
 spec_mode: required
 openspec_change: dgn-1795704789266331-require-a-volume-moving-transfer-for-the-connection-test-verdict
 created: 2026-11-26
@@ -24,7 +24,7 @@ A TCP freeze lets the first kilobytes of a flow pass and then stops it. A test t
 
 Evidence is public and single-source, and it is unverified here. A write-up dated 2026-11 describes a chained client where text messages passed over four hops but images did not. A separate topology tool treats the Ready state as acceptance of the configuration and validates chains only with real end-to-end HTTP traffic. Freeze reports show that the first kilobyte passes and then the flow stops.
 
-The paired server repository already defines operator-owned payload controls with exact expected sizes and hashes. This client task uses those controls and adds no third-party host. The server side is described only in prose here.
+Server counterpart: `po4yka/ripdpi-vpn-deploy#SCR-1795086521848661`. Bundle v3 already carries the `payload_failover` controls with SHA-256 hashes and sizes from 32 KiB to 1 MiB. This client task uses those controls and adds no third-party host.
 
 Neighbours that this task extends and must not duplicate: SVC-1795615846684850 (route issue after a passed test) consumes the Passed verdict; DGN-1795361889557414 (transfer volume comparison), DGN-1791521873290293 (transfer progress and stopping points) and DGN-1795277862388284 (completed transfer for the active strategy verdict) already provide the transfer measurement and stop evidence.
 

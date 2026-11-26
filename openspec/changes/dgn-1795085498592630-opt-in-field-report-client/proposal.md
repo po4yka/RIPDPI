@@ -32,5 +32,5 @@ The app measures connections and blocking locally (`FieldTelemetrySummary`, `Dev
 - Blocked by R2 (DGN-1795085357320979, taxonomy) and R4 (DAT-1795085420746769, `server_ref`, `field_report`).
 - Policy: AGENTS.md says user data leaves the device only through explicit export and no required backend exists. Opt-in upload is an owner decision that deviates from that sentence; this change must update AGENTS.md wording through its owner and keep the app fully functional with opt-in off.
 - Overlap: `correct-dia*` and `connection-stage-scale` (review) change telemetry sources; `svc-1786264762917506-wire-naiveproxy-probe-into-manager-startup` (review) adds a protocol source; `device-server-migration` (review) must not leak identifiers into reports. Rebase on each.
-- Counterpart `ripdpi-vpn-deploy` changes: D1 contracts, D2 ingest (live receiver; local tests use a fake), D6 retention/alert delivery, D7 cross-repo e2e (final acceptance), D5 consumes the reports.
+- Counterpart `ripdpi-vpn-deploy` changes: ingest `po4yka/ripdpi-vpn-deploy#SEC-1795086333272606` (live receiver; local tests use a fake) under epic `po4yka/ripdpi-vpn-deploy#EPC-1795085241910080`, which also tracks D1 contracts, D6 retention/alert delivery, D7 cross-repo e2e (final acceptance) and D5 reports consumption.
 - Parent: EPC-1795085162356362.
