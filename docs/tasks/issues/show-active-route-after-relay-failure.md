@@ -2,7 +2,7 @@
 id: UIX-1795615862148383
 title: Show the selected relay on Status after a relay failure
 kind: bug
-status: doing
+status: review
 area: ui
 priority: medium
 owner: unassigned
