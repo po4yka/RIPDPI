@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.ProfileSelectionStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import com.poyka.ripdpi.data.serverNames
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
@@ -38,6 +39,8 @@ interface ConnectionExternalProviders {
     /** The subscription member or AmneziaWG profile in use, or the saved one the next start uses; null for Direct. */
     val activeExit: Flow<ActiveExit?>
 
+    val serverNames: Flow<Map<String, String>>
+
     /** Turns off every external egress. Returns true when that also stopped the VPN session. */
     suspend fun deactivate(mode: Mode): Boolean
 }
@@ -54,6 +57,8 @@ internal class DefaultConnectionExternalProviders
         groups: ProxyGroupRepository,
         awgProfiles: AwgProfileRepository,
     ) : ConnectionExternalProviders {
+        override val serverNames: Flow<Map<String, String>> = groups.groups().map { it.serverNames() }
+
         @OptIn(ExperimentalCoroutinesApi::class)
         private val savedSelection: Flow<SavedExitSelection> =
             combine(

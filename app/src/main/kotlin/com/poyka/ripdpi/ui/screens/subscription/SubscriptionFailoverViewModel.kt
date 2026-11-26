@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.SubscriptionClientSignal
 import com.poyka.ripdpi.data.actionableSubscriptionSignals
+import com.poyka.ripdpi.data.serverNames
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TimestampTime
@@ -146,6 +147,8 @@ internal object SubscriptionFailoverMapper {
                 .indexOfFirst { it.id == snapshot.profileId }
                 .takeIf { it >= 0 } ?: 0
         val activeProfile = orderedProfiles[activeIndex]
+        val names = groups.serverNames()
+        val activeName = names[activeProfile.id] ?: activeProfile.id
         val activeStatus = snapshot.toServerStatus()
         val capturedAt =
             snapshot.capturedAt.takeIf { it > 0L }
@@ -157,7 +160,7 @@ internal object SubscriptionFailoverMapper {
                 strings = strings,
                 formatTime = formatTime,
             )
-        val events = failoverEvents(snapshot, activeProfile, activeIndex, strings, formatTime)
+        val events = failoverEvents(snapshot, activeName, activeIndex, strings, formatTime)
         val recentEvent =
             events.firstOrNull()?.message
                 ?: strings.getString(R.string.subscription_failover_no_switchovers)
@@ -178,7 +181,7 @@ internal object SubscriptionFailoverMapper {
                 strings.getString(
                     R.string.subscription_failover_active_server_label,
                     activePosition,
-                    activeProfile.displayLabel(),
+                    activeName,
                 ),
             subscriptionAlert = subscriptionAlert,
             servers =
@@ -186,6 +189,7 @@ internal object SubscriptionFailoverMapper {
                     .mapIndexed { index, profile ->
                         val isActive = index == activeIndex
                         profile.toServerUiState(
+                            name = names[profile.id] ?: profile.id,
                             index = index,
                             total = orderedProfiles.size,
                             status = if (isActive) activeStatus else SubscriptionServerStatus.Unknown,
@@ -198,6 +202,7 @@ internal object SubscriptionFailoverMapper {
     }
 
     private fun RelayProfileRecord.toServerUiState(
+        name: String,
         index: Int,
         total: Int,
         status: SubscriptionServerStatus,
@@ -206,7 +211,7 @@ internal object SubscriptionFailoverMapper {
     ): SubscriptionServerUiState =
         SubscriptionServerUiState(
             id = id,
-            name = displayLabel(),
+            name = name,
             endpoint = "$server:$serverPort",
             status = status,
             positionLabel =
@@ -234,7 +239,7 @@ internal object SubscriptionFailoverMapper {
 
     private fun failoverEvents(
         snapshot: NativeRuntimeSnapshot,
-        activeProfile: RelayProfileRecord,
+        activeName: String,
         activeIndex: Int,
         strings: StringResolver,
         formatTime: (Long) -> String,
@@ -255,7 +260,7 @@ internal object SubscriptionFailoverMapper {
             if (isUsingFallback) {
                 add(
                     SubscriptionFailoverEventUiState(
-                        message = fallbackMessage(snapshot, activeProfile, strings),
+                        message = fallbackMessage(snapshot, activeName, strings),
                         timeLabel = timeLabel(snapshot.capturedAt, strings, formatTime),
                     ),
                 )
@@ -285,25 +290,19 @@ internal object SubscriptionFailoverMapper {
 
     private fun fallbackMessage(
         snapshot: NativeRuntimeSnapshot,
-        activeProfile: RelayProfileRecord,
+        activeName: String,
         strings: StringResolver,
     ): String {
         val reason = snapshot.resolverFallbackReason ?: snapshot.lastRetryReason ?: snapshot.lastFallbackAction
         return if (reason.isNullOrBlank()) {
             strings.getString(
                 R.string.subscription_failover_using_backup_path_for,
-                activeProfile.displayLabel(),
+                activeName,
             )
         } else {
             strings.getString(R.string.subscription_failover_using_backup_path_reason, reason)
         }
     }
-
-    private fun RelayProfileRecord.displayLabel(): String =
-        serverName.takeIf(String::isNotBlank)
-            ?: operatorName.takeIf(String::isNotBlank)
-            ?: server.takeIf(String::isNotBlank)
-            ?: id
 
     private fun lastCheckLabel(
         capturedAt: Long?,

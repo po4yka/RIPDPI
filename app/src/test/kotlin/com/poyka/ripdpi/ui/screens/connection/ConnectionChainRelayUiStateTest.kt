@@ -2,18 +2,59 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import com.poyka.ripdpi.data.ChainIntermediateHopSnapshot
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.serverNames
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ConnectionChainRelayUiStateTest {
+    @Test
+    fun `servers show their link name, a nameless link shows its host, and an own server keeps its typed name`() {
+        fun member(
+            id: String,
+            name: String,
+        ) = ProxyProfile.Trojan(id, name, "links", server = "203.0.113.$id", serverPort = 443, password = "p")
+        val named = member("1", "Test VLESS Reality")
+        val nameless = member("2", "")
+        val group =
+            ProxyGroup(
+                "links",
+                "Links",
+                ProxyGroupType.BASIC,
+                order = 0,
+                isSelector = true,
+                members = listOf(named, nameless),
+            )
+
+        val options =
+            buildVpnProfileOptions(
+                records =
+                    listOf(
+                        RelayProfileRecord(id = "1", kind = RelayKindTrojan, server = named.server),
+                        RelayProfileRecord(id = "2", kind = RelayKindTrojan, server = nameless.server),
+                        RelayProfileRecord(id = "My server", kind = RelayKindTrojan, server = "198.51.100.1"),
+                    ),
+                serverNames = listOf(group).serverNames(),
+            )
+
+        assertEquals(
+            listOf("Test VLESS Reality", "203.0.113.2", "My server"),
+            options.map { it.name },
+        )
+        assertEquals("Test VLESS Reality · ${options[0].kindLabel}", options[0].selectorLabel)
+    }
+
     @Test
     fun `chain relay profile options expose heterogeneous hop trust metadata`() {
         val options =

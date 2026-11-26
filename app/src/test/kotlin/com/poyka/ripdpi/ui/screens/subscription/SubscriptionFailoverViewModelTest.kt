@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RuntimeTelemetryState
@@ -154,7 +155,7 @@ class SubscriptionFailoverViewModelTest {
 
             viewModel.uiState.test {
                 val state = awaitItemUntil { it.hasServers }
-                assertEquals("Server 2: backup.example.net", state.activeServerLabel)
+                assertEquals("Server 2: 02_backup", state.activeServerLabel)
                 assertEquals(
                     R.string.subscription_failover_status_up,
                     state.servers
@@ -253,6 +254,32 @@ class SubscriptionFailoverViewModelTest {
             )
         assertEquals(SubscriptionAlertTone.ERROR, terminalUi.subscriptionAlert?.tone)
         assertEquals("Subscription revoked", terminalUi.subscriptionAlert?.title)
+    }
+
+    @Test
+    fun `subscription servers show the name the subscription gave them`() {
+        val member =
+            ProxyProfile.Trojan(
+                id = "de53ebe8-member",
+                displayName = "Frankfurt 1",
+                groupId = "sub",
+                server = "203.0.113.7",
+                serverPort = 443,
+                password = "secret",
+                serverName = "www.example.com",
+            )
+        val ui =
+            SubscriptionFailoverMapper.toUiState(
+                profiles = listOf(relayProfile(member.id, member.server).copy(serverName = "www.example.com")),
+                groups = listOf(subscriptionGroup("sub", Subscription()).copy(members = listOf(member))),
+                snapshot = NativeRuntimeSnapshot.idle("relay"),
+                nowMillis = 10_000L,
+                strings = ResourceStringResolver(),
+                formatTime = { "12:00" },
+            )
+
+        assertEquals(listOf("Frankfurt 1"), ui.servers.map { it.name })
+        assertEquals("Server 1: Frankfurt 1", ui.activeServerLabel)
     }
 }
 

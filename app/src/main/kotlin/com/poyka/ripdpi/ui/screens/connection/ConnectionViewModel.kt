@@ -224,6 +224,7 @@ class ConnectionViewModel
                 factory = uiStateFactory,
                 reconnectState = dependencies.reconnectCoordinator.reconnectState,
                 activeExit = dependencies.externalProviders.activeExit,
+                serverNames = dependencies.externalProviders.serverNames,
                 strategyLanes =
                     strategyLanesSource
                         .observe()

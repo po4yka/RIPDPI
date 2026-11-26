@@ -23,6 +23,9 @@ fun ProxyProfile.exitName(): String {
     return displayName.takeUnless { it.isBlank() || (host != null && host in it) } ?: kindLabel()
 }
 
+fun List<ProxyGroup>.serverNames(): Map<String, String> =
+    flatMap { it.members }.associate { it.id to it.displayName.ifBlank { it.host() ?: it.kindLabel() } }
+
 private fun ProxyProfile.host(): String? =
     when (this) {
         is ProxyProfile.Vless -> server

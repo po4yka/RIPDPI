@@ -12,6 +12,8 @@ import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.platform.AndroidStringResolver
@@ -57,10 +59,30 @@ class SubscriptionRetainedLocaleRouteTest {
                     server = "primary.example.net",
                     serverName = "Minha rede — Primary",
                 ),
-                RelayProfileRecord(id = "02-backup", server = "backup.example.net", serverName = "Minha rede — Backup"),
+                RelayProfileRecord(id = "02-backup", server = "backup.example.net", serverName = "backup.example.net"),
             )
         val profileStore = FakeLocaleRelayProfileStore(profiles)
-        val frozenGroups = emptyList<ProxyGroup>()
+        val frozenGroups =
+            listOf(
+                ProxyGroup(
+                    id = "sub",
+                    name = "Subscription",
+                    type = ProxyGroupType.SUBSCRIPTION,
+                    order = 0,
+                    isSelector = true,
+                    members =
+                        listOf(
+                            ProxyProfile.Trojan(
+                                "02-backup",
+                                "Minha rede — Backup",
+                                "sub",
+                                "backup.example.net",
+                                443,
+                                "p",
+                            ),
+                        ),
+                ),
+            )
         val groupRepository = FakeLocaleProxyGroupRepository(frozenGroups)
         val telemetry = telemetryFixture()
         val service = FakeServiceStateStore().apply { updateTelemetry(telemetry) }

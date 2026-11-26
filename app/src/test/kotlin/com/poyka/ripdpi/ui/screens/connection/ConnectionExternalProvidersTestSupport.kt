@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.flowOf
 internal object NoExternalProviders : ConnectionExternalProviders {
     override val activeExit: Flow<ActiveExit?> = flowOf(null)
 
+    override val serverNames: Flow<Map<String, String>> = flowOf(emptyMap())
+
     override suspend fun current(mode: Mode): ConnectionExternalProvider? = null
 
     override suspend fun deactivate(mode: Mode): Boolean = false
@@ -23,6 +25,8 @@ internal class FakeExternalProviders(
     exit: ActiveExit? = null,
 ) : ConnectionExternalProviders {
     override val activeExit: Flow<ActiveExit?> = flowOf(exit)
+
+    override val serverNames: Flow<Map<String, String>> = flowOf(emptyMap())
 
     var deactivations = 0
         private set

@@ -35,6 +35,7 @@ internal class ConnectionUiStateFactory(
         relayProfileRecords: List<RelayProfileRecord>,
         networkSnapshot: NativeNetworkSnapshot?,
         capabilityRecords: List<ServerCapabilityRecord>,
+        serverNames: Map<String, String> = emptyMap(),
     ): ConnectionUiState {
         val session = editorState.session
         val currentDraft = settings.toConfigDraft().sanitizedMasqueAuthMode()
@@ -44,6 +45,7 @@ internal class ConnectionUiStateFactory(
             buildRelayProfileOptions(
                 records = relayProfileRecords,
                 chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
+                serverNames = serverNames,
             )
         val projection =
             ConnectionUiStateProjection(
@@ -58,7 +60,7 @@ internal class ConnectionUiStateFactory(
                 editingPreset = session.editingPreset(presets, draft),
                 relayProfileRecords = relayProfileRecords,
                 relayProfiles = relayProfiles,
-                vpnProfiles = buildVpnProfileOptions(relayProfileRecords),
+                vpnProfiles = buildVpnProfileOptions(relayProfileRecords, serverNames),
                 relayPresets = relayPresets,
                 networkSnapshot = networkSnapshot,
                 capabilityRecords = capabilityRecords,

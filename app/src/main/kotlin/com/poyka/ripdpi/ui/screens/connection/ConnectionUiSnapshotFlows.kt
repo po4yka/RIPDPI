@@ -93,13 +93,15 @@ internal fun configUiStateFlow(
     reconnectState: Flow<RunningReconnectState> = flowOf(RunningReconnectState.Idle),
     strategyLanes: Flow<StrategyLanesUiState?> = flowOf(null),
     activeExit: Flow<ActiveExit?> = flowOf(null),
+    serverNames: Flow<Map<String, String>> = flowOf(emptyMap()),
 ): StateFlow<ConnectionUiState> =
     combine(
         persistedSnapshots,
         editorState,
         serviceTelemetry,
         runtimeSnapshots,
-    ) { persistedSnapshot, editor, telemetry, runtimeSnapshot ->
+        serverNames,
+    ) { persistedSnapshot, editor, telemetry, runtimeSnapshot, names ->
         factory
             .create(
                 settings = persistedSnapshot.settings,
@@ -111,6 +113,7 @@ internal fun configUiStateFlow(
                 relayProfileRecords = persistedSnapshot.relayProfileRecords,
                 networkSnapshot = runtimeSnapshot.networkSnapshot,
                 capabilityRecords = runtimeSnapshot.capabilityRecords,
+                serverNames = names,
             ).copy(activeExternalProvider = persistedSnapshot.activeExternalProvider)
     }.combine(reconnectState) { state, reconnect ->
         if (reconnect.isConfigPending()) {

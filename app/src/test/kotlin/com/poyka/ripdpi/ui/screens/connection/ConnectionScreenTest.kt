@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.connection
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -664,6 +666,33 @@ class ConnectionScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("draft"))
             .assertIsEnabled()
+    }
+
+    @Test
+    fun `connection card and servers sheet show the server name instead of its id`() {
+        val id = "de53ebe8-0000-4000-8000-000000000000"
+        val state =
+            configUiState(
+                vpnProfiles =
+                    persistentListOf(
+                        RelayProfileUiState(id, "vless_reality", "VLESS", "", "", name = "Test VLESS Reality"),
+                    ),
+            ).copy(activeRelayProfileId = id, activeRelayEnabled = true)
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    ConnectionSavedConnectionCard(state, onChangeProfile = {}, onAddServer = {})
+                    ConnectionRelayProfileChoices(state, ConnectionProfileActions(), {})
+                }
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.ConnectionProfileChange,
+            ).assertTextContains("Test VLESS Reality · VLESS")
+        composeRule.onAllNodesWithText("Test VLESS Reality · VLESS").assertCountEquals(2)
+        composeRule.onNodeWithText(id, substring = true).assertDoesNotExist()
     }
 
     @Test

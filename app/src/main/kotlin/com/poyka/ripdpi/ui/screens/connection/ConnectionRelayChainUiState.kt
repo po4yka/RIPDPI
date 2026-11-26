@@ -34,9 +34,10 @@ data class RelayProfileUiState(
     val kindLabel: String,
     val jurisdiction: String,
     val operatorName: String,
+    val name: String = id,
 ) {
     val selectorLabel: String
-        get() = "$id · $kindLabel"
+        get() = "$name · $kindLabel"
 
     val trustLabel: String
         get() =
@@ -49,19 +50,25 @@ data class RelayProfileUiState(
 internal fun buildRelayProfileOptions(
     records: List<RelayProfileRecord>,
     chainProfileId: String,
+    serverNames: Map<String, String> = emptyMap(),
 ): ImmutableList<RelayProfileUiState> =
     records
         .asSequence()
         .filter { it.id != chainProfileId }
         .filter { it.isSupportedChainEntryHop() || it.isSupportedChainExitHop() }
-        .toRelayProfileUiStates()
+        .toRelayProfileUiStates(serverNames)
 
-internal fun buildVpnProfileOptions(records: List<RelayProfileRecord>): ImmutableList<RelayProfileUiState> =
+internal fun buildVpnProfileOptions(
+    records: List<RelayProfileRecord>,
+    serverNames: Map<String, String> = emptyMap(),
+): ImmutableList<RelayProfileUiState> =
     records
         .asSequence()
-        .toRelayProfileUiStates()
+        .toRelayProfileUiStates(serverNames)
 
-private fun Sequence<RelayProfileRecord>.toRelayProfileUiStates(): ImmutableList<RelayProfileUiState> =
+private fun Sequence<RelayProfileRecord>.toRelayProfileUiStates(
+    serverNames: Map<String, String>,
+): ImmutableList<RelayProfileUiState> =
     this
         .sortedBy { it.id }
         .map { record ->
@@ -71,6 +78,7 @@ private fun Sequence<RelayProfileRecord>.toRelayProfileUiStates(): ImmutableList
                 kindLabel = record.kind.relayKindLabel(),
                 jurisdiction = record.jurisdiction,
                 operatorName = record.operatorName,
+                name = serverNames[record.id] ?: record.id,
             )
         }.toList()
         .toImmutableList()
