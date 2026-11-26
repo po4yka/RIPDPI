@@ -138,7 +138,7 @@ internal fun ProfileImportConfirmScreen(
                     onClick = onConfirm,
                     enabled = !uiState.importing,
                     loading = uiState.importing,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ImportAdd),
                 )
             }
         }

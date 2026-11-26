@@ -64,7 +64,9 @@
       "android-naiveproxy",
       "android-transactions",
       "android-xray",
-      "android-network"
+      "android-network",
+      "android-own-server-vless",
+      "android-own-server-awg"
     ],
     "android-usb": [
       "android-usb-transactions",
@@ -147,6 +149,8 @@
       "android-transactions",
       "android-xray",
       "android-network",
+      "android-own-server-vless",
+      "android-own-server-awg",
       "routed-baseline-drop-recovery",
       "routed-udp-block",
       "routed-tcp-app-blackhole",
@@ -962,6 +966,34 @@
         "vpnServiceRoutesHostnameTrafficThroughEncryptedDnsWithoutRestartLoop",
         "vpnServiceEncryptedDnsFaultBreaksHostnameShellRoundTrip",
         "vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip"
+      ]
+    },
+    {
+      "id": "android-own-server-vless",
+      "adapter": "android",
+      "protocol": "vless-reality-tcp-ui-journey",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "vlessLinkFromClipboardConnectsThroughVpnAndProxyOnly"
+      ]
+    },
+    {
+      "id": "android-own-server-awg",
+      "adapter": "android",
+      "protocol": "amneziawg-3.1-ui-journey",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "awgConfFromClipboardConnectsThroughVpnAndReconnects"
       ]
     },
     {

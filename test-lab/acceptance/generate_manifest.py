@@ -45,6 +45,8 @@ def generate():
                     "android-awg": "amneziawg-3.1-tun",
                     "android-migration": "https-refresh-vless-migration",
                     "android-network": "direct-tun-dns",
+                    "android-own-server-vless": "vless-reality-tcp-ui-journey",
+                    "android-own-server-awg": "amneziawg-3.1-ui-journey",
                 }[identity.replace("android-usb-", "android-")],
                 "tier": "android-tun",
                 "platforms": ["darwin", "linux"],

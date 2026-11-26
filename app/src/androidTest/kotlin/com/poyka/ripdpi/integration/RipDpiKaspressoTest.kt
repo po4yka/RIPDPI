@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.integration
 
 import android.content.Intent
+import androidx.compose.ui.test.ComposeUiTestConfig
 import com.kaspersky.components.composesupport.config.addComposeSupport
 import com.kaspersky.kaspresso.interceptors.watcher.testcase.impl.screenshot.ScreenshotFailStepWatcherInterceptor
 import com.kaspersky.kaspresso.interceptors.watcher.testcase.impl.views.DumpViewsInterceptor
@@ -16,12 +17,13 @@ import org.junit.Rule
  */
 abstract class RipDpiKaspressoTest(
     launchIntent: Intent,
+    composeConfig: ComposeUiTestConfig = ComposeUiTestConfig(),
 ) : TestCase(kaspressoBuilder = journeyKaspressoBuilder()) {
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
-    val composeRule = createAutomationComposeRule(launchIntent)
+    val composeRule = createAutomationComposeRule(launchIntent, composeConfig)
 
     @Before
     fun injectHilt() {

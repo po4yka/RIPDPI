@@ -182,6 +182,7 @@ internal object RipDpiTestTags {
     const val SubscriptionAddUrl = "subscription-add-url"
     const val SubscriptionAddContinue = "subscription-add-continue"
     const val SubscriptionImportCheck = "subscription-import-check"
+    const val ImportAdd = "import-add"
     const val ImportConnect = "import-connect"
     const val ImportSelect = "import-select"
     const val ClipboardImportLink = "clipboard-import-link"

@@ -77,6 +77,13 @@ SCENARIOS = {
         + "NetworkPathE2ETest#vpnServiceSurfacedFixtureFaultBreaksShellRoundTrip",
     ],
 }
+JOURNEY = PREFIX + "OwnServerJourneyE2ETest#"
+SCENARIOS["android-own-server-vless"] = [JOURNEY + "vlessLinkFromClipboardConnectsThroughVpnAndProxyOnly"]
+SCENARIOS["android-own-server-awg"] = [JOURNEY + "awgConfFromClipboardConnectsThroughVpnAndReconnects"]
+JOURNEY_PEERS = {
+    "android-own-server-vless": "android-xray",
+    "android-own-server-awg": "android-awg",
+}
 for transport in ("transactions", "hysteria", "awg", "migration"):
     original = SCENARIOS[f"android-{transport}"][0]
     test_class, method = original.split("#")
@@ -1063,9 +1070,9 @@ def arguments() -> argparse.Namespace:
                 parser.error(
                     "physical data endpoints require distinct non-loopback private LAN addresses"
                 )
-        if args.scenario == "android-network":
+        if args.scenario == "android-network" or args.scenario in JOURNEY_PEERS:
             parser.error(
-                "android-network uses the emulator fixture; select an owned physical transport scenario"
+                f"{args.scenario} runs on the emulator only; select an owned physical transport scenario"
             )
     if (
         args.scenario in ("android-hysteria", "android-usb-hysteria")
@@ -1083,7 +1090,9 @@ def arguments() -> argparse.Namespace:
 def main() -> int:
     args = arguments()
     protocol_scenario = (
-        args.scenario.replace("android-usb-", "android-") if args.scenario else None
+        JOURNEY_PEERS.get(args.scenario, args.scenario.replace("android-usb-", "android-"))
+        if args.scenario
+        else None
     )
     if args.physical_device and not args.prepare:
         lock_root = Path(
@@ -1247,6 +1256,9 @@ def main() -> int:
             installed = True
             if installation is not None:
                 installation.confirm(kind)
+        if args.scenario in JOURNEY_PEERS:
+            report["phase"] = "clear-app-data"
+            command(adb + ["shell", "pm", "clear", PACKAGE], "pm-clear.log")
         report["logcat_scope"] = begin_logcat_scope(adb, out)
         report["phase"] = "runner"
         components = command(

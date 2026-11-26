@@ -15,10 +15,11 @@ import androidx.compose.ui.test.junit4.v2.AndroidComposeTestRule as createAndroi
 
 internal fun createAutomationComposeRule(
     intent: Intent,
+    config: ComposeUiTestConfig = ComposeUiTestConfig(),
 ): AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity> =
     createAndroidComposeTestRule(
         activityRule = ActivityScenarioRule<MainActivity>(intent),
-        config = ComposeUiTestConfig(),
+        config = config,
     ) { rule ->
         var activity: MainActivity? = null
         rule.scenario.onActivity { activity = it }
