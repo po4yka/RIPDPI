@@ -9,6 +9,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
@@ -24,6 +25,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
@@ -36,6 +38,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -339,22 +342,39 @@ class ConnectionScreenTest {
     }
 
     @Test
-    fun `saved AmneziaWG servers share the servers list and open their editor`() {
+    fun `saved AmneziaWG servers share the servers list, open their editor and check their server`() {
         val opened = mutableListOf<Pair<String, Boolean>>()
+        val checked = mutableListOf<String>()
         setConfigScreen(
             initialPath = ConnectionPath.Relay,
-            profileActions = ConnectionProfileActions(openAwg = { id, needsKey -> opened += id to needsKey }),
+            profileActions =
+                ConnectionProfileActions(
+                    openAwg = { id, needsKey -> opened += id to needsKey },
+                    checkAwg = { checked += it },
+                ),
             vpnProfiles = persistentListOf(RelayProfileUiState("relay", "trojan", "Trojan", "", "")),
             awgServers =
                 persistentListOf(
                     com.poyka.ripdpi.ui.screens.profiles
                         .AwgProfileItem("awg-sub", "Home AWG", needsPrivateKey = true),
                     com.poyka.ripdpi.ui.screens.profiles
-                        .AwgProfileItem("awg-own", "Own", needsPrivateKey = false),
+                        .AwgProfileItem(
+                            "awg-own",
+                            "Own",
+                            false,
+                            com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
+                                .Measured(42, 1),
+                        ),
                 ),
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfile("relay")).assertExists()
+        val handshake =
+            RuntimeEnvironment.getApplication().getString(R.string.profile_utility_handshake_measured, "42")
+        composeRule.onNodeWithText(handshake).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerCheck("awg-sub")).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerCheck("awg-own")).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(listOf("awg-own"), checked) }
         composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-own")).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionAwgServerRow("awg-sub")).performScrollTo().performClick()

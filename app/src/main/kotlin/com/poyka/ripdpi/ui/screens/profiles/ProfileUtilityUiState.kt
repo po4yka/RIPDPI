@@ -50,7 +50,7 @@ internal fun SavedAwgProfile.toAwgProfileItem(
     measurement: ProfileMeasurementUiState = ProfileMeasurementUiState.NotChecked,
 ): AwgProfileItem = AwgProfileItem(id, name, needsPrivateKey = request.privateKey.isBlank(), measurement)
 
-internal sealed interface ProfileMeasurementUiState {
+sealed interface ProfileMeasurementUiState {
     data object NotChecked : ProfileMeasurementUiState
 
     data object Checking : ProfileMeasurementUiState
@@ -69,7 +69,7 @@ internal sealed interface ProfileMeasurementUiState {
     ) : ProfileMeasurementUiState
 }
 
-internal enum class ProfileUtilityFailure {
+enum class ProfileUtilityFailure {
     Persistence,
     EnvironmentChanged,
     Unsupported,

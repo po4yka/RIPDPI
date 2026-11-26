@@ -371,7 +371,7 @@ private fun ProfileUtilityControls(
 }
 
 @Composable
-private fun awgMeasurementText(measurement: ProfileMeasurementUiState): String =
+internal fun awgMeasurementText(measurement: ProfileMeasurementUiState): String =
     when (measurement) {
         ProfileMeasurementUiState.NotChecked -> {
             stringResource(R.string.profile_utility_not_checked)

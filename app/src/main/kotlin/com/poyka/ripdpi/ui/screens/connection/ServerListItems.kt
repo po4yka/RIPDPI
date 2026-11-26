@@ -33,6 +33,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.awg.rememberAwgConfFileImport
 import com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem
+import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
+import com.poyka.ripdpi.ui.screens.profiles.awgMeasurementText
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -155,14 +157,29 @@ internal fun AwgServerRow(
     ServerRow(
         server = ServerKey.Awg(server.id),
         name = server.name,
-        detail = stringResource(R.string.awg_field_private_key).takeIf { server.needsPrivateKey },
+        detail =
+            if (server.needsPrivateKey) {
+                stringResource(R.string.awg_field_private_key)
+            } else {
+                awgMeasurementText(server.measurement)
+            },
         kindLabel = stringResource(R.string.awg_editor_title),
         onOpen = { actions.openAwg(server.id, server.needsPrivateKey) },
         onShare = null,
         actions = actions,
         testTag = RipDpiTestTags.connectionAwgServer(server.id),
         rowTestTag = RipDpiTestTags.connectionAwgServerRow(server.id),
-    )
+    ) {
+        if (!server.needsPrivateKey) {
+            RipDpiButton(
+                text = stringResource(R.string.profile_utility_check),
+                onClick = { actions.checkAwg(server.id) },
+                modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.connectionAwgServerCheck(server.id)),
+                enabled = server.measurement != ProfileMeasurementUiState.Checking,
+                wrapLabel = true,
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)

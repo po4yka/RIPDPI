@@ -64,6 +64,7 @@ data class ConnectionProfileActions(
     val duplicate: (ServerKey) -> Unit = {},
     val delete: (ServerKey) -> Unit = {},
     val dismissMessage: () -> Unit = {},
+    val checkAwg: (id: String) -> Unit = {},
 )
 
 @Composable
@@ -170,7 +171,8 @@ fun ConnectionRoute(
                         onOpenModeEditor,
                     )
                 },
-            ).withServerActions(serverListViewModel, viewModel, onOpenRoute),
+            ).withServerActions(serverListViewModel, viewModel, onOpenRoute)
+                .copy(checkAwg = awgViewModel::check),
         initialPath = initialPath ?: if (viewModel.browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct,
         onBrowsingRelayChange = { viewModel.browsingRelay = it },
     )

@@ -28,6 +28,7 @@ Portfolio task `UIX-1795615852980919` owns this change. The user sees, adds, sel
 
 - Saved AmneziaWG servers render in the Servers card under the relay servers. `SavedAwgProfilesViewModel` stays the one owner of that list; the AWG section moves out of the Profiles utility screen.
 - Relay rows keep Select; AWG rows open their editor, where Connect lives.
+- The per-server AmneziaWG Check from DGN-1795615859682455 moves with the rows: a keyed AWG row shows its handshake result and a Check button in the Servers card.
 
 ### Actions
 
