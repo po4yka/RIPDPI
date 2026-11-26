@@ -88,7 +88,7 @@ pub enum ResolverReachability {
     Reachable,
     Degraded,
     Blocked,
-    /// Every panel resolver failed on both transports: the local network or the probe is down, which is no evidence about any single resolver.
+    /// Every panel resolver failed on both transports, so the survey has no per-resolver evidence. The cause (local outage, probe failure, or blanket blocking of public resolvers) needs a control measurement to tell apart.
     UniversalFailure,
 }
 
@@ -144,7 +144,7 @@ impl ResolverSurveyRunner {
                 }
             })
             .collect();
-        // One failing resolver among working ones is blocking evidence; all of them failing is not.
+        // One failing resolver among working ones is per-resolver evidence; all failing is not (local outage, probe failure and blanket blocking look alike without a control).
         if results.len() > 1 && results.iter().all(|r| r.verdict == ResolverReachability::Blocked) {
             for result in &mut results {
                 result.verdict = ResolverReachability::UniversalFailure;
