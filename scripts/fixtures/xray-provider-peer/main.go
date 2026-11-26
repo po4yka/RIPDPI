@@ -40,6 +40,7 @@ import (
 const peerID = "550e8400-e29b-41d4-a716-446655440000"
 const serverName = "fixture.test"
 const destination = "192.0.2.77:80"
+const connectivityCheckHost = "connectivitycheck.gstatic.com"
 const ownedDNSName = "owned.test."
 
 type peerManifest struct {
@@ -82,12 +83,13 @@ type peer struct {
 }
 
 type peerOptions struct {
-	BindHost      string
-	AdvertiseHost string
-	RunID         string
-	Debug         bool
-	TLSDirectory  string
-	ClientID      string
+	BindHost          string
+	AdvertiseHost     string
+	RunID             string
+	Debug             bool
+	TLSDirectory      string
+	ClientID          string
+	ConnectivityCheck bool
 }
 
 func validateLocalHost(host string) error {
@@ -312,6 +314,11 @@ func startPeerWithOptions(ctx context.Context, options peerOptions) (*peer, erro
 			// TLS sniffing can replace the bootstrap IP with the certificate name.
 			map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:" + serverName}, "port": fmt.Sprint(p.manifest.DNSHTTPSPort), "outboundTag": "owned-doh-tls"},
 		}},
+	}
+	if options.ConnectivityCheck {
+		config["outbounds"] = append(config["outbounds"].([]any), map[string]any{"tag": "connectivity-check", "protocol": "freedom", "settings": map[string]any{"domainStrategy": "UseIPv4"}})
+		routing := config["routing"].(map[string]any)
+		routing["rules"] = append(routing["rules"].([]any), map[string]any{"type": "field", "inboundTag": []string{"tcp", "xhttp", "xhttp-tls"}, "network": "tcp", "domain": []string{"full:" + connectivityCheckHost}, "port": "443", "outboundTag": "connectivity-check"})
 	}
 	_ = privateTCP.Close()
 	_ = privateXHTTP.Close()
@@ -611,6 +618,7 @@ func main() {
 	tlsDirectory := flag.String("tls-directory", "", "Exclusive private directory for the owned nginx TLS fixture")
 	clientID := flag.String("client-id", peerID, "Client UUID for this independent peer")
 	runID := flag.String("run-id", "", "Acceptance run identity")
+	connectivityCheck := flag.Bool("connectivity-check", false, "Route only "+connectivityCheckHost+":443 to the public internet")
 	flag.Parse()
 	if validateLocalHost(*controlHost) != nil || *controlPort < 0 || *controlPort > 65535 {
 		fmt.Fprintln(os.Stderr, "invalid management address or port")
@@ -628,7 +636,7 @@ func main() {
 		}
 		defer output.Close()
 	}
-	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID, Debug: *debug, TLSDirectory: *tlsDirectory, ClientID: *clientID})
+	p, err := startPeerWithOptions(ctx, peerOptions{BindHost: *bindHost, AdvertiseHost: *advertiseHost, RunID: *runID, Debug: *debug, TLSDirectory: *tlsDirectory, ClientID: *clientID, ConnectivityCheck: *connectivityCheck})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "owned Xray peer startup failed")
 		os.Exit(1)

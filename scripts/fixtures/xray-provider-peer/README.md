@@ -38,3 +38,5 @@ Android failover test can hold the remaining body until timeout on the active
 route. The manifest carries only the public test certificate and digest. Android trust is
 injected by test fixtures; production trust validation is unchanged. All other
 destinations retain the default blackhole route.
+
+`--connectivity-check` adds one public IPv4 route: TCP 443 to `connectivitycheck.gstatic.com`. The Android client probes this host through a new relay before it reports the VPN connected, so a journey that connects from the UI needs it. It requires host internet access; no other scenario enables it.

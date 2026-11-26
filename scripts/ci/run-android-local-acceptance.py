@@ -1351,7 +1351,12 @@ def main() -> int:
                         if args.physical_host
                         else []
                     )
-                    + (["--debug"] if args.xray_debug else []),
+                    + (["--debug"] if args.xray_debug else [])
+                    + (
+                        ["--connectivity-check"]
+                        if args.scenario == "android-own-server-vless"
+                        else []
+                    ),
                     out / "peer.log",
                 )
                 owned.append(child)
