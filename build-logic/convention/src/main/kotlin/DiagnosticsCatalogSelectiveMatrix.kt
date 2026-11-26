@@ -20,6 +20,8 @@ internal data class SelectiveMatrixTargetDefinition(
     val url: String,
     val cohort: String,
     val infrastructureGroup: String,
+    val targetClass: String,
+    val destinationAsn: Int,
     val sourceUrl: String,
     val sourceDate: String,
     val lastVerifiedAt: String? = null,
@@ -38,12 +40,52 @@ internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition 
                 catalogVersion = "ru-selective-2026-10-09",
                 targets =
                     listOf(
-                        matrixTarget("yandex", "Yandex", "yandex.ru", "declared_available", "yandex"),
-                        matrixTarget("vk", "VK", "vk.com", "declared_available", "vk"),
-                        matrixTarget("selectel", "Selectel", "selectel.ru", "domestic", "selectel"),
-                        matrixTarget("timeweb", "Timeweb", "timeweb.com", "domestic", "timeweb"),
-                        matrixTarget("cloudflare", "Cloudflare", "speed.cloudflare.com", "global", "cloudflare"),
-                        matrixTarget("ovh", "OVHcloud", "proof.ovh.net", "global", "ovhcloud"),
+                        matrixTarget(
+                            "yandex",
+                            "Yandex",
+                            "yandex.ru",
+                            "declared_available",
+                            "yandex",
+                            "domestic_hosting",
+                            13238,
+                        ),
+                        matrixTarget("vk", "VK", "vk.com", "declared_available", "vk", "domestic_hosting", 47541),
+                        matrixTarget(
+                            "selectel",
+                            "Selectel",
+                            "selectel.ru",
+                            "domestic",
+                            "selectel",
+                            "domestic_hosting",
+                            50340,
+                        ),
+                        matrixTarget(
+                            "timeweb",
+                            "Timeweb",
+                            "timeweb.com",
+                            "domestic",
+                            "timeweb",
+                            "domestic_hosting",
+                            51115,
+                        ),
+                        matrixTarget(
+                            "cloudflare",
+                            "Cloudflare",
+                            "speed.cloudflare.com",
+                            "global",
+                            "cloudflare",
+                            "cdn",
+                            13335,
+                        ),
+                        matrixTarget(
+                            "ovh",
+                            "OVHcloud",
+                            "proof.ovh.net",
+                            "global",
+                            "ovhcloud",
+                            "foreign_datacenter",
+                            16276,
+                        ),
                     ),
             ),
     )
@@ -54,6 +96,8 @@ private fun matrixTarget(
     host: String,
     cohort: String,
     infrastructureGroup: String,
+    targetClass: String,
+    destinationAsn: Int,
 ): SelectiveMatrixTargetDefinition {
     val declared = cohort == "declared_available"
     return SelectiveMatrixTargetDefinition(
@@ -62,6 +106,8 @@ private fun matrixTarget(
         url = "https://$host/robots.txt",
         cohort = cohort,
         infrastructureGroup = infrastructureGroup,
+        targetClass = targetClass,
+        destinationAsn = destinationAsn,
         sourceUrl = if (declared) "https://t.me/mintsifry/2603" else "https://$host/robots.txt",
         sourceDate = if (declared) "2025-09-05" else "2026-10-09",
         lastVerifiedAt = "2026-10-09T04:20:29Z",
@@ -99,6 +145,11 @@ internal fun DiagnosticsProfileDefinition.validateSelectiveMatrix() {
         require(target.id.isNotBlank() && target.label.isNotBlank() && target.infrastructureGroup.isNotBlank()) {
             "Matrix target metadata is missing for ${target.id}"
         }
+        require(
+            target.targetClass in setOf("domestic_hosting", "foreign_datacenter", "cdn") && target.destinationAsn > 0,
+        ) {
+            "Matrix target ${target.id} needs one known class and a destination AS"
+        }
         require(URI(target.sourceUrl).scheme == "https" && URI(target.sourceUrl).host != null) {
             "Matrix target provenance is missing for ${target.id}"
         }
@@ -124,6 +175,8 @@ private fun SelectiveMatrixTargetDefinition.toJson(): JsonObject =
         put("url", url)
         put("cohort", cohort)
         put("infrastructureGroup", infrastructureGroup)
+        put("targetClass", targetClass)
+        put("destinationAsn", destinationAsn)
         put("sourceUrl", sourceUrl)
         put("sourceDate", sourceDate)
         lastVerifiedAt?.let { put("lastVerifiedAt", it) }

@@ -34,6 +34,10 @@ data class SelectiveMatrixTarget(
     val sourceDate: String,
     val lastVerifiedAt: String? = null,
     val connectIps: List<String> = emptyList(),
+    // Absent only for user-supplied hosts, whose hosting is unknown.
+    val targetClass: String? = null,
+    // Catalog-declared origin AS of the host, not an observed address of any network.
+    val destinationAsn: Int? = null,
 )
 
 @Serializable
@@ -71,6 +75,11 @@ data class SelectiveMatrixConfig(
             )
             require(target.connectIps.size <= MatrixMaxConnectIps)
             require(target.cohort in MatrixCohorts)
+            if (target.cohort == "user") {
+                require(target.targetClass == null && target.destinationAsn == null)
+            } else {
+                require(target.targetClass in MatrixTargetClasses && (target.destinationAsn ?: 0) > 0)
+            }
             val uri = URI(target.url)
             require(uri.scheme == "https" && uri.port in setOf(-1, MatrixHttpsPort))
             require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null)
@@ -111,6 +120,10 @@ internal fun SelectiveMatrixConfig.withUserHosts(hosts: List<String>): Selective
     ).also(SelectiveMatrixConfig::validate)
 }
 
+const val TargetClassDomesticHosting = "domestic_hosting"
+const val TargetClassForeignDatacenter = "foreign_datacenter"
+const val TargetClassCdn = "cdn"
+private val MatrixTargetClasses = setOf(TargetClassDomesticHosting, TargetClassForeignDatacenter, TargetClassCdn)
 private val MatrixCohorts = setOf("declared_available", "domestic", "global", "user")
 private val MatrixLocalSuffixes =
     setOf("localhost", "local", "internal", "lan", "home", "arpa", "test", "invalid", "onion")

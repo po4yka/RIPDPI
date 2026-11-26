@@ -41,6 +41,11 @@ fn differently_sized_https_response_stops_at_the_overrun_byte() {
     assert_download(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nokay!", false, "verified_download_size_mismatch", 3);
 }
 
+#[test]
+fn proxy_style_403_is_a_wrong_status_not_a_stall() {
+    assert_download(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 2\r\n\r\nno", false, "verified_download_failed", 0);
+}
+
 fn assert_download(response: &[u8], hold_open: bool, outcome: &str, received: u64) {
     with_trusted_https_peer(
         |mut stream| {
@@ -82,6 +87,9 @@ fn assert_download(response: &[u8], hold_open: bool, outcome: &str, received: u6
                 &mut |measurement| progress.push(measurement.clone()),
             );
             assert_eq!(result.outcome, outcome, "{:?}", result.details);
+            if outcome == "verified_download_failed" {
+                assert!(result.details.iter().any(|d| d.key == "httpStatusCodeReadings" && d.value == "403"));
+            }
             let last = progress.last().expect("final transfer evidence");
             assert_eq!(last.received_body_byte_count, received);
             assert_eq!(last.last_body_progress_ms.is_some(), received > 0);

@@ -186,6 +186,8 @@
               "url": "https://yandex.ru/robots.txt",
               "cohort": "declared_available",
               "infrastructureGroup": "yandex",
+              "targetClass": "domestic_hosting",
+              "destinationAsn": 13238,
               "sourceUrl": "https://t.me/mintsifry/2603",
               "sourceDate": "2025-09-05",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"
@@ -196,6 +198,8 @@
               "url": "https://vk.com/robots.txt",
               "cohort": "declared_available",
               "infrastructureGroup": "vk",
+              "targetClass": "domestic_hosting",
+              "destinationAsn": 47541,
               "sourceUrl": "https://t.me/mintsifry/2603",
               "sourceDate": "2025-09-05",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"
@@ -206,6 +210,8 @@
               "url": "https://selectel.ru/robots.txt",
               "cohort": "domestic",
               "infrastructureGroup": "selectel",
+              "targetClass": "domestic_hosting",
+              "destinationAsn": 50340,
               "sourceUrl": "https://selectel.ru/robots.txt",
               "sourceDate": "2026-10-09",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"
@@ -216,6 +222,8 @@
               "url": "https://timeweb.com/robots.txt",
               "cohort": "domestic",
               "infrastructureGroup": "timeweb",
+              "targetClass": "domestic_hosting",
+              "destinationAsn": 51115,
               "sourceUrl": "https://timeweb.com/robots.txt",
               "sourceDate": "2026-10-09",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"
@@ -226,6 +234,8 @@
               "url": "https://speed.cloudflare.com/robots.txt",
               "cohort": "global",
               "infrastructureGroup": "cloudflare",
+              "targetClass": "cdn",
+              "destinationAsn": 13335,
               "sourceUrl": "https://speed.cloudflare.com/robots.txt",
               "sourceDate": "2026-10-09",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"
@@ -236,6 +246,8 @@
               "url": "https://proof.ovh.net/robots.txt",
               "cohort": "global",
               "infrastructureGroup": "ovhcloud",
+              "targetClass": "foreign_datacenter",
+              "destinationAsn": 16276,
               "sourceUrl": "https://proof.ovh.net/robots.txt",
               "sourceDate": "2026-10-09",
               "lastVerifiedAt": "2026-10-09T04:20:29Z"

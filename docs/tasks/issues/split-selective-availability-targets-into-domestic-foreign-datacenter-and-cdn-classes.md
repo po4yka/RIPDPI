@@ -2,7 +2,7 @@
 id: DGN-1795704974460888
 title: Split selective-availability targets into domestic, foreign datacenter and CDN classes
 kind: feature
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: Diagnostics engineer

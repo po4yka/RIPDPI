@@ -163,6 +163,8 @@ mod tests {
                 url: format!("https://target-{i}.example.com/"),
                 cohort: if i < 2 { "declared_available" } else { "global" }.into(),
                 infrastructure_group: i.to_string(),
+                target_class: Some("cdn".into()),
+                destination_asn: Some(13335),
                 source_url: String::new(),
                 source_date: String::new(),
                 last_verified_at: None,
