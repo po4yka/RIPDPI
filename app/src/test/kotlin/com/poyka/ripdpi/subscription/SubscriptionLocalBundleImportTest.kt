@@ -1,11 +1,14 @@
 package com.poyka.ripdpi.subscription
 
+import app.cash.turbine.test
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.subscription.ImportRejection
 import com.poyka.ripdpi.data.subscription.SingBoxSkipReason
 import com.poyka.ripdpi.data.subscription.SingBoxSkippedNode
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.PendingSubscriptionImportRequest
+import com.poyka.ripdpi.ui.screens.proxyimport.ImportedServer
+import com.poyka.ripdpi.ui.screens.proxyimport.ImportedServerSelectionResult
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmViewModel
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -253,6 +256,131 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
+    fun `a bundle import lists its servers and Connect selects one by its saved id`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val selected = mutableListOf<String>()
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    importLocalBundle = fixture.coordinator::importLocalBundle,
+                    serverSelection = { id ->
+                        selected += id
+                        ImportedServerSelectionResult.Selected
+                    },
+                )
+            val store = PendingProxyImportStore()
+            val request = PendingSubscriptionImportRequest("", "Home", false, bundle = relayBundle(usable = true))
+            assertTrue(viewModel.claimRequest(store.stageSubscription(request)!!, store))
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                val servers = viewModel.uiState.first { it.servers.isNotEmpty() }.servers
+                val member =
+                    fixture.repository
+                        .list()
+                        .single { it.name == "Home" }
+                        .members
+                        .single()
+                assertEquals(listOf(ImportedServer(member.id, "Fresh")), servers)
+                expectNoEvents()
+            }
+
+            viewModel.selectedEvents.test {
+                viewModel.select(servers(viewModel).single().id, connect = true)
+                assertEquals(true, awaitItem())
+            }
+            assertEquals(listOf(servers(viewModel).single().id), selected)
+        }
+
+    @Test
+    fun `Connect on a bundle server does not start a service that already follows the selection`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    importLocalBundle = fixture.coordinator::importLocalBundle,
+                    serverSelection = { ImportedServerSelectionResult.AppliedToRunningService },
+                )
+            val store = PendingProxyImportStore()
+            val request = PendingSubscriptionImportRequest("", "Home", false, bundle = relayBundle(usable = true))
+            assertTrue(viewModel.claimRequest(store.stageSubscription(request)!!, store))
+            viewModel.confirm()
+            val id =
+                viewModel.uiState
+                    .first { it.servers.isNotEmpty() }
+                    .servers
+                    .single()
+                    .id
+
+            viewModel.selectedEvents.test {
+                viewModel.select(id, connect = true)
+                assertEquals(false, awaitItem())
+            }
+        }
+
+    @Test
+    fun `a bundle server that cannot be selected shows an error and stays on screen`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    importLocalBundle = fixture.coordinator::importLocalBundle,
+                    serverSelection = { ImportedServerSelectionResult.Failed },
+                )
+            val store = PendingProxyImportStore()
+            val request = PendingSubscriptionImportRequest("", "Home", false, bundle = relayBundle(usable = true))
+            assertTrue(viewModel.claimRequest(store.stageSubscription(request)!!, store))
+            viewModel.confirm()
+            val id =
+                viewModel.uiState
+                    .first { it.servers.isNotEmpty() }
+                    .servers
+                    .single()
+                    .id
+
+            viewModel.selectedEvents.test {
+                viewModel.select(id, connect = false)
+                assertTrue(viewModel.uiState.first { it.selectingServerId == null }.selectionFailed)
+                expectNoEvents()
+            }
+        }
+
+    @Test
+    fun `a bundle with servers and a keyless AmneziaWG profile keeps the key handoff for when the result closes`() =
+        runTest {
+            val fixture = fixture(1_800_000_000_000L)
+            val viewModel =
+                SubscriptionImportConfirmViewModel(
+                    repository = fixture.repository,
+                    importLocalBundle = fixture.coordinator::importLocalBundle,
+                )
+            val fresh =
+                """{"type":"shadowsocks","tag":"Fresh","server":"fresh.example","server_port":443,""" +
+                    """"method":"aes-256-gcm","password":"fixture"}"""
+            val store = PendingProxyImportStore()
+            val request = PendingSubscriptionImportRequest("", "Home", false, bundle = bundle(outbounds = fresh))
+            assertTrue(viewModel.claimRequest(store.stageSubscription(request)!!, store))
+
+            viewModel.importedEvents.test {
+                viewModel.confirm()
+                val state = viewModel.uiState.first { it.servers.isNotEmpty() }
+                val keyless =
+                    fixture.awgRepository
+                        .observeProfiles()
+                        .first()
+                        .single { it.request.privateKey.isBlank() }
+                assertEquals(listOf("Fresh"), state.servers.map { it.name })
+                assertEquals(keyless.id, state.awgKeyProfileId)
+                expectNoEvents()
+            }
+        }
+
+    private fun servers(viewModel: SubscriptionImportConfirmViewModel) = viewModel.uiState.value.servers
+
+    @Test
     fun `a bundle with no usable entry is refused and names the entry`() =
         runTest {
             val fixture = fixture(1_800_000_000_000L)
@@ -304,9 +432,10 @@ class SubscriptionLocalBundleImportTest : SubscriptionRefreshTestSupport() {
     private fun bundle(
         endpoint: String = "192.0.2.10:51820",
         psk: String = "original-psk",
+        outbounds: String = "",
     ): String =
         """
-        {"outbounds":[],"ripdpi":{"schema_version":3,"amneziawg":[{
+        {"outbounds":[$outbounds],"ripdpi":{"schema_version":3,"amneziawg":[{
           "tag":"fleet-awg","wire_profile":"awg-3.1-ranges-v1","jmin":0,"jmax":0,"s1":0,"s2":0,"h1":"1","h2":"2","h3":"3","h4":"4","private_key_placeholder":true,"address": ["10.8.0.2/32", "fd77::2/128"],"mtu":1330,"jc":4,
           "peer":{"public_key":"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=",
           "endpoint":"$endpoint","preshared_key":"$psk","allowed_ips":["0.0.0.0/0"]}

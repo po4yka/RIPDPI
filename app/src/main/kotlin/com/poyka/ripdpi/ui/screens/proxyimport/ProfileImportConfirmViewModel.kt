@@ -112,18 +112,11 @@ class ProfileImportConfirmViewModel
             if (!state.saved || state.selecting) return
             _uiState.update { it.copy(selecting = true, errorRes = null) }
             viewModelScope.launch {
-                val result =
-                    try {
-                        serverSelection.select(profile.id)
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (_: Exception) {
-                        ImportedServerSelectionResult.Failed
-                    }
-                if (result == ImportedServerSelectionResult.Failed) {
+                val start = serverSelection.selectReturningStartNeeded(profile.id, connect)
+                if (start == null) {
                     _uiState.update { it.copy(selecting = false, errorRes = R.string.relay_editor_activation_failed) }
                 } else {
-                    selectedEventChannel.send(connect && result == ImportedServerSelectionResult.Selected)
+                    selectedEventChannel.send(start)
                 }
             }
         }

@@ -489,6 +489,8 @@ internal object RipDpiTestTags {
     val connectionAwgServer: (String) -> String = { id -> "connection-awg-server-${sanitize(id)}" }
     val connectionAwgServerRow: (String) -> String = { id -> "connection-awg-server-row-${sanitize(id)}" }
     val connectionAwgServerCheck: (String) -> String = { id -> "connection-awg-server-check-${sanitize(id)}" }
+    val importServerConnect: (String) -> String = { id -> "import-server-connect-${sanitize(id)}" }
+    val importServerSelect: (String) -> String = { id -> "import-server-select-${sanitize(id)}" }
     val connectionAddServerKind: (String) -> String = { kind -> "connection-add-server-${sanitize(kind)}" }
     val connectionServerActions: (String) -> String = { id -> "connection-server-actions-${sanitize(id)}" }
     val connectionServerAction: (String, String) -> String = { id, action ->

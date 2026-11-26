@@ -69,3 +69,7 @@ The boringtun library reports whole milliseconds. The writer clamps the value to
 ### core/service/src/main/kotlin/com/poyka/ripdpi/services/TunnelKeyPairGenerator.kt#TunnelKeyPairGenerator
 
 The interface lets `:app` generate WireGuard-family interface keys without a dependency on `:core:engine` types. `DefaultTunnelKeyPairGenerator` adapts the engine generator behind it.
+
+### app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmViewModel.kt#SubscriptionImportConfirmViewModel
+
+After a bundle file import, the view model finds the saved group with `localBundleTarget`, the same rule the import used to pick it, so it needs no group ID in `SubscriptionRefreshResult.Updated`. The result lists the group's members, which are saved as relay profiles under the member ID. Select and Connect call `ImportedServerSelection`, the selector that the server list uses, through `selectReturningStartNeeded`, which the single-link confirm screen also uses. AmneziaWG profiles from the bundle are not listed: the server list has no Select for them, and a profile without its key still opens the key screen when the result closes.

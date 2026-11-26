@@ -12,6 +12,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import javax.inject.Inject
@@ -25,6 +26,25 @@ enum class ImportedServerSelectionResult {
 
 fun interface ImportedServerSelection {
     suspend fun select(profileId: String): ImportedServerSelectionResult
+}
+
+internal suspend fun ImportedServerSelection.selectReturningStartNeeded(
+    profileId: String,
+    connect: Boolean,
+): Boolean? {
+    val result =
+        try {
+            select(profileId)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            ImportedServerSelectionResult.Failed
+        }
+    return if (result == ImportedServerSelectionResult.Failed) {
+        null
+    } else {
+        connect && result == ImportedServerSelectionResult.Selected
+    }
 }
 
 internal class ConnectionImportedServerSelection

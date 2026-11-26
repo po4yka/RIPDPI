@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.saveMigrationTargets
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
+import com.poyka.ripdpi.data.serverNames
 import com.poyka.ripdpi.data.subscription.AmneziaWgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.BootstrapConsumeResult
 import com.poyka.ripdpi.data.subscription.BootstrapConsumer
@@ -32,11 +33,14 @@ import com.poyka.ripdpi.subscription.SubscriptionPreviewResult
 import com.poyka.ripdpi.subscription.SubscriptionRefreshCoordinator
 import com.poyka.ripdpi.subscription.SubscriptionRefreshResult
 import com.poyka.ripdpi.subscription.isLocalBundle
+import com.poyka.ripdpi.subscription.localBundleTags
+import com.poyka.ripdpi.subscription.localBundleTarget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -70,10 +74,21 @@ data class SubscriptionImportConfirmUiState(
     val awgKeyProfileId: String = "",
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
     val localBundle: Boolean = false,
+    val servers: ImmutableList<ImportedServer> = persistentListOf(),
+    val selectingServerId: String? = null,
+    val selectionFailed: Boolean = false,
 ) {
     val needsCheck: Boolean
         get() = !bootstrap && !localBundle && url.isNotBlank() && !checked
+
+    val saved: Boolean
+        get() = skipped.isNotEmpty() || servers.isNotEmpty()
 }
+
+data class ImportedServer(
+    val id: String,
+    val name: String,
+)
 
 /**
  * Backing [ViewModel] for the subscription-add import-confirmation destination.
@@ -102,6 +117,7 @@ class SubscriptionImportConfirmViewModel
         private val awgKeyMissing: suspend (String) -> Boolean,
         private val previewSubscription: suspend (String, String) -> SubscriptionPreviewResult,
         private val installPreview: suspend (SubscriptionPreview) -> SubscriptionRefreshResult,
+        private val serverSelection: ImportedServerSelection,
         @Suppress("UNUSED_PARAMETER") private val constructorMarker: Unit,
     ) : ViewModel() {
         @Inject
@@ -111,6 +127,7 @@ class SubscriptionImportConfirmViewModel
             refreshCoordinator: SubscriptionRefreshCoordinator,
             autoUpdateScheduler: SubscriptionAutoUpdateScheduler,
             profileMutations: PauseMutationPreparationSource,
+            serverSelection: ImportedServerSelection,
         ) : this(
             repository = repository,
             bootstrapConsumer = BootstrapConsumer(),
@@ -137,6 +154,7 @@ class SubscriptionImportConfirmViewModel
             },
             previewSubscription = refreshCoordinator::preview,
             installPreview = refreshCoordinator::install,
+            serverSelection = serverSelection,
             constructorMarker = Unit,
         )
 
@@ -163,6 +181,7 @@ class SubscriptionImportConfirmViewModel
                 String,
             ) -> SubscriptionPreviewResult = { _, _ -> error("No test preview") },
             installPreview: suspend (SubscriptionPreview) -> SubscriptionRefreshResult = { error("No test install") },
+            serverSelection: ImportedServerSelection = ImportedServerSelection { ImportedServerSelectionResult.Failed },
         ) : this(
             repository,
             bootstrapConsumer,
@@ -175,6 +194,7 @@ class SubscriptionImportConfirmViewModel
             awgKeyMissing,
             previewSubscription,
             installPreview,
+            serverSelection,
             Unit,
         )
 
@@ -184,6 +204,8 @@ class SubscriptionImportConfirmViewModel
 
         /** Emits once the import is saved: the AmneziaWG profile id that still needs its private key, or empty. */
         val importedEvents: Flow<String> = importedEventChannel.receiveAsFlow()
+        private val selectedEventChannel = Channel<Boolean>(capacity = Channel.BUFFERED)
+        val selectedEvents: Flow<Boolean> = selectedEventChannel.receiveAsFlow()
         private var completed = false
         private var claimedImportToken: String? = null
 
@@ -364,14 +386,36 @@ class SubscriptionImportConfirmViewModel
                     null
                 }
             if (result is SubscriptionRefreshResult.Updated) {
+                val tags = withContext(Dispatchers.Default) { localBundleTags(bundle) }
+                val servers = listOf(repository.list().localBundleTarget(name, tags)).serverNames()
                 localBundleText = null
-                completeImport(result.skipped, result.awgKeyProfileId)
+                completeImport(
+                    result.skipped,
+                    result.awgKeyProfileId,
+                    servers.map { (id, server) -> ImportedServer(id, server) },
+                )
                 return
             }
             // The import may have matched a group under another name, so only a group it added is new.
             repository.list().filter { it.isLocalBundle() && it.id !in before }.forEach { discardGroup(it.id) }
             _uiState.update {
                 it.copy(importFailed = true, rejection = (result as? SubscriptionRefreshResult.Failed)?.rejection)
+            }
+        }
+
+        fun select(
+            serverId: String,
+            connect: Boolean,
+        ) {
+            if (_uiState.value.selectingServerId != null) return
+            _uiState.update { it.copy(selectingServerId = serverId, selectionFailed = false) }
+            viewModelScope.launch {
+                val start = serverSelection.selectReturningStartNeeded(serverId, connect)
+                if (start == null) {
+                    _uiState.update { it.copy(selectingServerId = null, selectionFailed = true) }
+                } else {
+                    selectedEventChannel.send(start)
+                }
             }
         }
 
@@ -573,13 +617,20 @@ class SubscriptionImportConfirmViewModel
         private suspend fun completeImport(
             skipped: List<SingBoxSkippedNode> = emptyList(),
             awgKeyProfileId: String? = null,
+            servers: List<ImportedServer> = emptyList(),
         ) {
             completed = true
             val keyProfileId = awgKeyProfileId.orEmpty()
-            if (skipped.isEmpty()) {
+            if (skipped.isEmpty() && servers.isEmpty()) {
                 importedEventChannel.send(keyProfileId)
             } else {
-                _uiState.update { it.copy(skipped = skipped.toImmutableList(), awgKeyProfileId = keyProfileId) }
+                _uiState.update {
+                    it.copy(
+                        skipped = skipped.toImmutableList(),
+                        awgKeyProfileId = keyProfileId,
+                        servers = servers.toImmutableList(),
+                    )
+                }
             }
         }
     }

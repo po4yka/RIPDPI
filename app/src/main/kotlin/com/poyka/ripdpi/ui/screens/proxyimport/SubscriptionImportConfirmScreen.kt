@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.proxyimport
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +17,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -25,6 +28,7 @@ import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
  * Subscription-add import-confirmation destination.
@@ -42,6 +46,7 @@ fun SubscriptionImportConfirmRoute(
     importToken: String,
     onBack: () -> Unit,
     onImported: (awgKeyProfileId: String) -> Unit,
+    onSelected: (connect: Boolean, awgKeyProfileId: String) -> Unit,
     onUnavailable: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SubscriptionImportConfirmViewModel = hiltViewModel(),
@@ -61,14 +66,18 @@ fun SubscriptionImportConfirmRoute(
         context.toastImported(addedName)
         onImported(it)
     }
+    LifecycleEventEffect(viewModel.selectedEvents) { connect ->
+        onSelected(connect, viewModel.uiState.value.awgKeyProfileId)
+    }
 
     SubscriptionImportConfirmScreen(
         uiState = uiState,
         // Once the import is saved, Back closes it the same way as Done.
-        onBack = { if (uiState.skipped.isEmpty()) onBack() else onImported(uiState.awgKeyProfileId) },
+        onBack = { if (uiState.saved) onImported(uiState.awgKeyProfileId) else onBack() },
         onConfirm = viewModel::confirm,
         onCheck = viewModel::check,
         onDone = { onImported(uiState.awgKeyProfileId) },
+        onSelectServer = viewModel::select,
         modifier = modifier,
     )
 }
@@ -81,6 +90,7 @@ internal fun SubscriptionImportConfirmScreen(
     modifier: Modifier = Modifier,
     onCheck: () -> Unit = {},
     onDone: () -> Unit = {},
+    onSelectServer: (id: String, connect: Boolean) -> Unit = { _, _ -> },
 ) {
     SecureWindowEffect()
     RipDpiContentScreenScaffold(
@@ -103,18 +113,23 @@ internal fun SubscriptionImportConfirmScreen(
         }
         RipDpiCard {
             RipDpiPanelHeader(
-                title = subscriptionDisplayName(uiState),
+                title =
+                    if (uiState.servers.isEmpty()) {
+                        subscriptionDisplayName(uiState)
+                    } else {
+                        stringResource(R.string.import_done_added, subscriptionDisplayName(uiState))
+                    },
                 supporting =
                     listOfNotNull(
                         uiState.serverCount?.let {
                             pluralStringResource(R.plurals.import_subscription_servers, it, it)
                         },
                         uiState.url.takeIf { it.isNotBlank() },
-                    ).joinToString("\n"),
+                    ).joinToString("\n").ifEmpty { null },
             )
         }
-        // The import is saved once entries were skipped; the screen only waits for the user to read them.
-        val saved = uiState.skipped.isNotEmpty()
+        ImportedServers(uiState, onSelectServer)
+        val saved = uiState.saved
         RipDpiButton(
             text =
                 stringResource(
@@ -143,6 +158,48 @@ internal fun SubscriptionImportConfirmScreen(
                     },
                 ),
         )
+    }
+}
+
+@Composable
+private fun ImportedServers(
+    uiState: SubscriptionImportConfirmUiState,
+    onSelectServer: (id: String, connect: Boolean) -> Unit,
+) {
+    if (uiState.selectionFailed) {
+        RipDpiCard {
+            RipDpiPanelHeader(title = stringResource(R.string.relay_editor_activation_failed))
+        }
+    }
+    uiState.servers.forEach { server ->
+        ImportedServerCard(server, uiState.selectingServerId, onSelectServer)
+    }
+}
+
+@Composable
+private fun ImportedServerCard(
+    server: ImportedServer,
+    selectingServerId: String?,
+    onSelectServer: (id: String, connect: Boolean) -> Unit,
+) {
+    RipDpiCard {
+        RipDpiPanelHeader(title = server.name)
+        Row(horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+            RipDpiButton(
+                text = stringResource(R.string.vpn_connect),
+                onClick = { onSelectServer(server.id, true) },
+                enabled = selectingServerId == null,
+                loading = selectingServerId == server.id,
+                modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.importServerConnect(server.id)),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.profile_variants_cta_select),
+                onClick = { onSelectServer(server.id, false) },
+                enabled = selectingServerId == null,
+                variant = RipDpiButtonVariant.Outline,
+                modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.importServerSelect(server.id)),
+            )
+        }
     }
 }
 

@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import com.poyka.ripdpi.ui.screens.proxyimport.ImportedServer
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmScreen
 import com.poyka.ripdpi.ui.screens.proxyimport.SubscriptionImportConfirmUiState
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -46,6 +48,18 @@ class SubscriptionImportConfirmScreenshotTest {
                 name = "Example Subscription",
                 bootstrap = false,
                 importing = true,
+            ),
+        )
+    }
+
+    @Test
+    fun importedBundleServers() {
+        capture(
+            "importedBundleServers",
+            SubscriptionImportConfirmUiState(
+                name = "RIPDPI",
+                localBundle = true,
+                servers = persistentListOf(ImportedServer("tokyo", "Tokyo"), ImportedServer("paris", "Paris")),
             ),
         )
     }

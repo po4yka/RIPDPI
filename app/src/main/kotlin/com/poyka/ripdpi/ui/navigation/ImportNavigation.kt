@@ -25,6 +25,13 @@ internal fun NavGraphBuilder.addImportRoutes(
     navController: NavHostController,
     mainViewModel: MainViewModel,
 ) {
+    val onSubscriptionImported: (String) -> Unit = { awgKeyProfileId ->
+        navController.navigateHome()
+        // A bundle delivers an AmneziaWG profile without its private key: ask for it now, over Home.
+        if (awgKeyProfileId.isNotEmpty()) {
+            navController.navigate(Route.AmneziaWgProfile(profileId = awgKeyProfileId, keyOnly = true))
+        }
+    }
     composable<Route.ProfileImportConfirm> { backStackEntry ->
         val route = backStackEntry.toRoute<Route.ProfileImportConfirm>()
         ProfileImportConfirmRoute(
@@ -43,12 +50,10 @@ internal fun NavGraphBuilder.addImportRoutes(
         SubscriptionImportConfirmRoute(
             importToken = route.importToken,
             onBack = { navController.popBackStack() },
-            onImported = { awgKeyProfileId ->
-                navController.navigateHome()
-                // A bundle delivers an AmneziaWG profile without its private key: ask for it now, over Home.
-                if (awgKeyProfileId.isNotEmpty()) {
-                    navController.navigate(Route.AmneziaWgProfile(profileId = awgKeyProfileId, keyOnly = true))
-                }
+            onImported = onSubscriptionImported,
+            onSelected = { connect, awgKeyProfileId ->
+                onSubscriptionImported(awgKeyProfileId)
+                if (connect) mainViewModel.onStartRequested()
             },
             onUnavailable = { navController.navigateHome() },
         )
