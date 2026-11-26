@@ -2,7 +2,7 @@
 id: UIX-1795661310559744
 title: Share AmneziaWG servers as full .conf files
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: unassigned
@@ -32,3 +32,12 @@ Split from UIX-1795615852980919 (Manage all servers in one list). That change ad
 ## Ownership
 
 One writer in a dedicated worktree owns the AmneziaWG exporter in `core/data`, its tests, and the AWG row actions in `app/.../connection/ServerListItems.kt` and `ServerListViewModel.kt`.
+
+## Evidence
+
+- Exporter: `AwgActivationRequest.toWgQuickConf()` in `core/data/runtime-state` maps the saved request onto the existing `AmneziaWgProfile.toWgQuickConf()` writer, so it writes the interface, peer, keepalive range, and every Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 and v3 field. `isConfExportable` limits it to keyed UDP servers that pass `requireRuntimeReady()`.
+- Share: local AWG rows get Share in the actions menu and on long press. `ServerListViewModel.shareAwg` loads the server and emits the conf; `AwgConfShareEffect` writes it to `cache/profile-share/<uuid>/<name>.conf` and opens the share sheet through the existing profile FileProvider. A failed or cancelled share deletes the file; `RipDpiApp` prunes shares older than 24 hours. `AwgConfShare.toString()` is redacted.
+- Subscription rule: subscription relay members are never individual share targets, so subscription-owned AWG rows get no Share (rename stays). Decisions are in ADR 0016.
+- Tests: `AwgActivationConfTest` (AWG 3 fields parse back exactly; plain server writes plain WireGuard; keyless, WebSocket, and invalid servers are refused); `AmneziaWgConfShareRoundTripTest` (export then import equals the original for plain WG, AWG 1.x, and AWG 3.x); `AmneziaWgSavedProfileEditTest` (only keyed local UDP servers are shareable); `ConnectionScreenTest` (share from the actions menu and long press; the subscription row has rename and no Share). The `ConnectionScreenTest` case failed before the fix with `onShare = null` (AssertionError at the share click); the other tests use APIs the fix adds and do not compile without it.
+- Gates: `./gradlew :core:data:testDebugUnitTest` (new and existing conf tests), `./gradlew :app:verifyRoborazziGithubDebug` (4329 tests, 0 failures, no golden changes), `./gradlew :app:lintGithubDebug`, and `just ci-gates` all exit 0. `:core:data:runtime-state:detekt` passes; `:app:detekt` still reports the 18 findings that main has.
+- Not checked: the share sheet on a device or emulator. Server names without Latin characters give the file name `amneziawg.conf`.
