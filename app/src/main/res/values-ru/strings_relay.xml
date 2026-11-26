@@ -143,6 +143,8 @@
     <string name="awg_connect_action">Подключиться</string>
     <string name="awg_connect_ready_hint">Готово к подключению.</string>
     <string name="awg_connect_incomplete_hint">Укажите сервер, порт, приватный ключ, публичный ключ узла и адрес, чтобы подключиться.</string>
+    <string name="awg_connect_blocked_hint">Чтобы подключиться, заполните или исправьте: %1$s</string>
+    <string name="awg_example_helper">Пример: %1$s</string>
     <string name="awg_connect_error">Не удалось подключиться. Проверьте данные сервера и попробуйте снова.</string>
     <string name="awg_field_name">Название</string>
     <string name="awg_save_action">Сохранить</string>

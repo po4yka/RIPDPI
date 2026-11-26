@@ -188,6 +188,8 @@
     <string name="awg_connect_action">कनेक्ट करें</string>
     <string name="awg_connect_ready_hint">कनेक्ट करने के लिए तैयार।</string>
     <string name="awg_connect_incomplete_hint">कनेक्ट करने के लिए सर्वर, पोर्ट, private key, peer public key, और पता भरें।</string>
+    <string name="awg_connect_blocked_hint">कनेक्ट करने के लिए भरें या ठीक करें: %1$s</string>
+    <string name="awg_example_helper">उदाहरण: %1$s</string>
     <string name="awg_connect_error">कनेक्ट नहीं हो सका। सर्वर का विवरण जाँचें और फिर से प्रयास करें।</string>
     <string name="awg_field_name">नाम</string>
     <string name="awg_save_action">सहेजें</string>

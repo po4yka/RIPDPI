@@ -144,6 +144,8 @@
     <string name="awg_connect_action">Verbinden</string>
     <string name="awg_connect_ready_hint">Bereit zum Verbinden.</string>
     <string name="awg_connect_incomplete_hint">Geben Sie Server, Port, privaten Schlüssel, öffentlichen Peer-Schlüssel und Adresse ein, um zu verbinden.</string>
+    <string name="awg_connect_blocked_hint">Zum Verbinden ausfüllen oder korrigieren: %1$s</string>
+    <string name="awg_example_helper">Beispiel: %1$s</string>
     <string name="awg_connect_error">Verbindung fehlgeschlagen. Prüfen Sie die Serverdaten und versuchen Sie es erneut.</string>
     <string name="awg_field_name">Name</string>
     <string name="awg_save_action">Speichern</string>

@@ -143,6 +143,8 @@
     <string name="awg_connect_action">اتصال</string>
     <string name="awg_connect_ready_hint">جاهز للاتصال.</string>
     <string name="awg_connect_incomplete_hint">أدخل الخادم والمنفذ والمفتاح الخاص والمفتاح العام للنظير والعنوان للاتصال.</string>
+    <string name="awg_connect_blocked_hint">للاتصال، أدخل أو صحّح: %1$s</string>
+    <string name="awg_example_helper">مثال: %1$s</string>
     <string name="awg_connect_error">تعذّر الاتصال. تحقّق من بيانات الخادم وحاول مرة أخرى.</string>
     <string name="awg_field_name">الاسم</string>
     <string name="awg_save_action">حفظ</string>

@@ -144,6 +144,8 @@
     <string name="awg_connect_action">اتصال</string>
     <string name="awg_connect_ready_hint">آماده برای اتصال.</string>
     <string name="awg_connect_incomplete_hint">برای اتصال، سرور، درگاه، کلید خصوصی، کلید عمومی همتا و نشانی را وارد کنید.</string>
+    <string name="awg_connect_blocked_hint">برای اتصال، این موارد را وارد یا اصلاح کنید: %1$s</string>
+    <string name="awg_example_helper">نمونه: %1$s</string>
     <string name="awg_connect_error">اتصال برقرار نشد. اطلاعات سرور را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="awg_field_name">نام</string>
     <string name="awg_save_action">ذخیره</string>

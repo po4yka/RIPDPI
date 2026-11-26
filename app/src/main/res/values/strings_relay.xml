@@ -146,6 +146,8 @@
     <string name="awg_connect_action">Connect</string>
     <string name="awg_connect_ready_hint">Ready to connect.</string>
     <string name="awg_connect_incomplete_hint">Fill in the server, port, private key, peer public key, and address to connect.</string>
+    <string name="awg_connect_blocked_hint">To connect, fill in or fix: %1$s</string>
+    <string name="awg_example_helper">Example: %1$s</string>
     <string name="awg_connect_error">Couldn\'t connect. Check the server details and try again.</string>
     <string name="awg_field_name">Name</string>
     <string name="awg_save_action">Save</string>
@@ -380,10 +382,9 @@
     <string name="awg_keepalive_helper">Seconds between keepalive packets. Leave empty or enter 0 to turn it off.</string>
     <string name="awg_obfuscation_show_values">Show values</string>
     <string name="awg_obfuscation_hide_values">Hide values</string>
-    <string name="awg_address_placeholder" translatable="false">10.8.0.2/32</string>
-    <string name="awg_dns_placeholder" translatable="false">1.1.1.1, 1.0.0.1</string>
+    <string name="awg_address_example" translatable="false">10.8.0.2/32</string>
+    <string name="awg_dns_example" translatable="false">1.1.1.1, 1.0.0.1</string>
     <string name="awg_allowed_ips_placeholder" translatable="false">0.0.0.0/0, ::/0</string>
-    <string name="awg_keepalive_placeholder" translatable="false">25</string>
     <plurals name="subscription_signal_banner_multiple_message">
         <item quantity="one">%1$d subscription needs attention. Cached relay entries may be outdated.</item>
         <item quantity="other">%1$d subscriptions need attention. Cached relay entries may be outdated.</item>

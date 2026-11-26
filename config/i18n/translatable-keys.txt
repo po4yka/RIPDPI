@@ -296,6 +296,7 @@ app:awg_conf_import_unreadable_body
 app:awg_conf_subscription_server_mismatch_body
 app:awg_conf_unsupported_option_body
 app:awg_connect_action
+app:awg_connect_blocked_hint
 app:awg_connect_error
 app:awg_connect_incomplete_hint
 app:awg_connect_ready_hint
@@ -305,6 +306,7 @@ app:awg_delete_body
 app:awg_delete_failed
 app:awg_delete_title
 app:awg_editor_title
+app:awg_example_helper
 app:awg_field_address
 app:awg_field_allowed_ips
 app:awg_field_carrier_ws_url

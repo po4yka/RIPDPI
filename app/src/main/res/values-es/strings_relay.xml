@@ -144,6 +144,8 @@
     <string name="awg_connect_action">Conectar</string>
     <string name="awg_connect_ready_hint">Listo para conectar.</string>
     <string name="awg_connect_incomplete_hint">Completa el servidor, el puerto, la clave privada, la clave pública del par y la dirección para conectar.</string>
+    <string name="awg_connect_blocked_hint">Para conectar, completa o corrige: %1$s</string>
+    <string name="awg_example_helper">Ejemplo: %1$s</string>
     <string name="awg_connect_error">No se pudo conectar. Revisa los datos del servidor e inténtalo de nuevo.</string>
     <string name="awg_field_name">Nombre</string>
     <string name="awg_save_action">Guardar</string>
