@@ -60,6 +60,7 @@ flow_sections:
       - config
       - local_bypass_config
       - vpn_config
+      - add_server
       - mode_editor
       - strategy_config
       - routes
