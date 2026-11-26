@@ -57,20 +57,55 @@ class SelectiveMatrixContractTest {
     }
 
     @Test
-    fun `bundled targets need one known class and an AS while user hosts carry neither`() {
+    fun `class and AS come together and the AS must be public`() {
         val target = matrix().targets.single()
-        listOf(null, "", "global", "CDN").forEach { targetClass ->
-            val invalid = matrix().copy(targets = listOf(target.copy(targetClass = targetClass)))
-            assertTrue(targetClass.toString(), runCatching { invalid.validate() }.isFailure)
+
+        fun valid(candidate: SelectiveMatrixTarget) =
+            runCatching {
+                matrix().copy(targets = listOf(candidate)).validate()
+            }.isSuccess
+        listOf("", "global", "CDN").forEach { assertFalse(it, valid(target.copy(targetClass = it))) }
+        assertFalse(valid(target.copy(destinationAsn = null)))
+        assertFalse(valid(target.copy(targetClass = null)))
+        listOf(0L, 23_456L, 64_496L, 64_512L, 65_535L, 65_552L, 131_071L, 4_200_000_000L, 4_294_967_295L, -1L).forEach {
+            assertFalse(it.toString(), valid(target.copy(destinationAsn = it)))
         }
-        assertTrue(
-            runCatching { matrix().copy(targets = listOf(target.copy(destinationAsn = null))).validate() }.isFailure,
-        )
-        assertTrue(runCatching { matrix().copy(targets = listOf(target.copy(cohort = "user"))).validate() }.isFailure)
+        listOf(1L, 131_072L, 396_982L, 4_199_999_999L).forEach {
+            assertTrue(it.toString(), valid(target.copy(destinationAsn = it)))
+        }
+        assertTrue(valid(target.copy(targetClass = null, destinationAsn = null)))
         matrix().withUserHosts(listOf("example.com")).targets.last().let {
             assertEquals(null, it.targetClass)
             assertEquals(null, it.destinationAsn)
         }
+    }
+
+    @Test
+    fun `four byte AS numbers decode and the redacted summary keeps class and AS but not addresses`() {
+        val decoded =
+            RipDpiJson.decodeFromString(
+                SelectiveMatrixTarget.serializer(),
+                """{"id":"a","label":"A","url":"https://a.example/","cohort":"global","infrastructureGroup":"a",
+                    |"sourceUrl":"","sourceDate":"","targetClass":"cdn","destinationAsn":4199999999}
+                """.trimMargin(),
+            )
+        assertEquals(4_199_999_999L, decoded.destinationAsn)
+        val lines =
+            listOf(
+                ProbeResult(
+                    "selective_availability",
+                    "A",
+                    "matrix_target_available",
+                    listOf(
+                        ProbeDetail("targetClass", "cdn"),
+                        ProbeDetail("destinationAsn", "13335"),
+                        ProbeDetail("remoteAddress", "203.0.113.9"),
+                    ),
+                ),
+            ).selectiveMatrixSummaryLines()
+        assertTrue(lines.contains("targetClass=cdn"))
+        assertTrue(lines.contains("destinationAsn=13335"))
+        assertFalse(lines.any { it.contains("203.0.113.9") })
     }
 
     @Test

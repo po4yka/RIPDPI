@@ -34,6 +34,16 @@ pub(super) fn read_response<R: Read>(
     result
 }
 
+// A peer reset and a stalled or deadline-cut read look alike only if they share a reason; reports must tell them apart.
+fn read_failure(kind: std::io::ErrorKind) -> &'static str {
+    use std::io::ErrorKind::{BrokenPipe, ConnectionAborted, ConnectionReset, Interrupted, TimedOut, WouldBlock};
+    match kind {
+        ConnectionReset | ConnectionAborted | BrokenPipe => "connection_reset",
+        Interrupted | TimedOut | WouldBlock => "read_timeout",
+        _ => "read_error",
+    }
+}
+
 fn parse<R: Read>(
     stream: &mut R,
     max: usize,
@@ -61,7 +71,7 @@ fn parse<R: Read>(
                 if limit == 0 {
                     return Err("response_limit");
                 }
-                let count = stream.read(&mut buffer[..limit]).map_err(|_| "read_error")?;
+                let count = stream.read(&mut buffer[..limit]).map_err(|error| read_failure(error.kind()))?;
                 wire_remaining -= count;
                 if count == 0 {
                     decoder.finish_input();
@@ -147,6 +157,21 @@ mod tests {
         }
         assert_eq!(run(b"HTTP/1.1 200 OK\r\nContent-Length: 200\r\n\r\n", 20).reason, "response_limit");
         assert_eq!(read_response(&mut b"".as_slice(), 20, &|| true, false).reason, "cancelled");
+    }
+    struct FailingReader(std::io::ErrorKind);
+    impl Read for FailingReader {
+        fn read(&mut self, _: &mut [u8]) -> std::io::Result<usize> {
+            Err(self.0.into())
+        }
+    }
+    #[test]
+    fn separates_peer_reset_from_stalled_read() {
+        let reason = |kind| read_response(&mut FailingReader(kind), 20, &|| false, false).reason;
+        assert_eq!(reason(std::io::ErrorKind::ConnectionReset), "connection_reset");
+        assert_eq!(reason(std::io::ErrorKind::ConnectionAborted), "connection_reset");
+        assert_eq!(reason(std::io::ErrorKind::TimedOut), "read_timeout");
+        assert_eq!(reason(std::io::ErrorKind::Interrupted), "read_timeout");
+        assert_eq!(reason(std::io::ErrorKind::PermissionDenied), "read_error");
     }
     #[test]
     fn rejects_ambiguous_and_oversized_headers() {

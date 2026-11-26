@@ -34,10 +34,10 @@ data class SelectiveMatrixTarget(
     val sourceDate: String,
     val lastVerifiedAt: String? = null,
     val connectIps: List<String> = emptyList(),
-    // Absent only for user-supplied hosts, whose hosting is unknown.
+    // Both or neither: a saved or overridden catalog without them stays runnable and reports as unattributed.
     val targetClass: String? = null,
     // Catalog-declared origin AS of the host, not an observed address of any network.
-    val destinationAsn: Int? = null,
+    val destinationAsn: Long? = null,
 )
 
 @Serializable
@@ -75,11 +75,10 @@ data class SelectiveMatrixConfig(
             )
             require(target.connectIps.size <= MatrixMaxConnectIps)
             require(target.cohort in MatrixCohorts)
-            if (target.cohort == "user") {
-                require(target.targetClass == null && target.destinationAsn == null)
-            } else {
-                require(target.targetClass in MatrixTargetClasses && (target.destinationAsn ?: 0) > 0)
-            }
+            require(
+                (target.targetClass == null && target.destinationAsn == null) ||
+                    (target.targetClass in MatrixTargetClasses && target.destinationAsn?.isPublicAsn() == true),
+            )
             val uri = URI(target.url)
             require(uri.scheme == "https" && uri.port in setOf(-1, MatrixHttpsPort))
             require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null)
@@ -123,6 +122,14 @@ internal fun SelectiveMatrixConfig.withUserHosts(hosts: List<String>): Selective
 const val TargetClassDomesticHosting = "domestic_hosting"
 const val TargetClassForeignDatacenter = "foreign_datacenter"
 const val TargetClassCdn = "cdn"
+
+// Rejects 0, AS_TRANS, documentation, private and IANA-reserved ranges, as the native contract does.
+private fun Long.isPublicAsn() = this in 1..MaxAsn && this != AsTrans && this !in ReservedAsns && this < PrivateAsn32
+
+private const val MaxAsn = 4_294_967_295L
+private const val AsTrans = 23_456L
+private const val PrivateAsn32 = 4_200_000_000L
+private val ReservedAsns = 64_496L..131_071L
 private val MatrixTargetClasses = setOf(TargetClassDomesticHosting, TargetClassForeignDatacenter, TargetClassCdn)
 private val MatrixCohorts = setOf("declared_available", "domestic", "global", "user")
 private val MatrixLocalSuffixes =

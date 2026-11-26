@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.TargetPackVersionEntity
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
@@ -113,6 +114,54 @@ class BundledDiagnosticsProfileImporterTest {
 
             assertEquals(bundledProfile.name, stores.getProfile(bundledProfile.id)?.name)
             assertEquals(bundledProfile.version, stores.getPackVersion("default-pack")?.version)
+        }
+
+    @Test
+    fun `saved class-less matrix profile is replaced on upgrade and a stale copy still validates`() =
+        runTest {
+            val bundledJson = java.io.File("src/main/assets/diagnostics/default_profiles.json").readText()
+            val bundled = json.decodeFromString(BundledDiagnosticsCatalogWire.serializer(), bundledJson)
+            val bundledMatrix = bundled.profiles.single { it.id == SelectiveMatrixProfileId }
+            val classless =
+                bundledMatrix.request.selectiveMatrix!!.let { matrix ->
+                    matrix.copy(targets = matrix.targets.map { it.copy(targetClass = null, destinationAsn = null) })
+                }
+            val stores = FakeDiagnosticsHistoryStores()
+            stores.upsertProfile(
+                DiagnosticProfileEntity(
+                    id = bundledMatrix.id,
+                    name = bundledMatrix.name,
+                    source = "bundled",
+                    version = 1,
+                    requestJson =
+                        json.encodeToString(
+                            ProfileSpecWire.serializer(),
+                            bundledMatrix.request.copy(selectiveMatrix = classless),
+                        ),
+                    updatedAt = 1L,
+                ),
+            )
+            // A copy that missed the upgrade must still run, as unattributed, rather than fail every scan.
+            classless.validate()
+            classless.withUserHosts(listOf("example.com"))
+
+            BundledDiagnosticsProfileImporter(
+                profileSource = StaticBundledDiagnosticsProfileSource(bundledJson),
+                overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
+                profileCatalog = stores,
+                clock = TestDiagnosticsHistoryClock(currentTime = 10L),
+                json = json,
+            ).importProfiles()
+
+            val saved = stores.getProfile(SelectiveMatrixProfileId)!!
+            assertEquals(2, saved.version)
+            val matrix = json.decodeFromString(ProfileSpecWire.serializer(), saved.requestJson).selectiveMatrix!!
+            matrix.validate()
+            assertEquals(
+                setOf("domestic_hosting", "foreign_datacenter", "cdn"),
+                matrix.targets.map { it.targetClass }.toSet(),
+            )
+            assertTrue(matrix.targets.all { it.destinationAsn != null })
         }
 
     @Test
