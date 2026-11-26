@@ -11,6 +11,9 @@ internal fun bucketSelectiveMatrix(outcome: String): DiagnosticsOutcomeBucket =
     }
 
 internal fun List<ProbeResult>.selectiveMatrixSummaryLines(): List<String> =
+    matrixResultLines() + targetGroupSummaryLines()
+
+private fun List<ProbeResult>.matrixResultLines(): List<String> =
     filter { it.probeType in MatrixProbeTypes }.take(MatrixMaximumResultRows).flatMap { result ->
         buildList {
             val details = result.details.associate { it.key to it.value }
@@ -29,6 +32,8 @@ private val MatrixSummaryFields =
         "targetId",
         "cohort",
         "infrastructureGroup",
+        "targetClass",
+        "destinationAsn",
         "attempt",
         "catalogVersion",
         "sourceUrl",

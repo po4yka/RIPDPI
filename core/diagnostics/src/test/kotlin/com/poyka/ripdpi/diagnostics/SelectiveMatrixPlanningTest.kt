@@ -146,6 +146,8 @@ class SelectiveMatrixPlanningTest {
                                 "cloudflare",
                                 "https://cloudflare.com",
                                 "2026-10-09",
+                                targetClass = "cdn",
+                                destinationAsn = 13335,
                             ),
                         ),
                 ),

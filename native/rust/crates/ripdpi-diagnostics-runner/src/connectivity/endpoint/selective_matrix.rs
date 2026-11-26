@@ -351,6 +351,12 @@ fn base_result(config: &SelectiveMatrixConfig, target: &SelectiveMatrixTarget, a
         put(&mut result, key, value);
     }
     put(&mut result, "attempt", attempt);
+    if let Some(class) = &target.target_class {
+        put(&mut result, "targetClass", class);
+    }
+    if let Some(asn) = target.destination_asn {
+        put(&mut result, "destinationAsn", asn);
+    }
     result
 }
 

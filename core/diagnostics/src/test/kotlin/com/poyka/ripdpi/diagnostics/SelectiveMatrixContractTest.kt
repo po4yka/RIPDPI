@@ -57,6 +57,23 @@ class SelectiveMatrixContractTest {
     }
 
     @Test
+    fun `bundled targets need one known class and an AS while user hosts carry neither`() {
+        val target = matrix().targets.single()
+        listOf(null, "", "global", "CDN").forEach { targetClass ->
+            val invalid = matrix().copy(targets = listOf(target.copy(targetClass = targetClass)))
+            assertTrue(targetClass.toString(), runCatching { invalid.validate() }.isFailure)
+        }
+        assertTrue(
+            runCatching { matrix().copy(targets = listOf(target.copy(destinationAsn = null))).validate() }.isFailure,
+        )
+        assertTrue(runCatching { matrix().copy(targets = listOf(target.copy(cohort = "user"))).validate() }.isFailure)
+        matrix().withUserHosts(listOf("example.com")).targets.last().let {
+            assertEquals(null, it.targetClass)
+            assertEquals(null, it.destinationAsn)
+        }
+    }
+
+    @Test
     fun `optional matrix roundtrips without changing legacy requests`() {
         val request =
             EngineScanRequestWire(profileId = "legacy", displayName = "Legacy", pathMode = ScanPathMode.RAW_PATH)
@@ -128,6 +145,8 @@ class SelectiveMatrixContractTest {
                         url = "https://cloudflare.com/robots.txt",
                         cohort = "global",
                         infrastructureGroup = "cloudflare",
+                        targetClass = "cdn",
+                        destinationAsn = 13335,
                         sourceUrl = "https://cloudflare.com",
                         sourceDate = "2026-10-09",
                     ),

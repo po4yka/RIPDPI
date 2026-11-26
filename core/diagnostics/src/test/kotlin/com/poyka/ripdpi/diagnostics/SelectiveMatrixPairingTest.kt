@@ -235,7 +235,17 @@ class SelectiveMatrixPairingTest {
                 catalogVersion = "test-v1",
                 targets =
                     listOf("a", "b").map { id ->
-                        SelectiveMatrixTarget(id, id, "https://$id.example/", "global", id, "", "")
+                        SelectiveMatrixTarget(
+                            id,
+                            id,
+                            "https://$id.example/",
+                            "global",
+                            id,
+                            "",
+                            "",
+                            targetClass = "cdn",
+                            destinationAsn = 13335,
+                        )
                     },
             )
     }

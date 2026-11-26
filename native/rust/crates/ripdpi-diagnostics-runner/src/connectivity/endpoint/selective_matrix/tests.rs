@@ -92,6 +92,8 @@ fn config() -> SelectiveMatrixConfig {
             url: "https://example.com/".into(),
             cohort: "global".into(),
             infrastructure_group: "fixture".into(),
+            target_class: Some("cdn".into()),
+            destination_asn: Some(13335),
             source_url: String::new(),
             source_date: String::new(),
             last_verified_at: None,

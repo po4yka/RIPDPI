@@ -8,6 +8,12 @@ pub struct SelectiveMatrixTarget {
     pub url: String,
     pub cohort: String,
     pub infrastructure_group: String,
+    /// One of `domestic_hosting`, `foreign_datacenter`, `cdn`; absent only for user-supplied hosts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_class: Option<String>,
+    /// Catalog-declared origin AS of the target host; never an observed or user-network address.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_asn: Option<u32>,
     pub source_url: String,
     pub source_date: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -78,6 +84,7 @@ impl SelectiveMatrixConfig {
                 || target.last_verified_at.as_ref().is_some_and(|v| v.len() > 64)
                 || target.connect_ips.len() > 16
                 || target.connect_ips.iter().any(|ip| ip.parse::<std::net::IpAddr>().is_err())
+                || !valid_class_and_asn(target)
             {
                 return Err("invalid_matrix_target");
             }
@@ -87,6 +94,14 @@ impl SelectiveMatrixConfig {
         }
         Ok(())
     }
+}
+
+fn valid_class_and_asn(target: &SelectiveMatrixTarget) -> bool {
+    if target.cohort == "user" {
+        return target.target_class.is_none() && target.destination_asn.is_none();
+    }
+    matches!(target.target_class.as_deref(), Some("domestic_hosting" | "foreign_datacenter" | "cdn"))
+        && target.destination_asn.is_some_and(|asn| asn > 0)
 }
 
 fn matrix_host(url: &str) -> Option<&str> {
@@ -111,7 +126,7 @@ fn matrix_host(url: &str) -> Option<&str> {
 mod tests {
     use super::*;
     fn config() -> SelectiveMatrixConfig {
-        serde_json::from_value(serde_json::json!({"version":1,"catalogVersion":"test","targets":[{"id":"a","label":"A","url":"https://example.com/","cohort":"global","infrastructureGroup":"a","sourceUrl":"https://example.com/","sourceDate":"2026-10-09"}]})).unwrap()
+        serde_json::from_value(serde_json::json!({"version":1,"catalogVersion":"test","targets":[{"id":"a","label":"A","url":"https://example.com/","cohort":"global","infrastructureGroup":"a","targetClass":"cdn","destinationAsn":13335,"sourceUrl":"https://example.com/","sourceDate":"2026-10-09"}]})).unwrap()
     }
     #[test]
     fn defaults_and_bounded_budget() {
@@ -140,5 +155,25 @@ mod tests {
         let mut value = config();
         value.targets.push(value.targets[0].clone());
         assert!(value.validate().is_err());
+    }
+    #[test]
+    fn requires_exactly_one_known_class_and_an_asn_except_for_user_hosts() {
+        let mut value = config();
+        for class in ["", "cdn ", "global"] {
+            value.targets[0].target_class = Some(class.into());
+            assert!(value.validate().is_err(), "{class}");
+        }
+        value.targets[0].target_class = None;
+        assert!(value.validate().is_err());
+        value.targets[0].target_class = Some("foreign_datacenter".into());
+        value.targets[0].destination_asn = None;
+        assert!(value.validate().is_err());
+        value.targets[0].destination_asn = Some(16276);
+        assert!(value.validate().is_ok());
+        value.targets[0].cohort = "user".into();
+        assert!(value.validate().is_err());
+        value.targets[0].target_class = None;
+        value.targets[0].destination_asn = None;
+        assert!(value.validate().is_ok());
     }
 }
