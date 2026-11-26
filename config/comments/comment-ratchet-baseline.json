@@ -1,5 +1,5 @@
 {
- "total": 45584,
+ "total": 45583,
  "files": {
   ".claude/scripts/subagent-stop-audit-log.sh": 20,
   ".github/scripts/check-jni-symbols.sh": 24,
@@ -477,7 +477,7 @@
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/ProfileShareRoute.kt": 1,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/ProfileShareRouteViewModel.kt": 1,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionAddScreen.kt": 12,
-  "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmScreen.kt": 14,
+  "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmScreen.kt": 13,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/proxyimport/SubscriptionImportConfirmViewModel.kt": 38,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/relayeditor/RelayAdvancedSection.kt": 5,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/relayeditor/RelayEditorControls.kt": 10,
