@@ -24,7 +24,7 @@ Found in the 2026-11-25 on-device user-flow audit (Pixel 8 Pro, githubDebug at 6
 
 ## Acceptance criteria
 
-- A successful link, QR, or file import shows the imported server names and offers Select and Connect.
+- A successful link, QR, or single-link file import shows the imported server name and offers Select and Connect; a RIPDPI bundle file import is tracked by UIX-1795663496674824.
 - An empty clipboard offers a field to paste or type the link.
 - The subscription confirm step shows the fetched name and server count before Add.
 - A failed subscription import names the cause (network, HTTP status, format) and uses the word subscription.

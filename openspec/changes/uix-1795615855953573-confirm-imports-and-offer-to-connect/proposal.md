@@ -8,7 +8,7 @@ After an import the user knows what was added and can connect to it in one step;
 
 ## What Changes
 
-- A successful link, QR, or file import shows the imported server names and offers Select and Connect.
+- A successful link, QR, or single-link file import shows the imported server name and offers Select and Connect; a RIPDPI bundle file import is tracked by UIX-1795663496674824.
 - An empty clipboard offers a field to paste or type the link.
 - The subscription confirm step shows the fetched name and server count before Add.
 - A failed subscription import names the cause (network, HTTP status, format) and uses the word subscription.

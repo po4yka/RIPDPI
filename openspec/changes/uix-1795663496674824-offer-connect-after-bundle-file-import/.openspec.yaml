@@ -1,0 +1,6 @@
+schema: ripdpi-change
+created: "2026-11-26"
+goal: "UIX-1795663496674824 Offer Select and Connect after importing a RIPDPI bundle file"
+affected_areas: ["ui"]
+skip_specs: false
+retire_capabilities: false

@@ -4,14 +4,14 @@ Define the observable completion contract for Confirm imports and offer to conne
 
 ## ADDED Requirements
 
-### Requirement: REQ-UIX-1795615855953573-001 — A successful link, QR, or file import shows the imported server names and offer…
+### Requirement: REQ-UIX-1795615855953573-001 — A successful link, QR, or single-link file import shows the imported server name…
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: A successful link, QR, or file import shows the imported server names and offers Select and Connect.
+The RIPDPI implementation MUST satisfy this portfolio criterion: A successful link, QR, or single-link file import shows the imported server name and offers Select and Connect; a RIPDPI bundle file import is tracked by UIX-1795663496674824.
 
 #### Scenario: Verify criterion 1
 
 - **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that a successful link, QR, or file import shows the imported server names and offers Select and Connect
+- **THEN** the observed result MUST demonstrate that a successful link, QR, or single-link file import shows the imported server name and offers Select and Connect; a RIPDPI bundle file import is tracked by UIX-1795663496674824
 
 ### Requirement: REQ-UIX-1795615855953573-002 — An empty clipboard offers a field to paste or type the link
 

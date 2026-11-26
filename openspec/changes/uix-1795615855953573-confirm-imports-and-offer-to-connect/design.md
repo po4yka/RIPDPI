@@ -8,7 +8,7 @@ The 2026-11-25 audit found four gaps: Add on a link import returned to Status wi
 
 - Goal: deliver `Confirm imports and offer to connect to the new server` with observable evidence.
 - Non-goal: broaden the change beyond the linked acceptance criteria.
-- Non-goal: Select and Connect for subscription servers. A subscription group's members are selected through the selector group store, which has no single-member UI action yet; `UIX-1795615852980919` (one server list) owns server selection. The subscription flow shows the name and server count before Add and the result after it.
+- Non-goal: Select and Connect for subscription servers, including servers from a RIPDPI bundle file; follow-up `UIX-1795663496674824` owns that. A subscription group's members are selected through the selector group store, which has no single-member UI action yet; `UIX-1795615852980919` (one server list) owns server selection. The subscription flow shows the name and server count before Add and the result after it.
 
 ## Decisions
 
