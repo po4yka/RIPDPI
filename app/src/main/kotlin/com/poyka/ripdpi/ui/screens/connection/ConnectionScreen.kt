@@ -129,11 +129,6 @@ fun ConnectionRoute(
                 }
             }
         },
-        onEditCurrent = {
-            val selectedPresetId = uiState.presets.firstOrNull { it.isSelected }?.id ?: CustomPresetId
-            viewModel.startEditingPreset(selectedPresetId)
-            onOpenModeEditor()
-        },
         onOpenConfigEditor = { path ->
             when (path) {
                 ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
@@ -202,7 +197,6 @@ fun ConnectionScreen(
     uiState: ConnectionUiState,
     onModeSelected: (Mode) -> Unit,
     onPresetSelected: (ConnectionPreset) -> Unit,
-    onEditCurrent: () -> Unit,
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
@@ -289,7 +283,7 @@ fun ConnectionScreen(
                 path = selectedPath,
                 uiState = uiState,
                 desyncSummary = desyncSummary,
-                onEditCurrent = onEditCurrent,
+                onOpenRelaySettings = { profileActions.edit(uiState.draft.relayProfileId) },
                 onChooseRelay = { showProfileChoices = true },
                 onOpenConfigEditor = onOpenConfigEditor,
                 onRetestStrategies = onRetestStrategies,
@@ -330,7 +324,7 @@ private fun ConnectionSelectedPathSection(
     path: ConnectionPath,
     uiState: ConnectionUiState,
     desyncSummary: String,
-    onEditCurrent: () -> Unit,
+    onOpenRelaySettings: () -> Unit,
     onChooseRelay: () -> Unit,
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
@@ -352,7 +346,7 @@ private fun ConnectionSelectedPathSection(
         ConnectionPath.Relay -> {
             ConnectionRelaySection(
                 uiState = uiState,
-                onOpenRelaySettings = onEditCurrent,
+                onOpenRelaySettings = onOpenRelaySettings,
                 onChooseRelay = onChooseRelay,
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
@@ -442,7 +436,6 @@ private fun ConnectionScreenPreview() {
                 ),
             onModeSelected = {},
             onPresetSelected = {},
-            onEditCurrent = {},
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
@@ -473,7 +466,6 @@ private fun ConnectionScreenDarkPreview() {
                 ),
             onModeSelected = {},
             onPresetSelected = {},
-            onEditCurrent = {},
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
@@ -496,7 +488,6 @@ private fun ConnectionScreenLoadingPreview() {
                 ),
             onModeSelected = {},
             onPresetSelected = {},
-            onEditCurrent = {},
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},

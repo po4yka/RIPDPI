@@ -18,6 +18,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
@@ -329,6 +330,31 @@ class MainViewModelTest {
 
         assertEquals(StatusConnectionActuatorStatus.Open, state.status)
         assertTrue(state.stages.all { it.state == StatusConnectionActuatorStageState.Pending })
+    }
+
+    @Test
+    fun `connection actuator names the selected relay server after its start fails`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVless)
+                        .setRelayProfileId("home")
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Error,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = StatusApproachSummaryUiState("Packet split", "", "", ""),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(StatusConnectionActuatorStatus.Fault, state.status)
+        assertEquals("\u2068home\u2069 · VLESS TLS", state.trailingLabel)
+        assertEquals("", state.strategyLabel)
     }
 
     @Test

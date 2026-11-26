@@ -28,6 +28,7 @@ import androidx.compose.ui.test.performTouchInput
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -202,12 +203,10 @@ class ConnectionScreenTest {
 
     @Test
     fun `local bypass desync and dns rows expose actions`() {
-        var legacyEditorClicks = 0
         var strategyClicks = 0
         var dnsClicks = 0
         setConfigScreen(
             initialPath = ConnectionPath.Direct,
-            onEditCurrent = { legacyEditorClicks += 1 },
             onOpenLocalBypassEditor = { strategyClicks += 1 },
             onOpenDnsSettings = { dnsClicks += 1 },
             uiPersona = "advanced",
@@ -225,7 +224,6 @@ class ConnectionScreenTest {
             .performClick()
 
         composeRule.runOnIdle {
-            assertEquals(0, legacyEditorClicks)
             assertEquals(1, strategyClicks)
             assertEquals(1, dnsClicks)
         }
@@ -458,6 +456,38 @@ class ConnectionScreenTest {
     }
 
     @Test
+    fun `relay server row opens the editor of the selected server`() {
+        val edited = mutableListOf<String>()
+        val uiState = configUiState(uiPersona = "advanced")
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState =
+                        uiState.copy(
+                            draft =
+                                uiState.draft.copy(
+                                    relayEnabled = true,
+                                    relayKind = RelayKindVless,
+                                    relayProfileId = "home",
+                                ),
+                        ),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    profileActions = ConnectionProfileActions(edit = { edited += it }),
+                    initialPath = ConnectionPath.Relay,
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayRelay).performScrollTo().performClick()
+
+        composeRule.runOnIdle { assertEquals(listOf("home"), edited) }
+    }
+
+    @Test
     fun `relay off row opens profile choices and dns row invokes its callback`() {
         var dnsClicks = 0
         setConfigScreen(
@@ -492,7 +522,6 @@ class ConnectionScreenTest {
                     uiState = configUiState(),
                     onModeSelected = {},
                     onPresetSelected = {},
-                    onEditCurrent = {},
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
@@ -722,7 +751,6 @@ class ConnectionScreenTest {
     private fun setConfigScreen(
         initialPath: ConnectionPath,
         onModeSelected: (Mode) -> Unit = {},
-        onEditCurrent: () -> Unit = {},
         onOpenLocalBypassEditor: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
         onOpenProfileUtility: () -> Unit = {},
@@ -748,7 +776,6 @@ class ConnectionScreenTest {
                         ).copy(awgServers = awgServers),
                     onModeSelected = onModeSelected,
                     onPresetSelected = {},
-                    onEditCurrent = onEditCurrent,
                     onOpenConfigEditor = { path ->
                         when (path) {
                             ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()

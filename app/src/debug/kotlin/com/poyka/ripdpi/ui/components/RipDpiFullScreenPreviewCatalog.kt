@@ -114,7 +114,6 @@ internal fun RipDpiConfigPreviewScene() {
                 ),
             onModeSelected = {},
             onPresetSelected = {},
-            onEditCurrent = {},
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},

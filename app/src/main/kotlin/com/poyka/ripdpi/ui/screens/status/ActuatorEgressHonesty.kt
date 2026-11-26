@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.status
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -43,6 +45,16 @@ internal fun isForeignExitLive(
  * take on the relay feature family.
  */
 internal fun isForeignExitLost(telemetry: ServiceTelemetrySnapshot): Boolean = telemetry.relayFailed
+
+internal fun actuatorExit(
+    settings: AppSettings,
+    connectionState: ConnectionState,
+    activeExit: ActiveExit?,
+): ActiveExit? =
+    activeExit ?: settings
+        .toConfigDraft()
+        .takeIf { connectionState != ConnectionState.Connected && it.relayEnabled && it.relayKind != RelayKindOff }
+        ?.let { ActiveExit(it.relayProfileId, it.relaySummary) }
 
 /**
  * Trailing actuator label: the saved name and kind of an active subscription member or

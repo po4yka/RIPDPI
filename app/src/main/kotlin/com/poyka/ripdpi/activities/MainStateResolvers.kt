@@ -24,6 +24,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusMode
 import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
 import com.poyka.ripdpi.ui.screens.status.StatusModeCardsInput
 import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.actuatorExit
 import com.poyka.ripdpi.ui.screens.status.actuatorTrailingLabel
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.buildStatusModeCards
@@ -332,6 +333,7 @@ internal fun buildConnectionActuatorUiState(
 ): StatusConnectionActuatorUiState {
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
     val egressBacked = isForeignExitLive(settings, telemetry)
+    val exit = actuatorExit(settings, connectionState, activeExit)
     val vpnWarning = vpnDataPlaneWarning(connectionState, vpnDataPlaneStatus)
     val warningStage =
         (
@@ -374,12 +376,12 @@ internal fun buildConnectionActuatorUiState(
 
     return StatusConnectionActuatorUiState(
         status = status,
-        trailingLabel = actuatorTrailingLabel(egressBacked, activeExit, stringResolver),
+        trailingLabel = actuatorTrailingLabel(egressBacked, exit, stringResolver),
         routeLabel = routeLabelForMode(mode, settings, stringResolver),
         // Traffic leaves through the saved exit, so the direct bypass strategy does not describe it.
-        strategyLabel = approachSummary?.title.takeIf { activeExit == null }.orEmpty(),
-        strategyFacets = approachSummary?.facets.takeIf { activeExit == null } ?: persistentListOf(),
-        strategyPassage = approachSummary?.passage.takeIf { activeExit == null },
+        strategyLabel = approachSummary?.title.takeIf { exit == null }.orEmpty(),
+        strategyFacets = approachSummary?.facets.takeIf { exit == null } ?: persistentListOf(),
+        strategyPassage = approachSummary?.passage.takeIf { exit == null },
         statusDescription =
             actuatorStatusDescription(
                 status = status,
