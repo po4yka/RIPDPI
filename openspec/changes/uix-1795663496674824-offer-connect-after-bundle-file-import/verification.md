@@ -3,7 +3,7 @@ task_id: UIX-1795663496674824
 change: uix-1795663496674824-offer-connect-after-bundle-file-import
 commit_sha: null
 local: required
-local_evidence: null
+local_evidence: "Rebased on main bc95fe0e3e (2026-11-26), head 501cc17793: lintGithubDebug, app detekt, and just ci-gates exit 0; verifyRoborazziGithubDebug has one failure from main (RipDpiNavHostLogicTest stale Logs tags), and passed on the pre-rebase base 04f530db19"
 remote_ci: required
 remote_ci_evidence: null
 device: required
@@ -20,7 +20,9 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-UIX-1795663496674824-001 | UIX-1795663565845766 | Pending implementation. | pending |
-| REQ-UIX-1795663496674824-002 | UIX-1795663566326491 | Pending implementation. | pending |
-| REQ-UIX-1795663496674824-003 | UIX-1795663566872494 | Pending implementation. | pending |
-| REQ-UIX-1795663496674824-004 | UIX-1795663567356497 | Pending implementation. | pending |
+| REQ-UIX-1795663496674824-001 | UIX-1795663565845766 | `SubscriptionLocalBundleImportTest` (bundle import lists its servers by saved ID and emits no close event), `SubscriptionImportConfirmScreenTest` (Added name and both server names), screenshot `importedBundleServers` light and dark. | pass (unit) |
+| REQ-UIX-1795663496674824-002 | UIX-1795663566326491 | `SubscriptionLocalBundleImportTest` (Connect selects the saved member ID through `ImportedServerSelection` and asks to start; a failed selection shows an error and stays), `SubscriptionImportConfirmScreenTest` (per-server Connect and Select). Selection wraps `ConnectionRelayProfileSelector.select`, the server list's Select. | pass (unit) |
+| REQ-UIX-1795663496674824-003 | UIX-1795663566872494 | `SubscriptionLocalBundleImportTest` (Connect on a running service emits no start request). `ConnectionImportedServerSelection` reports `AppliedToRunningService` when the selector reconnects the running service. | pass (unit) |
+| REQ-UIX-1795663496674824-004 | UIX-1795663567356497 | No new string. The result reuses `import_done_added`, `vpn_connect`, `profile_variants_cta_select`, `relay_editor_activation_failed`, and `xray_import_done_action`, present in all ten locales; `lintGithubDebug` exit 0. | pass |
+
+Device evidence: not collected. Remote CI: not run; the parent session integrates and pushes.
