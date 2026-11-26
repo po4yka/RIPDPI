@@ -3,7 +3,7 @@ task_id: UIX-1795615855953573
 change: uix-1795615855953573-confirm-imports-and-offer-to-connect
 commit_sha: null
 local: required
-local_evidence: "verifyRoborazziGithubDebug: 4299 app unit tests, BUILD SUCCESSFUL (2026-11-25); lintGithubDebug for locale parity"
+local_evidence: "Rebased on main b213efbfce (2026-11-26): testGithubDebugUnitTest, verifyRoborazziGithubDebug, lintGithubDebug, core:data:runtime-state testDebugUnitTest, taskctl validate, and just ci-gates all exit 0"
 remote_ci: required
 remote_ci_evidence: null
 device: required
