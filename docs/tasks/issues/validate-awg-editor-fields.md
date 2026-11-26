@@ -2,7 +2,7 @@
 id: UIX-1795615861956333
 title: Validate AWG editor fields and explain the disabled Connect
 kind: bug
-status: doing
+status: review
 area: ui
 priority: medium
 owner: unassigned
