@@ -2,7 +2,7 @@
 id: UIX-1795615861956333
 title: Validate AWG editor fields and explain the disabled Connect
 kind: bug
-status: backlog
+status: doing
 area: ui
 priority: medium
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 spec_reason: regression-tested-single-module
 ---
 
