@@ -33,7 +33,7 @@
     <string name="block_signal_quic_breakage">QUIC टूटना</string>
     <string name="block_signal_tcp_retransmissions">TCP पुनः-प्रेषण</string>
     <string name="title_onboarding">ऑनबोर्डिंग</string>
-    <string name="title_mode_editor">प्रोफ़ाइल संपादक</string>
+    <string name="title_mode_editor">प्रीसेट संपादक</string>
     <string name="title_dns_settings">DNS सेटिंग्स</string>
     <string name="title_advanced_settings">उन्नत सेटिंग्स</string>
     <string name="title_strategy_config">रणनीति कॉन्फ़िग</string>
@@ -315,6 +315,6 @@
     <string name="ui_rule_save_failed_body">आपके बदलाव सुरक्षित हैं। फिर से सेव करने का प्रयास करें।</string>
     <string name="ui_app_picker_no_matches">कोई मेल खाता ऐप नहीं मिला</string>
     <string name="ui_app_picker_clear_search">खोज साफ़ करें</string>
-    <string name="ui_profile_catalog_retry">प्रोफ़ाइल फिर लोड करें</string>
+    <string name="ui_profile_catalog_retry">सर्वर फिर लोड करें</string>
     <string name="scanner_camera_unavailable">कैमरा उपलब्ध नहीं है। आप अब भी QR कोड की तस्वीर इंपोर्ट कर सकते हैं।</string>
 </resources>

@@ -105,7 +105,7 @@
     <string name="settings_permission_action_review">Revisar</string>
     <string name="settings_permission_status_required">Obligatorio</string>
     <string name="settings_permissions_section">Permisos</string>
-    <string name="settings_reset_body">Restaura todos los ajustes a sus valores predeterminados. Se conservan los perfiles, grupos, reglas de enrutamiento y el historial de diagnóstico.</string>
+    <string name="settings_reset_body">Restaura todos los ajustes a sus valores predeterminados. Se conservan los servidores, grupos, reglas de enrutamiento y el historial de diagnóstico.</string>
     <string name="settings_security_section">Privacidad</string>
     <string name="settings_support_debug_bundle_body">Comparte registros recientes y datos de diagnóstico en un archivo ZIP para soporte. No incluye capturas de paquetes.</string>
     <string name="settings_tethering_dns_warning_body">Cuando el anclaje a red está activo, Android ejecuta un servidor DNS local que evita la VPN. Las apps pueden usarlo para enviar balizas de rastreo fuera del túnel.</string>
@@ -168,7 +168,7 @@
     <string name="settings_permission_status_not_needed">No es necesario</string>
     <string name="settings_permissions_battery_ready">Android ya permite que RIPDPI ignore la optimización de batería Doze.</string>
     <string name="settings_permissions_vpn_needed">Concede el consentimiento de VPN de Android antes de que RIPDPI pueda iniciar la ruta de VPN local.</string>
-    <string name="settings_reset_dialog_body">Esto restaura todos los ajustes a sus valores predeterminados y se perderán tus personalizaciones. Se conservan los perfiles, grupos, reglas de enrutamiento y el historial de diagnóstico.</string>
+    <string name="settings_reset_dialog_body">Esto restaura todos los ajustes a sus valores predeterminados y se perderán tus personalizaciones. Se conservan los servidores, grupos, reglas de enrutamiento y el historial de diagnóstico.</string>
     <string name="settings_support_section">Soporte</string>
     <string name="settings_dynamic_color_title">Usar colores del fondo de pantalla</string>
     <string name="settings_dynamic_color_body">Adapta los colores de la app a tu fondo de pantalla.</string>
@@ -178,13 +178,13 @@
     <string name="import_error_unsupported">Enlace de importación no compatible.</string>
     <string name="import_error_missing_url">Al enlace de importación le falta la URL de suscripción.</string>
     <string name="import_error_bad_encoding">El enlace de importación está mal formado.</string>
-    <string name="import_profile_confirm_title">Importar perfil</string>
+    <string name="import_profile_confirm_title">Importar servidor</string>
     <string name="import_profile_confirm_empty_title">Nada que importar</string>
-    <string name="import_profile_confirm_empty_body">Este enlace no contiene un perfil de proxy utilizable.</string>
+    <string name="import_profile_confirm_empty_body">Este enlace no contiene un servidor de proxy utilizable.</string>
     <string name="import_confirm_add_action">Añadir</string>
-    <string name="import_profile_confirm_error">No se pudo importar este perfil. Comprueba que el enlace esté completo y sea válido.</string>
+    <string name="import_profile_confirm_error">No se pudo importar este servidor. Comprueba que el enlace esté completo y sea válido.</string>
     <string name="import_profile_confirm_tls_pin">Huella del certificado TLS: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">Este perfil no verifica el certificado TLS del servidor.</string>
+    <string name="import_profile_confirm_tls_unverified">Este servidor no verifica su certificado TLS.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuración importada</string>
     <string name="import_subscription_confirm_title">Añadir suscripción</string>
@@ -229,7 +229,7 @@
     <string name="settings_domain_bypass_body">Mantener dominios elegidos fuera del proxy (directo)</string>
     <string name="settings_routing_rules_body">Crea y ordena reglas de enrutamiento personalizadas</string>
     <string name="settings_split_tunnel_body">Elige qué apps usan la VPN, por aplicación</string>
-    <string name="settings_backup_body">Exporta tus perfiles, grupos, reglas y ajustes a un archivo.</string>
+    <string name="settings_backup_body">Exporta tus servidores, grupos, reglas y ajustes a un archivo.</string>
     <string name="backup_export_section">Exportar</string>
     <string name="backup_export_intro_title">La copia se queda en tu dispositivo</string>
     <string name="backup_export_intro_body">La copia se escribe solo en el archivo que elijas. No se sube nada.</string>
@@ -264,7 +264,7 @@
     <string name="backup_import_preview_title">Revisar copia</string>
     <string name="backup_import_preview_schema">Copia versión %1$d, creada por la aplicación %2$s</string>
     <string name="backup_import_shareable_title">Copia para compartir</string>
-    <string name="backup_import_category_profiles">Perfiles y grupos (perfiles: %1$d, grupos: %2$d)</string>
+    <string name="backup_import_category_profiles">Servidores y grupos (servidores: %1$d, grupos: %2$d)</string>
     <string name="backup_import_category_routes">Reglas de enrutamiento (%1$d)</string>
     <string name="backup_import_category_settings">Ajustes (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Las categorías sin marcar conservan sus valores actuales.</string>
@@ -277,10 +277,10 @@
     <string name="backup_share_reminder_cancel">Cancelar</string>
     <string name="backup_reset_section">Borrar datos</string>
     <string name="backup_reset_warning_title">Esto no se puede deshacer</string>
-    <string name="backup_reset_warning_body">Al borrar se eliminan todos los perfiles, grupos, reglas de enrutamiento, ajustes y registros de diagnóstico, y luego la aplicación se reinicia en la configuración inicial. Exporta una copia de seguridad primero si quieres conservar estos datos.</string>
+    <string name="backup_reset_warning_body">Al borrar se eliminan todos los servidores, grupos, reglas de enrutamiento, ajustes y registros de diagnóstico, y luego la aplicación se reinicia en la configuración inicial. Exporta una copia de seguridad primero si quieres conservar estos datos.</string>
     <string name="backup_reset_action">Borrar todos los datos de la aplicación</string>
     <string name="backup_reset_dialog_title">¿Borrar todos los datos de la aplicación?</string>
-    <string name="backup_reset_dialog_body">Escribe %1$s para confirmar. Esto borra todos los perfiles, grupos, reglas de enrutamiento, ajustes y el historial de diagnóstico, y luego reinicia la aplicación.</string>
+    <string name="backup_reset_dialog_body">Escribe %1$s para confirmar. Esto borra todos los servidores, grupos, reglas de enrutamiento, ajustes y el historial de diagnóstico, y luego reinicia la aplicación.</string>
     <string name="backup_reset_confirm_action">Borrar y reiniciar</string>
     <string name="backup_reset_cancel_action">Cancelar</string>
     <string name="support_settings_title">Enlace de ajustes de soporte</string>
@@ -324,8 +324,8 @@
     <string name="settings_storage_failed">RIPDPI no pudo escribir los ajustes en el almacenamiento. Libera espacio e inténtalo de nuevo.</string>
     <string name="import_subscription_confirm_empty_body">Este enlace no contiene una URL de suscripción.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">No se puede restaurar %1$d perfil porque se eliminaron sus credenciales. Los grupos, las rutas y los ajustes sí se pueden restaurar.</item>
-        <item quantity="other">No se pueden restaurar %1$d perfiles porque se eliminaron las credenciales. Los grupos, las rutas y los ajustes sí se pueden restaurar.</item>
+        <item quantity="one">No se puede restaurar %1$d servidor porque se eliminaron sus credenciales. Los grupos, las rutas y los ajustes sí se pueden restaurar.</item>
+        <item quantity="other">No se pueden restaurar %1$d servidores porque se eliminaron las credenciales. Los grupos, las rutas y los ajustes sí se pueden restaurar.</item>
     </plurals>
     <string name="export_preview_title">Revisar exportación</string>
     <string name="export_preview_preparing">Preparando una copia local…</string>

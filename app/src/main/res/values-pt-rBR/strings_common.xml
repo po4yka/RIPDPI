@@ -34,7 +34,7 @@
     <string name="block_signal_quic_breakage">Quebra de QUIC</string>
     <string name="block_signal_tcp_retransmissions">Retransmissões TCP</string>
     <string name="title_onboarding">Primeiros passos</string>
-    <string name="title_mode_editor">Editor de perfil</string>
+    <string name="title_mode_editor">Editor de predefinição</string>
     <string name="title_dns_settings">Configurações de DNS</string>
     <string name="title_advanced_settings">Configurações avançadas</string>
     <string name="title_strategy_config">Configuração de estratégia</string>
@@ -310,6 +310,6 @@
     <string name="ui_rule_save_failed_body">Suas alterações foram mantidas. Tente salvar novamente.</string>
     <string name="ui_app_picker_no_matches">Nenhum aplicativo correspondente</string>
     <string name="ui_app_picker_clear_search">Limpar pesquisa</string>
-    <string name="ui_profile_catalog_retry">Recarregar perfis</string>
+    <string name="ui_profile_catalog_retry">Recarregar servidores</string>
     <string name="scanner_camera_unavailable">A câmera está indisponível. Você ainda pode importar uma imagem com código QR.</string>
 </resources>

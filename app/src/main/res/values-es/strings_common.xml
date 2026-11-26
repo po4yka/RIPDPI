@@ -170,7 +170,7 @@
     <string name="semantic_action_expand">Expandir</string>
     <string name="source_code_link">Código fuente</string>
     <string name="title_blockcheck">Sondeo de estrategia</string>
-    <string name="title_mode_editor">Editor de perfil</string>
+    <string name="title_mode_editor">Editor de ajuste predefinido</string>
     <string name="title_vpn_config">Configuración de VPN</string>
     <string name="use_command_line_settings">Usar configuración de línea de comandos</string>
     <string name="vpn_disconnected">Desconectado</string>
@@ -318,6 +318,6 @@
     <string name="ui_rule_save_failed_body">Tus cambios se conservan. Intenta guardar de nuevo.</string>
     <string name="ui_app_picker_no_matches">No hay aplicaciones coincidentes</string>
     <string name="ui_app_picker_clear_search">Borrar búsqueda</string>
-    <string name="ui_profile_catalog_retry">Volver a cargar perfiles</string>
+    <string name="ui_profile_catalog_retry">Volver a cargar servidores</string>
     <string name="scanner_camera_unavailable">La cámara no está disponible. Aún puedes importar una imagen con un código QR.</string>
 </resources>

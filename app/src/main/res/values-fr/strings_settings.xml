@@ -105,7 +105,7 @@
     <string name="settings_permission_action_review">Examiner</string>
     <string name="settings_permission_status_required">Requis</string>
     <string name="settings_permissions_section">Autorisations</string>
-    <string name="settings_reset_body">Restaurer tous les paramètres à leurs valeurs par défaut. Les profils, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
+    <string name="settings_reset_body">Restaurer tous les paramètres à leurs valeurs par défaut. Les serveurs, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
     <string name="settings_security_section">Confidentialité</string>
     <string name="settings_support_debug_bundle_body">Partagez les journaux récents et les diagnostics dans un fichier ZIP pour l’assistance. Les captures de paquets ne sont pas incluses.</string>
     <string name="settings_tethering_dns_warning_body">Quand le partage de connexion est actif, Android exécute un serveur DNS local qui contourne le VPN. Des applications peuvent l\'utiliser pour envoyer des balises de suivi hors du tunnel.</string>
@@ -168,7 +168,7 @@
     <string name="settings_permission_status_not_needed">Non nécessaire</string>
     <string name="settings_permissions_battery_ready">Android permet déjà à RIPDPI d\'ignorer l\'optimisation de batterie Doze.</string>
     <string name="settings_permissions_vpn_needed">Accordez le consentement VPN Android avant que RIPDPI ne puisse démarrer le chemin VPN local.</string>
-    <string name="settings_reset_dialog_body">Cela restaurera tous les paramètres à leurs valeurs par défaut et toutes les personnalisations seront perdues. Les profils, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
+    <string name="settings_reset_dialog_body">Cela restaurera tous les paramètres à leurs valeurs par défaut et toutes les personnalisations seront perdues. Les serveurs, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
     <string name="settings_support_section">Assistance</string>
     <string name="settings_dynamic_color_title">Utiliser les couleurs du fond d\'écran</string>
     <string name="settings_dynamic_color_body">Adapter les couleurs de l\'application à votre fond d\'écran.</string>
@@ -178,13 +178,13 @@
     <string name="import_error_unsupported">Lien d\'import non pris en charge.</string>
     <string name="import_error_missing_url">Le lien d\'import ne contient pas d\'URL d\'abonnement.</string>
     <string name="import_error_bad_encoding">Le lien d\'import est mal formé.</string>
-    <string name="import_profile_confirm_title">Importer un profil</string>
+    <string name="import_profile_confirm_title">Importer un serveur</string>
     <string name="import_profile_confirm_empty_title">Rien à importer</string>
-    <string name="import_profile_confirm_empty_body">Ce lien ne contient pas de profil proxy utilisable.</string>
+    <string name="import_profile_confirm_empty_body">Ce lien ne contient pas de serveur utilisable.</string>
     <string name="import_confirm_add_action">Ajouter</string>
-    <string name="import_profile_confirm_error">Ce profil n’a pas pu être importé. Vérifiez que le lien est complet et valide.</string>
+    <string name="import_profile_confirm_error">Ce serveur n’a pas pu être importé. Vérifiez que le lien est complet et valide.</string>
     <string name="import_profile_confirm_tls_pin">Empreinte du certificat TLS : %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">Ce profil ne vérifie pas le certificat TLS du serveur.</string>
+    <string name="import_profile_confirm_tls_unverified">La vérification du certificat TLS est désactivée pour ce serveur.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuration importée</string>
     <string name="import_subscription_confirm_title">Ajouter un abonnement</string>
@@ -229,7 +229,7 @@
     <string name="settings_domain_bypass_body">Garder les domaines choisis hors du proxy (direct)</string>
     <string name="settings_routing_rules_body">Créez et ordonnez des règles de routage personnalisées</string>
     <string name="settings_split_tunnel_body">Choisissez quelles applis utilisent le VPN, par appli</string>
-    <string name="settings_backup_body">Exportez vos profils, groupes, règles et réglages dans un fichier.</string>
+    <string name="settings_backup_body">Exportez vos serveurs, groupes, règles et réglages dans un fichier.</string>
     <string name="backup_export_section">Exporter</string>
     <string name="backup_export_intro_title">La sauvegarde reste sur votre appareil</string>
     <string name="backup_export_intro_body">La sauvegarde est écrite uniquement dans le fichier que vous choisissez. Rien n\'est envoyé.</string>
@@ -264,7 +264,7 @@
     <string name="backup_import_preview_title">Vérifier la sauvegarde</string>
     <string name="backup_import_preview_schema">Sauvegarde version %1$d, créée par l’application %2$s</string>
     <string name="backup_import_shareable_title">Sauvegarde partageable</string>
-    <string name="backup_import_category_profiles">Profils et groupes (profils : %1$d, groupes : %2$d)</string>
+    <string name="backup_import_category_profiles">Serveurs et groupes (serveurs : %1$d, groupes : %2$d)</string>
     <string name="backup_import_category_routes">Règles de routage (%1$d)</string>
     <string name="backup_import_category_settings">Paramètres (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Les catégories non cochées conservent leurs valeurs actuelles.</string>
@@ -277,10 +277,10 @@
     <string name="backup_share_reminder_cancel">Annuler</string>
     <string name="backup_reset_section">Effacer les données</string>
     <string name="backup_reset_warning_title">Cette action est irréversible</string>
-    <string name="backup_reset_warning_body">L\'effacement supprime tous les profils, groupes, règles de routage, paramètres et enregistrements de diagnostic, puis redémarre l\'application vers la configuration initiale. Exportez d\'abord une sauvegarde si vous souhaitez conserver ces données.</string>
+    <string name="backup_reset_warning_body">L\'effacement supprime tous les serveurs, groupes, règles de routage, paramètres et enregistrements de diagnostic, puis redémarre l\'application vers la configuration initiale. Exportez d\'abord une sauvegarde si vous souhaitez conserver ces données.</string>
     <string name="backup_reset_action">Effacer toutes les données de l\'application</string>
     <string name="backup_reset_dialog_title">Effacer toutes les données de l\'application ?</string>
-    <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les profils, groupes, règles de routage, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
+    <string name="backup_reset_dialog_body">Saisissez %1$s pour confirmer. Cela efface tous les serveurs, groupes, règles de routage, paramètres et l\'historique de diagnostic, puis redémarre l\'application.</string>
     <string name="backup_reset_confirm_action">Effacer et redémarrer</string>
     <string name="backup_reset_cancel_action">Annuler</string>
     <string name="support_settings_title">Lien de paramètres d’assistance</string>
@@ -324,8 +324,8 @@
     <string name="settings_storage_failed">RIPDPI n’a pas pu enregistrer les paramètres dans le stockage. Libérez de l’espace et réessayez.</string>
     <string name="import_subscription_confirm_empty_body">Ce lien ne contient pas d\'URL d\'abonnement.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d profil ne peut pas être restauré car ses identifiants ont été supprimés. Les groupes, les routes et les paramètres peuvent toujours être restaurés.</item>
-        <item quantity="other">%1$d profils ne peuvent pas être restaurés car les identifiants ont été supprimés. Les groupes, les routes et les paramètres peuvent toujours être restaurés.</item>
+        <item quantity="one">%1$d serveur ne peut pas être restauré car ses identifiants ont été supprimés. Les groupes, les routes et les paramètres peuvent toujours être restaurés.</item>
+        <item quantity="other">%1$d serveurs ne peuvent pas être restaurés car les identifiants ont été supprimés. Les groupes, les routes et les paramètres peuvent toujours être restaurés.</item>
     </plurals>
     <string name="export_preview_title">Vérifier l’export</string>
     <string name="export_preview_preparing">Préparation d’une copie locale…</string>

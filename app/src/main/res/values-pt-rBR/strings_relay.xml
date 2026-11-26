@@ -79,7 +79,7 @@
     <string name="owned_stack_browser_trace_native_platform_failure">A pilha da plataforma Android falhou, então o RIPDPI usou o TLS próprio nativo.</string>
     <string name="owned_stack_browser_trace_native_platform_unavailable">A pilha da plataforma Android não está disponível neste dispositivo, então o RIPDPI usou o TLS próprio nativo.</string>
     <string name="owned_stack_browser_empty_body">Sem corpo de resposta.</string>
-    <string name="relay_editor_activation_failed">Não foi possível ativar este perfil. Confira os detalhes e tente novamente.</string>
+    <string name="relay_editor_activation_failed">Não foi possível ativar este servidor. Confira os detalhes e tente novamente.</string>
     <string name="awg_editor_title">Servidor AmneziaWG</string>
     <string name="awg_section_interface">Interface</string>
     <string name="awg_section_peer">Par</string>
@@ -131,10 +131,10 @@
     <string name="awg_cohort_replace_title">Substituir as configurações de ofuscação?</string>
     <string name="awg_cohort_replace_body">Esta predefinição substitui todas as configurações de ofuscação e apaga a chave de proteção do cabeçalho. Use apenas se as configurações do servidor forem compatíveis.</string>
     <string name="awg_cohort_replace_action">Substituir</string>
-    <string name="awg_delete_action">Excluir perfil</string>
-    <string name="awg_delete_title">Excluir este perfil?</string>
-    <string name="awg_delete_body">O perfil e suas chaves serão removidos deste dispositivo.</string>
-    <string name="awg_delete_failed">Não foi possível excluir o perfil. Tente novamente.</string>
+    <string name="awg_delete_action">Excluir servidor</string>
+    <string name="awg_delete_title">Excluir este servidor?</string>
+    <string name="awg_delete_body">O servidor e suas chaves serão removidos deste dispositivo.</string>
+    <string name="awg_delete_failed">Não foi possível excluir o servidor. Tente novamente.</string>
     <string name="relay_delete_in_use">Em uso pela conexão ativa</string>
     <string name="awg_cohort_picker_label">Predefinição de coorte</string>
     <string name="awg_cohort_custom">Personalizado</string>
@@ -148,7 +148,7 @@
     <string name="awg_connect_error">Não foi possível conectar. Confira os detalhes do servidor e tente novamente.</string>
     <string name="awg_field_name">Nome</string>
     <string name="awg_save_action">Salvar</string>
-    <string name="awg_save_error">Não foi possível salvar o perfil. Tente novamente.</string>
+    <string name="awg_save_error">Não foi possível salvar o servidor. Tente novamente.</string>
     <string name="awg_saved_hint">Salvo.</string>
     <string name="awg_generate_key_action">Gerar par de chaves</string>
     <string name="awg_key_generation_error">Não foi possível gerar o par de chaves. Tente novamente.</string>
@@ -206,7 +206,7 @@
     <string name="ssh_reveal_secret_action">Revelar</string>
     <string name="ssh_save_action">Salvar</string>
     <string name="outbound_group_fallback">Grupo #%1$d</string>
-    <string name="outbound_profile_fallback">Perfil #%1$d</string>
+    <string name="outbound_profile_fallback">Servidor #%1$d</string>
     <string name="xray_capability_vpn_privacy_title">Privacidade da VPN</string>
     <string name="xray_capability_vpn_privacy_desc">Transporta todo o tráfego do dispositivo pelo túnel protegido.</string>
     <string name="xray_capability_relay_title">Retransmissor</string>
@@ -344,7 +344,7 @@
     <string name="subscription_status_last_refresh_format">Última atualização: %1$s</string>
     <string name="subscription_status_token_expiry_format">Expiração do token: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Expiração da credencial: %1$s</string>
-    <string name="subscription_status_replacement_help">Os perfis salvos continuam utilizáveis. Importe um link de assinatura substituto para retomar as atualizações.</string>
+    <string name="subscription_status_replacement_help">Os servidores salvos continuam utilizáveis. Importe um link de assinatura substituto para retomar as atualizações.</string>
     <string name="subscription_status_refresh_action">Atualizar agora</string>
     <string name="subscription_status_active">Ativa</string>
     <string name="subscription_status_expired">Expirada</string>
@@ -356,17 +356,17 @@
     <string name="subscription_status_delete_action">Excluir</string>
     <string name="subscription_status_delete_title">Excluir “%1$s”?</string>
     <string name="subscription_status_delete_title_unnamed">Excluir esta assinatura?</string>
-    <string name="subscription_status_delete_body">Esta assinatura e seus perfis serão removidos deste dispositivo.</string>
+    <string name="subscription_status_delete_body">Esta assinatura e seus servidores serão removidos deste dispositivo.</string>
     <string name="subscription_status_delete_failed">Falha ao excluir</string>
     <string name="subscription_status_url_format">URL da assinatura: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_expiring_title">A assinatura expira em breve</string>
     <string name="subscription_home_expired_title">Assinatura expirada</string>
-    <string name="subscription_home_expired_body">%1$s já não consegue mais atualizar. Os perfis existentes permanecem disponíveis.</string>
+    <string name="subscription_home_expired_body">%1$s já não consegue mais atualizar. Os servidores existentes permanecem disponíveis.</string>
     <string name="subscription_home_invalidated_title">Assinatura indisponível</string>
-    <string name="subscription_home_invalidated_body">%1$s expirou ou foi revogada. Os perfis existentes permanecem disponíveis.</string>
-    <string name="relay_editor_profile_not_found_title">Perfil não encontrado</string>
-    <string name="relay_editor_profile_not_found_body">Este perfil foi excluído ou o link que o abriu está errado. Volte e escolha um perfil da lista.</string>
+    <string name="subscription_home_invalidated_body">%1$s expirou ou foi revogada. Os servidores existentes permanecem disponíveis.</string>
+    <string name="relay_editor_profile_not_found_title">Servidor não encontrado</string>
+    <string name="relay_editor_profile_not_found_body">Este servidor foi excluído ou o link que o abriu está errado. Volte e escolha um servidor da lista.</string>
     <string name="relay_editor_section_credentials">Credenciais</string>
     <string name="relay_editor_save_incomplete_hint">Para salvar, preencha servidor, porta e credenciais e corrija os campos inválidos.</string>
     <string name="relay_editor_range_helper">De %1$d a %2$d</string>
@@ -388,7 +388,7 @@
     <string name="subscription_add_continue">Continuar</string>
     <string name="awg_conf_import_failed_title">Configuração não importada</string>
     <string name="awg_conf_import_failed_body">O texto não é um .conf do WireGuard ou do AmneziaWG válido, ou usa opções que o RIPDPI não aceita.</string>
-    <string name="awg_conf_subscription_server_mismatch_body">Esta configuração é de um servidor diferente do deste perfil de assinatura. Use a configuração do mesmo servidor.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">Esta configuração é de um servidor diferente do deste servidor de assinatura. Use a configuração do mesmo servidor.</string>
     <string name="awg_conf_import_unreadable_body">O RIPDPI não conseguiu ler o arquivo. Ele está vazio, tem mais de 64 KB ou não é um arquivo de texto.</string>
     <string name="awg_conf_extra_peers_title">Apenas o primeiro par é usado</string>
     <string name="awg_conf_extra_peers_body">Seções [Peer] extras ignoradas: %1$d. O RIPDPI se conecta apenas pelo primeiro par.</string>
@@ -421,9 +421,9 @@
         <item quantity="other">%1$s expira em %2$d dias. Atualize-a ou prepare um link substituto.</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d perfil atribuído</item>
-        <item quantity="many">%1$d perfis atribuídos</item>
-        <item quantity="other">%1$d perfis atribuídos</item>
+        <item quantity="one">%1$d servidor atribuído</item>
+        <item quantity="many">%1$d servidores atribuídos</item>
+        <item quantity="other">%1$d servidores atribuídos</item>
     </plurals>
     <string name="xray_import_error_restore_failed">Não foi possível carregar o estado atual do provedor Xray. Tente novamente antes de concluir.</string>
     <string name="xray_import_error_typed_unsupported">Este transporte ou opção de segurança Xray ainda não é compatível.</string>

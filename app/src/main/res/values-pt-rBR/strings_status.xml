@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">Abrir página de login</string>
     <string name="status_network_condition_whitelist_title">A rede pode estar filtrando tráfego</string>
     <string name="status_network_condition_whitelist_body">Sites estrangeiros falham enquanto os locais funcionam. Esta rede pode permitir apenas destinos aprovados.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">Experimente seu perfil de relay de whitelist salvo.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">Experimente seu servidor de relay de whitelist salvo.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">Sem conectividade</string>
     <string name="status_network_condition_no_connectivity_body">Esta rede não tem uma rota funcional. Verifique sua conexão e tente novamente.</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">Use a ação de correção de lá para abrir a autoridade no Navegador RIPDPI.</string>
     <string name="status_remediation_owned_stack_step_verify_result">Verifique se a autoridade carrega ali antes de promover outras mudanças de relay.</string>
     <string name="status_remediation_browser_relay_title">Prefira um relay com camuflagem de navegador</string>
-    <string name="status_remediation_browser_relay_summary">A análise inicial encontrou uma falha de modo direto do tipo TLS/IP. Abra o Editor de perfil e troque para um preset de relay com camuflagem de navegador.</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">Abra o Editor de perfil.</string>
+    <string name="status_remediation_browser_relay_summary">A análise inicial encontrou uma falha de modo direto do tipo TLS/IP. Abra o Editor de predefinição e troque para um preset de relay com camuflagem de navegador.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">Abra o Editor de predefinição.</string>
     <string name="status_remediation_browser_relay_step_enable_relay">Ative o caminho de relay upstream do seu modo atual.</string>
     <string name="status_remediation_browser_relay_step_choose_preset">Escolha um preset de camuflagem de navegador como NaiveProxy ou ShadowTLS e execute a análise novamente.</string>
     <string name="status_remediation_quic_relay_title">Prefira um relay com foco em QUIC</string>
-    <string name="status_remediation_quic_relay_summary">A análise inicial encontrou capacidade de relay QUIC/UDP salva. Abra o Editor de perfil e troque para um preset de relay com foco em QUIC em vez de outra tentativa direta.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">Abra o Editor de perfil.</string>
+    <string name="status_remediation_quic_relay_summary">A análise inicial encontrou capacidade de relay QUIC/UDP salva. Abra o Editor de predefinição e troque para um preset de relay com foco em QUIC em vez de outra tentativa direta.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">Abra o Editor de predefinição.</string>
     <string name="status_remediation_quic_relay_step_enable_relay">Ative o caminho de relay upstream do seu modo atual.</string>
     <string name="status_remediation_quic_relay_step_choose_preset">Escolha um preset de relay com foco em QUIC como TUIC, Hysteria2 ou MASQUE e execute a análise novamente.</string>
     <string name="status_remediation_no_hint_title">Ainda sem dica confiável de relay</string>
@@ -211,8 +211,8 @@
     <string name="shortcut_diagnostics">Executar diagnósticos</string>
     <string name="shortcut_diagnostics_short">Diagnósticos</string>
     <string name="shortcut_diagnostics_disabled">Diagnósticos indisponíveis</string>
-    <string name="shortcut_open_config">Abrir perfis</string>
-    <string name="shortcut_open_config_short">Perfis</string>
+    <string name="shortcut_open_config">Abrir predefinições e servidores</string>
+    <string name="shortcut_open_config_short">Servidores</string>
     <string name="shortcut_open_settings">Abrir configurações</string>
     <string name="shortcut_open_settings_short">Configurações</string>
     <string name="qs_tile_label_connected">RIPDPI: conectado</string>
@@ -462,7 +462,7 @@
     <string name="pause_resuming">Retomando conexão…</string>
     <string name="pause_cleanup_pending">A limpeza está incompleta. A pausa ainda não foi confirmada.</string>
     <string name="pause_deferred">A retomada requer atenção</string>
-    <string name="pause_saved_settings">Este modo retoma com as configurações salvas atuais. Edições mantêm a pausa; iniciar, parar, ativar ou excluir um perfil a cancela.</string>
+    <string name="pause_saved_settings">Este modo retoma com as configurações salvas atuais. Edições mantêm a pausa; iniciar, parar, ativar ou excluir um servidor a cancela.</string>
     <string name="pause_remaining">Minutos restantes: %1$s</string>
     <string name="pause_resume_now">Retomar agora</string>
     <string name="pause_stop">Parar e cancelar retomada</string>

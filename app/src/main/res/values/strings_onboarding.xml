@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">Choose your interface</string>
     <string name="onboarding_persona_guided_body">Everyday controls stay visible while expert details stay collapsed.</string>
-    <string name="onboarding_persona_advanced_body">Show all diagnostics, profiles, and low-level settings.</string>
+    <string name="onboarding_persona_advanced_body">Show all diagnostics, presets, and low-level settings.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_setup_finish">Finish</string>
     <string name="onboarding_local_first_title">Private by design</string>
@@ -107,7 +107,7 @@
     <string name="clipboard_label_detection_diagnostics">Detection diagnostics</string>
     <string name="clipboard_label_detection_report">Detection report</string>
     <string name="clipboard_label_detection_markdown_export">Detection Markdown export</string>
-    <string name="clipboard_label_profile_link">RIPDPI profile link</string>
+    <string name="clipboard_label_profile_link">RIPDPI server link</string>
     <string name="clipboard_label_setup_sheet">RIPDPI setup sheet</string>
     <string name="clipboard_label_log_entry">Log entry</string>
     <string name="biometric_prompt_device_credential_title">Use your screen lock</string>

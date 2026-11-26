@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">साइन-इन पेज खोलें</string>
     <string name="status_network_condition_whitelist_title">नेटवर्क ट्रैफ़िक फ़िल्टर कर रहा हो सकता है</string>
     <string name="status_network_condition_whitelist_body">विदेशी साइटें विफल हो रही हैं जबकि स्थानीय साइटें काम कर रही हैं। यह नेटवर्क केवल स्वीकृत गंतव्यों को ही अनुमति दे रहा हो सकता है।</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">अपना सहेजा गया whitelist रिले प्रोफ़ाइल आज़माएँ।</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">अपना सहेजा गया whitelist रिले सर्वर आज़माएँ।</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">कोई कनेक्टिविटी नहीं</string>
     <string name="status_network_condition_no_connectivity_body">इस नेटवर्क का कोई कार्यशील रूट नहीं है। अपना कनेक्शन जाँचें और फिर से प्रयास करें।</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">अथॉरिटी को RIPDPI Browser में खोलने के लिए वहाँ उपचार क्रिया का उपयोग करें।</string>
     <string name="status_remediation_owned_stack_step_verify_result">अन्य रिले परिवर्तनों को प्रोमोट करने से पहले सत्यापित करें कि अथॉरिटी वहाँ लोड होती है।</string>
     <string name="status_remediation_browser_relay_title">ब्राउज़र जैसा ट्रैफ़िक भेजने वाले रिले को प्राथमिकता दें</string>
-    <string name="status_remediation_browser_relay_summary">स्थिति के विश्लेषण में TLS/IP प्रकार की डायरेक्ट-मोड विफलता मिली। प्रोफ़ाइल संपादक खोलें और ब्राउज़र जैसा ट्रैफ़िक भेजने वाला रिले प्रीसेट चुनें।</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">प्रोफ़ाइल संपादक खोलें।</string>
+    <string name="status_remediation_browser_relay_summary">स्थिति के विश्लेषण में TLS/IP प्रकार की डायरेक्ट-मोड विफलता मिली। प्रीसेट संपादक खोलें और ब्राउज़र जैसा ट्रैफ़िक भेजने वाला रिले प्रीसेट चुनें।</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">प्रीसेट संपादक खोलें।</string>
     <string name="status_remediation_browser_relay_step_enable_relay">अपने मौजूदा मोड के लिए अपस्ट्रीम रिले पथ सक्षम करें।</string>
     <string name="status_remediation_browser_relay_step_choose_preset">NaiveProxy या ShadowTLS जैसा ब्राउज़र जैसा ट्रैफ़िक भेजने वाला प्रीसेट चुनें, फिर विश्लेषण दोबारा चलाएँ।</string>
     <string name="status_remediation_quic_relay_title">QUIC-केंद्रित रिले को प्राथमिकता दें</string>
-    <string name="status_remediation_quic_relay_summary">स्थिति विश्लेषण में सहेजी गई QUIC/UDP रिले क्षमता मिली। किसी अन्य डायरेक्ट पुनः प्रयास के बजाय प्रोफ़ाइल संपादक खोलें और QUIC-केंद्रित रिले प्रीसेट पर स्विच करें।</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">प्रोफ़ाइल संपादक खोलें।</string>
+    <string name="status_remediation_quic_relay_summary">स्थिति विश्लेषण में सहेजी गई QUIC/UDP रिले क्षमता मिली। किसी अन्य डायरेक्ट पुनः प्रयास के बजाय प्रीसेट संपादक खोलें और QUIC-केंद्रित रिले प्रीसेट पर स्विच करें।</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">प्रीसेट संपादक खोलें।</string>
     <string name="status_remediation_quic_relay_step_enable_relay">अपने मौजूदा मोड के लिए अपस्ट्रीम रिले पथ सक्षम करें।</string>
     <string name="status_remediation_quic_relay_step_choose_preset">TUIC, Hysteria2, या MASQUE जैसा QUIC-भारी रिले प्रीसेट चुनें, फिर विश्लेषण दोबारा चलाएँ.</string>
     <string name="status_remediation_no_hint_title">अभी तक कोई विश्वसनीय रिले संकेत नहीं</string>
@@ -211,8 +211,8 @@
     <string name="shortcut_diagnostics">डायग्नोस्टिक्स चलाएँ</string>
     <string name="shortcut_diagnostics_short">डायग्नोस्टिक्स</string>
     <string name="shortcut_diagnostics_disabled">डायग्नोस्टिक्स अनुपलब्ध</string>
-    <string name="shortcut_open_config">प्रोफ़ाइल खोलें</string>
-    <string name="shortcut_open_config_short">प्रोफ़ाइल</string>
+    <string name="shortcut_open_config">प्रीसेट और सर्वर खोलें</string>
+    <string name="shortcut_open_config_short">सर्वर</string>
     <string name="shortcut_open_settings">सेटिंग्स खोलें</string>
     <string name="shortcut_open_settings_short">सेटिंग्स</string>
     <string name="qs_tile_label_connected">RIPDPI: कनेक्टेड</string>
@@ -460,7 +460,7 @@
     <string name="pause_resuming">कनेक्शन फिर शुरू हो रहा है…</string>
     <string name="pause_cleanup_pending">सफाई अधूरी है। विराम की पुष्टि अभी नहीं हुई है।</string>
     <string name="pause_deferred">फिर शुरू करने के लिए ध्यान चाहिए</string>
-    <string name="pause_saved_settings">यह मोड वर्तमान सहेजी गई सेटिंग से शुरू होगा। साधारण बदलाव विराम रखते हैं; शुरू करना, रोकना, प्रोफ़ाइल सक्रिय करना या हटाना इसे रद्द करता है।</string>
+    <string name="pause_saved_settings">यह मोड वर्तमान सहेजी गई सेटिंग से शुरू होगा। साधारण बदलाव विराम रखते हैं; शुरू करना, रोकना, सर्वर सक्रिय करना या हटाना इसे रद्द करता है।</string>
     <string name="pause_remaining">शेष मिनट: %1$s</string>
     <string name="pause_resume_now">अभी फिर शुरू करें</string>
     <string name="pause_stop">रोकें और फिर शुरू करना रद्द करें</string>

@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">अपना इंटरफ़ेस चुनें</string>
     <string name="onboarding_persona_guided_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
-    <string name="onboarding_persona_advanced_body">सभी जाँच, प्रोफ़ाइल और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
+    <string name="onboarding_persona_advanced_body">सभी जाँच, प्रीसेट और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
     <string name="onboarding_continue">जारी रखें</string>
     <string name="onboarding_setup_finish">समाप्त करें</string>
     <string name="onboarding_local_first_title">डिज़ाइन से ही निजी</string>
@@ -101,7 +101,7 @@
     <string name="clipboard_label_detection_diagnostics">पहचान निदान</string>
     <string name="clipboard_label_detection_report">पहचान रिपोर्ट</string>
     <string name="clipboard_label_detection_markdown_export">पहचान Markdown निर्यात</string>
-    <string name="clipboard_label_profile_link">RIPDPI प्रोफ़ाइल लिंक</string>
+    <string name="clipboard_label_profile_link">RIPDPI सर्वर लिंक</string>
     <string name="clipboard_label_setup_sheet">RIPDPI सेटअप शीट</string>
     <string name="clipboard_label_log_entry">लॉग प्रविष्टि</string>
     <string name="biometric_prompt_device_credential_title">अपने स्क्रीन लॉक का उपयोग करें</string>

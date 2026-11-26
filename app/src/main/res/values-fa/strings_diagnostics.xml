@@ -39,7 +39,7 @@
     <string name="diagnostics_audit_progress_title">در حال اجرای حسابرسی شبکه</string>
     <string name="diagnostics_audit_unavailable_title">حسابرسی خودکار در دسترس نیست</string>
     <string name="diagnostics_probe_manual_apply_title">نحوهٔ استفاده از این نتیجه</string>
-    <string name="diagnostics_probe_manual_apply_body">کاوش خودکار تنظیمات RIPDPI شما را تغییر نمی‌دهد. راهبرد توصیه‌شده در زیر را بررسی کنید، سپس بخش‌هایی را که می‌خواهید به‌صورت دستی به نمایه عادی خود کپی کنید.</string>
+    <string name="diagnostics_probe_manual_apply_body">کاوش خودکار تنظیمات RIPDPI شما را تغییر نمی‌دهد. راهبرد توصیه‌شده در زیر را بررسی کنید، سپس بخش‌هایی را که می‌خواهید به‌صورت دستی به پیش‌تنظیم خود کپی کنید.</string>
     <string name="diagnostics_probe_latest_section">آخرین توصیه</string>
     <string name="diagnostics_probe_evidence_section">شواهد کاوش</string>
     <string name="diagnostics_probe_status_recommended">توصیه‌شده</string>
@@ -118,12 +118,12 @@
     <string name="diagnostics_remediation_open_owned_stack_action">باز کردن مرورگر RIPDPI</string>
     <string name="diagnostics_remediation_browser_relay_title">ترجیح رله با استتار مرورگری</string>
     <string name="diagnostics_remediation_browser_relay_summary">حالت مستقیم با الگوی مسدودسازی نوع TLS/IP شکست خورد. به یک پیش‌تنظیم رله که شبیه HTTPS مرورگری است تغییر دهید.</string>
-    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">ویرایشگر نمایه را باز کنید.</string>
+    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">ویرایشگر پیش‌تنظیم را باز کنید.</string>
     <string name="diagnostics_remediation_browser_relay_step_enable_relay">مسیر رلهٔ بالادست را برای این حالت فعال کنید.</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">یک پیش‌تنظیم استتار مرورگری مانند NaiveProxy یا ShadowTLS انتخاب کنید، سپس تشخیص را دوباره امتحان کنید.</string>
     <string name="diagnostics_remediation_quic_relay_title">ترجیح رلهٔ سنگین QUIC</string>
     <string name="diagnostics_remediation_quic_relay_summary">شواهد قابلیت ذخیره‌شده می‌گویند مسیرهای رلهٔ UDP/QUIC هنوز سالم هستند. به‌جای اعمال یک تلاش شفاف دیگر، به یک رلهٔ سنگین QUIC تغییر دهید.</string>
-    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">ویرایشگر نمایه را باز کنید.</string>
+    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">ویرایشگر پیش‌تنظیم را باز کنید.</string>
     <string name="diagnostics_remediation_quic_relay_step_enable_relay">مسیر رلهٔ بالادست را برای این حالت فعال کنید.</string>
     <string name="diagnostics_remediation_quic_relay_step_choose_preset">یک پیش‌تنظیم رلهٔ سنگین QUIC مانند TUIC، Hysteria2، یا MASQUE انتخاب کنید، سپس تشخیص را دوباره امتحان کنید.</string>
     <string name="diagnostics_remediation_no_hint_title">هنوز هیچ راهنمایی قابل اعتماد برای رله وجود ندارد</string>
@@ -131,7 +131,7 @@
     <string name="diagnostics_remediation_no_hint_step_open_history">تاریخچه را باز کنید.</string>
     <string name="diagnostics_remediation_no_hint_step_review_evidence">آخرین نشست تشخیصی و شواهد قابلیت برای این مرجع را بررسی کنید.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">پس از جمع‌آوری اجرای دیگری در همان شبکه، دوباره امتحان کنید.</string>
-    <string name="diagnostics_remediation_open_mode_editor_action">باز کردن ویرایشگر نمایه</string>
+    <string name="diagnostics_remediation_open_mode_editor_action">باز کردن ویرایشگر پیش‌تنظیم</string>
     <string name="diagnostics_profile_badge_all_builtin">همهٔ روش‌های داخلی</string>
     <string name="diagnostics_profile_badge_raw_only">فقط شبکه مستقیم</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">مستقیم یا اتصال فعال</string>
@@ -1661,7 +1661,7 @@
     <string name="detection_exposure_network_observability_hint">MTU و تنظیمات رابط و مسیریابی را از نظر نشانه‌های مختص تونل بررسی کنید.</string>
     <string name="detection_exposure_timing_label">الگوی زمانی غیرعادی</string>
     <string name="detection_exposure_timing_reason">الگوهای تأخیر یا زمان‌بندی با ترافیک معمول و مستقیم HTTPS تفاوت دارند.</string>
-    <string name="detection_exposure_timing_hint">یک نقطه خروج نزدیک‌تر را امتحان کنید، تعداد گره‌های زنجیره را کاهش دهید یا نمایه‌ای با تأخیر کمتر انتخاب کنید.</string>
+    <string name="detection_exposure_timing_hint">یک نقطه خروج نزدیک‌تر را امتحان کنید، تعداد گره‌های زنجیره را کاهش دهید یا سروری با تأخیر کمتر انتخاب کنید.</string>
     <string name="detection_exposure_native_signs_label">نشانه زمان اجرای کد بومی</string>
     <string name="detection_exposure_native_signs_hint">ابزارهای پایش نامرتبط را حذف کنید و با نمایه دستگاه هدف دوباره آزمایش کنید.</string>
     <string name="detection_exposure_call_transport_label">نشت از مسیر انتقال تماس</string>

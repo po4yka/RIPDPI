@@ -79,7 +79,7 @@
     <string name="owned_stack_browser_trace_native_platform_failure">Android platform stack failed, so RIPDPI used native owned TLS.</string>
     <string name="owned_stack_browser_trace_native_platform_unavailable">Android platform stack is unavailable on this device, so RIPDPI used native owned TLS.</string>
     <string name="owned_stack_browser_empty_body">No response body.</string>
-    <string name="relay_editor_activation_failed">Couldn\'t activate this profile. Check the details and try again.</string>
+    <string name="relay_editor_activation_failed">Couldn\'t activate this server. Check the details and try again.</string>
     <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">AmneziaWG server</string>
     <string name="awg_section_interface">Interface</string>
@@ -134,10 +134,10 @@
     <string name="awg_cohort_replace_title">Replace obfuscation settings?</string>
     <string name="awg_cohort_replace_body">This preset replaces all obfuscation settings and clears the header-protection key. Use it only if the server has matching settings.</string>
     <string name="awg_cohort_replace_action">Replace</string>
-    <string name="awg_delete_action">Delete profile</string>
-    <string name="awg_delete_title">Delete this profile?</string>
-    <string name="awg_delete_body">The profile and its keys are removed from this device.</string>
-    <string name="awg_delete_failed">Couldn\'t delete the profile. Try again.</string>
+    <string name="awg_delete_action">Delete server</string>
+    <string name="awg_delete_title">Delete this server?</string>
+    <string name="awg_delete_body">The server and its keys are removed from this device.</string>
+    <string name="awg_delete_failed">Couldn\'t delete the server. Try again.</string>
     <string name="relay_delete_in_use">In use by the active connection</string>
     <string name="awg_cohort_picker_label">Cohort preset</string>
     <string name="awg_cohort_custom">Custom</string>
@@ -151,7 +151,7 @@
     <string name="awg_connect_error">Couldn\'t connect. Check the server details and try again.</string>
     <string name="awg_field_name">Name</string>
     <string name="awg_save_action">Save</string>
-    <string name="awg_save_error">Couldn\'t save the profile. Try again.</string>
+    <string name="awg_save_error">Couldn\'t save the server. Try again.</string>
     <string name="awg_saved_hint">Saved.</string>
     <string name="awg_generate_key_action">Generate key pair</string>
     <string name="awg_key_generation_error">Couldn\'t generate a key pair. Try again.</string>
@@ -210,7 +210,7 @@
     <string name="ssh_reveal_secret_action">Reveal</string>
     <string name="ssh_save_action">Save</string>
     <string name="outbound_group_fallback">Group #%1$d</string>
-    <string name="outbound_profile_fallback">Profile #%1$d</string>
+    <string name="outbound_profile_fallback">Server #%1$d</string>
     <string name="xray_capability_vpn_privacy_title">VPN privacy</string>
     <string name="xray_capability_vpn_privacy_desc">Carries all device traffic through the protected tunnel.</string>
     <string name="xray_capability_relay_title">Relay</string>
@@ -352,7 +352,7 @@
     <string name="subscription_status_last_refresh_format">Last refresh: %1$s</string>
     <string name="subscription_status_token_expiry_format">Token expiry: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Credential expiry: %1$s</string>
-    <string name="subscription_status_replacement_help">The saved profiles remain usable. Import a replacement subscription link to resume updates.</string>
+    <string name="subscription_status_replacement_help">The saved servers remain usable. Import a replacement subscription link to resume updates.</string>
     <string name="subscription_status_refresh_action">Refresh now</string>
     <string name="subscription_status_active">Active</string>
     <string name="subscription_status_expired">Expired</string>
@@ -364,17 +364,17 @@
     <string name="subscription_status_delete_action">Delete</string>
     <string name="subscription_status_delete_title">Delete “%1$s”?</string>
     <string name="subscription_status_delete_title_unnamed">Delete this subscription?</string>
-    <string name="subscription_status_delete_body">This subscription and its profiles are removed from this device.</string>
+    <string name="subscription_status_delete_body">This subscription and its servers are removed from this device.</string>
     <string name="subscription_status_delete_failed">Delete failed</string>
     <string name="subscription_status_url_format">Subscription URL: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_expiring_title">Subscription expires soon</string>
     <string name="subscription_home_expired_title">Subscription expired</string>
-    <string name="subscription_home_expired_body">%1$s can no longer refresh. Existing profiles remain available.</string>
+    <string name="subscription_home_expired_body">%1$s can no longer refresh. Existing servers remain available.</string>
     <string name="subscription_home_invalidated_title">Subscription unavailable</string>
-    <string name="subscription_home_invalidated_body">%1$s expired or was revoked. Existing profiles remain available.</string>
-    <string name="relay_editor_profile_not_found_title">Profile not found</string>
-    <string name="relay_editor_profile_not_found_body">This profile was deleted or the link that opened it is wrong. Go back and choose a profile from the list.</string>
+    <string name="subscription_home_invalidated_body">%1$s expired or was revoked. Existing servers remain available.</string>
+    <string name="relay_editor_profile_not_found_title">Server not found</string>
+    <string name="relay_editor_profile_not_found_body">This server was deleted or the link that opened it is wrong. Go back and choose a server from the list.</string>
     <string name="relay_editor_section_credentials">Credentials</string>
     <string name="relay_editor_save_incomplete_hint">To save, fill in the server, port, and credentials, and fix any field marked as invalid.</string>
     <string name="relay_editor_range_helper">From %1$d to %2$d</string>
@@ -399,7 +399,7 @@
     <string name="subscription_add_continue">Continue</string>
     <string name="awg_conf_import_failed_title">Config not imported</string>
     <string name="awg_conf_import_failed_body">The text is not a valid WireGuard or AmneziaWG .conf, or it uses options that RIPDPI does not support.</string>
-    <string name="awg_conf_subscription_server_mismatch_body">This config is for a different server than this subscription profile. Use the config for the same server.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">This config is for a different server than the saved subscription server. Use the config for the same server.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI could not read the file. It is empty, larger than 64 KB, or not a text file.</string>
     <string name="awg_conf_extra_peers_title">Only the first peer is used</string>
     <string name="awg_conf_extra_peers_body">Extra [Peer] sections ignored: %1$d. RIPDPI connects through the first peer only.</string>
@@ -430,8 +430,8 @@
         <item quantity="other">%1$s expires in %2$d days. Refresh it or prepare a replacement link.</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d assigned profile</item>
-        <item quantity="other">%1$d assigned profiles</item>
+        <item quantity="one">%1$d assigned server</item>
+        <item quantity="other">%1$d assigned servers</item>
     </plurals>
     <string name="xray_import_error_restore_failed">Couldn\'t load the current Xray provider state. Retry before finishing.</string>
     <string name="xray_import_error_typed_unsupported">This Xray transport or security option is not supported yet.</string>

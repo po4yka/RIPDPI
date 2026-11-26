@@ -92,7 +92,7 @@
     <string name="diagnostics_profile_explicit_consent_required">In dieser Region ist eine ausdrückliche Zustimmung erforderlich.</string>
     <string name="diagnostics_profile_probe_running_body">RIPDPI startet temporäre Strategie-Kandidaten nur auf dem Rohpfad. Ihre gespeicherten Einstellungen bleiben während der Probe unverändert.</string>
     <string name="diagnostics_recent_activity_section">Letzte Aktivität</string>
-    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">Profil-Editor öffnen.</string>
+    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">Voreinstellungs-Editor öffnen.</string>
     <string name="diagnostics_remediation_command_line_step_retry">Zur Diagnose zurückkehren und diesen Workflow erneut ausführen.</string>
     <string name="diagnostics_remediation_dns_title">DNS-Behebung prüfen</string>
     <string name="diagnostics_remediation_no_hint_title">Noch kein zuverlässiger Relay-Hinweis</string>
@@ -327,7 +327,7 @@
     <string name="diagnostics_metric_strategy">Strategie</string>
     <string name="diagnostics_metric_winning_strategy">Gewinnende Strategie</string>
     <string name="diagnostics_overview_run_scan_action">Netz prüfen</string>
-    <string name="diagnostics_probe_manual_apply_body">Automatische Probe ändert Ihre RIPDPI-Einstellungen nicht. Prüfen Sie die unten empfohlene Strategie und kopieren Sie die gewünschten Teile manuell in Ihr normales Profil.</string>
+    <string name="diagnostics_probe_manual_apply_body">Automatische Probe ändert Ihre RIPDPI-Einstellungen nicht. Prüfen Sie die unten empfohlene Strategie und kopieren Sie die gewünschten Teile manuell in Ihre Voreinstellung.</string>
     <string name="diagnostics_probe_progress_title">Strategien werden getestet</string>
     <string name="diagnostics_probe_short_circuit_recommendation_title">Resolver-Empfehlung</string>
     <string name="diagnostics_probe_status_skipped">Übersprungen</string>
@@ -346,7 +346,7 @@
     <string name="diagnostics_remediation_open_history_action">Verlauf öffnen</string>
     <string name="diagnostics_remediation_owned_stack_step_verify_result">Prüfen Sie, ob die Seite dort lädt, selbst wenn der Direktmodus anderswo fehlschlägt.</string>
     <string name="diagnostics_remediation_partial_step_review">Fehlgeschlagene und übersprungene Kandidaten prüfen.</string>
-    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">Profil-Editor öffnen.</string>
+    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">Voreinstellungs-Editor öffnen.</string>
     <string name="diagnostics_remediation_review_step_rerun">Neues vollständiges Audit ausführen, falls das aktuelle Netzwerk weiterhin Arbeit benötigt.</string>
     <string name="diagnostics_remembered_networks_section">Gemerkte Netzwerke</string>
     <string name="diagnostics_save_archive_body">Speichern Sie %1$s lokal. Das Archiv enthält Rohdaten des Berichts, Laufzeitkonfiguration, Herkunfts-, Vollständigkeits- und Integritätsmetadaten sowie, sofern verfügbar, ein auf die App beschränktes Logcat. Paketmitschnitte werden nicht eingebettet; exportieren Sie sie separat über die Werkzeuge zur Paketerfassung.</string>
@@ -460,7 +460,7 @@
     <string name="diagnostics_remediation_command_line_step_disable_setting">Deaktivieren Sie „Befehlszeileneinstellungen verwenden“.</string>
     <string name="diagnostics_remediation_dns_step_retry">Wiederholen Sie den Workflow, falls der Zugriff weiterhin blockiert ist.</string>
     <string name="diagnostics_remediation_no_hint_step_review_evidence">Überprüfen Sie die letzte Diagnosesitzung und die Capability-Evidenz für diese Authority.</string>
-    <string name="diagnostics_remediation_open_mode_editor_action">Profil-Editor öffnen</string>
+    <string name="diagnostics_remediation_open_mode_editor_action">Voreinstellungs-Editor öffnen</string>
     <string name="diagnostics_remediation_owned_stack_summary">Die Diagnose hat ergeben, dass diese Authority nur über den eigenen Request-Stack von RIPDPI funktioniert.</string>
     <string name="diagnostics_remediation_partial_summary">Dieser Workflow wurde mit unvollständigen Belegen abgeschlossen. Überprüfen Sie die letzte Sitzung, bevor Sie sie erneut ausführen.</string>
     <string name="diagnostics_remediation_quic_relay_summary">Gespeicherte Capability-Evidenz besagt, dass UDP/QUIC-Relay-Pfade weiterhin gesund sind. Wechseln Sie zu einem QUIC-lastigen Relay, statt einen weiteren transparenten Retry zu erzwingen.</string>
@@ -1661,7 +1661,7 @@
     <string name="detection_exposure_network_observability_hint">Prüfen Sie MTU, Schnittstellen und Routing-Einstellungen auf tunneltypische Merkmale.</string>
     <string name="detection_exposure_timing_label">Zeitabweichung</string>
     <string name="detection_exposure_timing_reason">Latenz oder zeitliche Muster weichen von gewöhnlichem direktem HTTPS-Verkehr ab.</string>
-    <string name="detection_exposure_timing_hint">Versuchen Sie einen näheren Ausgang, verringern Sie verkettete Zwischenstationen oder wählen Sie ein Profil mit geringerer Latenz.</string>
+    <string name="detection_exposure_timing_hint">Versuchen Sie einen näheren Ausgang, verringern Sie verkettete Zwischenstationen oder wählen Sie einen Server mit geringerer Latenz.</string>
     <string name="detection_exposure_native_signs_label">Signal der nativen Laufzeit</string>
     <string name="detection_exposure_native_signs_hint">Entfernen Sie nicht zugehörige Instrumentierung und testen Sie erneut mit dem Zielgeräteprofil.</string>
     <string name="detection_exposure_call_transport_label">Leck beim Anruftransport</string>

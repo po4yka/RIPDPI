@@ -30,7 +30,7 @@
     <string name="subscription_status_last_refresh_format">अंतिम रीफ़्रेश: %1$s</string>
     <string name="subscription_status_token_expiry_format">टोकन समाप्ति: %1$s</string>
     <string name="subscription_status_credential_expiry_format">क्रेडेंशियल समाप्ति: %1$s</string>
-    <string name="subscription_status_replacement_help">सहेजी गई प्रोफ़ाइल उपयोग योग्य रहेंगी। अपडेट फिर से शुरू करने के लिए नई सदस्यता लिंक आयात करें।</string>
+    <string name="subscription_status_replacement_help">सहेजे गए सर्वर उपयोग योग्य रहेंगे। अपडेट फिर से शुरू करने के लिए नई सदस्यता लिंक आयात करें।</string>
     <string name="subscription_status_refresh_action">अभी रीफ़्रेश करें</string>
     <string name="subscription_status_active">सक्रिय</string>
     <string name="subscription_status_expired">समाप्त</string>
@@ -42,15 +42,15 @@
     <string name="subscription_status_delete_action">हटाएँ</string>
     <string name="subscription_status_delete_title">“%1$s” हटाएँ?</string>
     <string name="subscription_status_delete_title_unnamed">यह सदस्यता हटाएँ?</string>
-    <string name="subscription_status_delete_body">यह सदस्यता और इसकी प्रोफ़ाइलें इस डिवाइस से हटा दी जाएँगी।</string>
+    <string name="subscription_status_delete_body">यह सदस्यता और इसके सर्वर इस डिवाइस से हटा दिए जाएँगे।</string>
     <string name="subscription_status_delete_failed">हटाना विफल रहा</string>
     <string name="subscription_status_url_format">सदस्यता URL: %1$s</string>
     <string name="subscription_status_token_format">टोकन: %1$s</string>
     <string name="subscription_home_expiring_title">सदस्यता जल्द समाप्त होगी</string>
     <string name="subscription_home_expired_title">सदस्यता समाप्त हो गई</string>
-    <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
+    <string name="subscription_home_expired_body">%1$s अब रीफ़्रेश नहीं हो सकती। मौजूदा सर्वर उपलब्ध रहेंगे।</string>
     <string name="subscription_home_invalidated_title">सदस्यता उपलब्ध नहीं है</string>
-    <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा प्रोफ़ाइल उपलब्ध रहेंगी।</string>
+    <string name="subscription_home_invalidated_body">%1$s समाप्त या निरस्त हो गई। मौजूदा सर्वर उपलब्ध रहेंगे।</string>
     <string name="warp_section_title">Cloudflare WARP</string>
     <string name="warp_profile_id_title">सक्रिय प्रोफ़ाइल</string>
     <string name="warp_profile_id_body">सुरक्षित क्रेडेंशियल और एंडपॉइंट कैश प्रविष्टियों को बाँधने के लिए उपयोग किया गया चयनित गैर-गोपनीय WARP प्रोफ़ाइल संदर्भ।</string>
@@ -123,7 +123,7 @@
     <string name="owned_stack_browser_trace_native_platform_failure">Android प्लैटफ़ॉर्म स्टैक विफल हो गया, इसलिए RIPDPI ने नेटिव ओन्ड TLS का उपयोग किया।</string>
     <string name="owned_stack_browser_trace_native_platform_unavailable">इस डिवाइस पर Android प्लैटफ़ॉर्म स्टैक उपलब्ध नहीं है, इसलिए RIPDPI ने नेटिव ओन्ड TLS का उपयोग किया।</string>
     <string name="owned_stack_browser_empty_body">कोई रिस्पॉन्स बॉडी नहीं।</string>
-    <string name="relay_editor_activation_failed">इस प्रोफ़ाइल को सक्रिय नहीं किया जा सका। विवरण जाँचें और दोबारा प्रयास करें।</string>
+    <string name="relay_editor_activation_failed">इस सर्वर को सक्रिय नहीं किया जा सका। विवरण जाँचें और दोबारा प्रयास करें।</string>
     <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">AmneziaWG सर्वर</string>
     <string name="awg_section_interface">इंटरफ़ेस</string>
@@ -176,10 +176,10 @@
     <string name="awg_cohort_replace_title">ऑब्फ़स्केशन सेटिंग बदलें?</string>
     <string name="awg_cohort_replace_body">यह प्रीसेट सभी ऑब्फ़स्केशन सेटिंग बदल देगा और हेडर सुरक्षा कुंजी मिटा देगा। इसे तभी इस्तेमाल करें जब सर्वर की सेटिंग मेल खाती हों।</string>
     <string name="awg_cohort_replace_action">बदलें</string>
-    <string name="awg_delete_action">प्रोफ़ाइल हटाएँ</string>
-    <string name="awg_delete_title">यह प्रोफ़ाइल हटाएँ?</string>
-    <string name="awg_delete_body">प्रोफ़ाइल और उसकी कुंजियाँ इस डिवाइस से हटा दी जाएँगी।</string>
-    <string name="awg_delete_failed">प्रोफ़ाइल नहीं हटाई जा सकी। फिर से कोशिश करें।</string>
+    <string name="awg_delete_action">सर्वर हटाएँ</string>
+    <string name="awg_delete_title">यह सर्वर हटाएँ?</string>
+    <string name="awg_delete_body">सर्वर और उसकी कुंजियाँ इस डिवाइस से हटा दिए जाएँगे।</string>
+    <string name="awg_delete_failed">सर्वर नहीं हटाया जा सका। फिर से कोशिश करें।</string>
     <string name="relay_delete_in_use">सक्रिय कनेक्शन द्वारा उपयोग में</string>
     <string name="awg_cohort_picker_label">Cohort प्रीसेट</string>
     <string name="awg_cohort_custom">कस्टम</string>
@@ -193,7 +193,7 @@
     <string name="awg_connect_error">कनेक्ट नहीं हो सका। सर्वर का विवरण जाँचें और फिर से प्रयास करें।</string>
     <string name="awg_field_name">नाम</string>
     <string name="awg_save_action">सहेजें</string>
-    <string name="awg_save_error">प्रोफ़ाइल सहेजी नहीं जा सकी। फिर से कोशिश करें।</string>
+    <string name="awg_save_error">सर्वर सहेजा नहीं जा सका। फिर से कोशिश करें।</string>
     <string name="awg_saved_hint">सहेजा गया।</string>
     <string name="awg_generate_key_action">कुंजी जोड़ी बनाएँ</string>
     <string name="awg_key_generation_error">कुंजी जोड़ी नहीं बनाई जा सकी। फिर से कोशिश करें।</string>
@@ -251,7 +251,7 @@
     <string name="ssh_reveal_secret_action">प्रकट करें</string>
     <string name="ssh_save_action">सहेजें</string>
     <string name="outbound_group_fallback">समूह #%1$d</string>
-    <string name="outbound_profile_fallback">प्रोफ़ाइल #%1$d</string>
+    <string name="outbound_profile_fallback">सर्वर #%1$d</string>
     <string name="xray_capability_vpn_privacy_title">VPN गोपनीयता</string>
     <string name="xray_capability_vpn_privacy_desc">डिवाइस के सभी ट्रैफ़िक को सुरक्षित टनल के माध्यम से ले जाता है।</string>
     <string name="xray_capability_relay_title">रिले</string>
@@ -369,8 +369,8 @@
     <string name="subscription_failover_status_up">अप</string>
     <string name="subscription_failover_summary_format">सर्वर %1$d/%2$d %3$s · %4$s · %5$s</string>
     <string name="subscription_failover_time_unknown">समय अज्ञात</string>
-    <string name="relay_editor_profile_not_found_title">प्रोफ़ाइल नहीं मिली</string>
-    <string name="relay_editor_profile_not_found_body">यह प्रोफ़ाइल हटा दी गई है या इसे खोलने वाला लिंक गलत है। वापस जाएँ और सूची से कोई प्रोफ़ाइल चुनें।</string>
+    <string name="relay_editor_profile_not_found_title">सर्वर नहीं मिला</string>
+    <string name="relay_editor_profile_not_found_body">यह सर्वर हटा दिया गया है या इसे खोलने वाला लिंक गलत है। वापस जाएँ और सूची से कोई सर्वर चुनें।</string>
     <string name="relay_editor_section_credentials">क्रेडेंशियल</string>
     <string name="relay_editor_save_incomplete_hint">सहेजने के लिए सर्वर, पोर्ट और क्रेडेंशियल भरें, और अमान्य फ़ील्ड ठीक करें।</string>
     <string name="relay_editor_range_helper">%1$d से %2$d तक</string>
@@ -392,7 +392,7 @@
     <string name="subscription_add_continue">जारी रखें</string>
     <string name="awg_conf_import_failed_title">कॉन्फ़िग इम्पोर्ट नहीं हुआ</string>
     <string name="awg_conf_import_failed_body">यह टेक्स्ट मान्य WireGuard या AmneziaWG .conf नहीं है, या इसमें ऐसे विकल्प हैं जिनका RIPDPI समर्थन नहीं करता।</string>
-    <string name="awg_conf_subscription_server_mismatch_body">यह कॉन्फ़िग इस सदस्यता प्रोफ़ाइल के सर्वर से अलग सर्वर के लिए है। उसी सर्वर का कॉन्फ़िग इस्तेमाल करें।</string>
+    <string name="awg_conf_subscription_server_mismatch_body">यह कॉन्फ़िग सहेजे गए सदस्यता सर्वर से अलग सर्वर के लिए है। उसी सर्वर का कॉन्फ़िग इस्तेमाल करें।</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI फ़ाइल नहीं पढ़ सका। फ़ाइल खाली है, 64 KB से बड़ी है या टेक्स्ट फ़ाइल नहीं है।</string>
     <string name="awg_conf_extra_peers_title">केवल पहला पीयर उपयोग होता है</string>
     <string name="awg_conf_extra_peers_body">अनदेखे किए गए अतिरिक्त [Peer] सेक्शन: %1$d। RIPDPI केवल पहले पीयर से कनेक्ट होता है।</string>
@@ -423,8 +423,8 @@
         <item quantity="other">%1$s %2$d दिनों में समाप्त होगी। इसे रीफ़्रेश करें या नई लिंक तैयार रखें।</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d असाइन की गई प्रोफ़ाइल</item>
-        <item quantity="other">%1$d असाइन की गई प्रोफ़ाइल</item>
+        <item quantity="one">%1$d असाइन किया गया सर्वर</item>
+        <item quantity="other">%1$d असाइन किए गए सर्वर</item>
     </plurals>
     <string name="xray_import_error_restore_failed">मौजूदा Xray प्रदाता स्थिति लोड नहीं हो सकी। समाप्त करने से पहले फिर कोशिश करें।</string>
     <string name="xray_import_error_typed_unsupported">यह Xray ट्रांसपोर्ट या सुरक्षा विकल्प अभी समर्थित नहीं है।</string>

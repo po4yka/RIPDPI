@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">اختر الواجهة</string>
     <string name="onboarding_persona_guided_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
-    <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والملفات الشخصية والإعدادات منخفضة المستوى.</string>
+    <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والإعدادات المسبقة والإعدادات منخفضة المستوى.</string>
     <string name="onboarding_continue">متابعة</string>
     <string name="onboarding_setup_finish">إنهاء</string>
     <string name="onboarding_local_first_title">خاص بحكم التصميم</string>
@@ -108,7 +108,7 @@
     <string name="clipboard_label_detection_diagnostics">تشخيصات الكشف</string>
     <string name="clipboard_label_detection_report">تقرير الكشف</string>
     <string name="clipboard_label_detection_markdown_export">تصدير Markdown للكشف</string>
-    <string name="clipboard_label_profile_link">رابط ملف تعريف RIPDPI</string>
+    <string name="clipboard_label_profile_link">رابط خادم RIPDPI</string>
     <string name="clipboard_label_setup_sheet">ورقة إعداد RIPDPI</string>
     <string name="clipboard_label_log_entry">إدخال سجل</string>
     <string name="biometric_prompt_device_credential_title">استخدم قفل الشاشة</string>

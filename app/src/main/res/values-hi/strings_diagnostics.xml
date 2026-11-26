@@ -39,7 +39,7 @@
     <string name="diagnostics_audit_progress_title">नेटवर्क ऑडिट चल रहा है</string>
     <string name="diagnostics_audit_unavailable_title">स्वचालित ऑडिट उपलब्ध नहीं</string>
     <string name="diagnostics_probe_manual_apply_title">इस परिणाम का उपयोग कैसे करें</string>
-    <string name="diagnostics_probe_manual_apply_body">स्वचालित प्रोबिंग आपकी RIPDPI सेटिंग्स नहीं बदलती। नीचे दी गई अनुशंसित रणनीति देखें, फिर जो हिस्से चाहें उन्हें अपनी सामान्य प्रोफ़ाइल में मैन्युअल रूप से कॉपी करें।</string>
+    <string name="diagnostics_probe_manual_apply_body">स्वचालित प्रोबिंग आपकी RIPDPI सेटिंग्स नहीं बदलती। नीचे दी गई अनुशंसित रणनीति देखें, फिर जो हिस्से चाहें उन्हें अपने सामान्य प्रीसेट में मैन्युअल रूप से कॉपी करें।</string>
     <string name="diagnostics_probe_latest_section">नवीनतम अनुशंसा</string>
     <string name="diagnostics_probe_evidence_section">प्रोब साक्ष्य</string>
     <string name="diagnostics_probe_status_recommended">अनुशंसित</string>
@@ -118,12 +118,12 @@
     <string name="diagnostics_remediation_open_owned_stack_action">RIPDPI ब्राउज़र खोलें</string>
     <string name="diagnostics_remediation_browser_relay_title">ब्राउज़र-छद्मावरण रिले को प्राथमिकता दें</string>
     <string name="diagnostics_remediation_browser_relay_summary">डायरेक्ट मोड TLS/IP-शैली के अवरोध पैटर्न के साथ विफल हुआ. ऐसे रिले प्रीसेट पर स्विच करें जो ब्राउज़र जैसे HTTPS में घुलमिल जाए.</string>
-    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">प्रोफ़ाइल संपादक खोलें.</string>
+    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">प्रीसेट संपादक खोलें.</string>
     <string name="diagnostics_remediation_browser_relay_step_enable_relay">इस मोड के लिए अपस्ट्रीम रिले पथ सक्षम करें.</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">NaiveProxy या ShadowTLS जैसा ब्राउज़र-छद्मावरण प्रीसेट चुनें, फिर डायग्नोस्टिक्स दोबारा चलाएँ.</string>
     <string name="diagnostics_remediation_quic_relay_title">QUIC-प्रधान रिले को प्राथमिकता दें</string>
     <string name="diagnostics_remediation_quic_relay_summary">सहेजे गए क्षमता प्रमाण कहते हैं कि UDP/QUIC रिले पथ अब भी स्वस्थ हैं. एक और पारदर्शी पुनः प्रयास को बाध्य करने के बजाय QUIC-प्रधान रिले पर स्विच करें.</string>
-    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">प्रोफ़ाइल संपादक खोलें.</string>
+    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">प्रीसेट संपादक खोलें.</string>
     <string name="diagnostics_remediation_quic_relay_step_enable_relay">इस मोड के लिए अपस्ट्रीम रिले पथ सक्षम करें.</string>
     <string name="diagnostics_remediation_quic_relay_step_choose_preset">TUIC, Hysteria2, या MASQUE जैसा QUIC-प्रधान रिले प्रीसेट चुनें, फिर डायग्नोस्टिक्स दोबारा चलाएँ.</string>
     <string name="diagnostics_remediation_no_hint_title">अभी कोई विश्वसनीय रिले संकेत नहीं</string>
@@ -131,7 +131,7 @@
     <string name="diagnostics_remediation_no_hint_step_open_history">इतिहास खोलें.</string>
     <string name="diagnostics_remediation_no_hint_step_review_evidence">इस अथॉरिटी के लिए नवीनतम डायग्नोस्टिक्स सत्र और क्षमता प्रमाण की समीक्षा करें.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">उसी नेटवर्क पर एक और रन एकत्र करने के बाद दोबारा प्रयास करें.</string>
-    <string name="diagnostics_remediation_open_mode_editor_action">प्रोफ़ाइल संपादक खोलें</string>
+    <string name="diagnostics_remediation_open_mode_editor_action">प्रीसेट संपादक खोलें</string>
     <string name="diagnostics_profile_badge_all_builtin">सभी अंतर्निहित विधियाँ</string>
     <string name="diagnostics_profile_badge_raw_only">केवल सीधा नेटवर्क</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">सीधा या सक्रिय कनेक्शन</string>
@@ -1668,7 +1668,7 @@
     <string name="detection_exposure_network_observability_hint">टनल की पहचान कराने वाले संकेतों के लिए MTU, इंटरफ़ेस और रूटिंग सेटिंग की समीक्षा करें।</string>
     <string name="detection_exposure_timing_label">समय में असामान्यता</string>
     <string name="detection_exposure_timing_reason">विलंब या समय के पैटर्न सामान्य सीधे HTTPS ट्रैफ़िक से अलग हैं।</string>
-    <string name="detection_exposure_timing_hint">नज़दीकी निकास आज़माएँ, जुड़े हुए मध्यवर्ती चरण कम करें या कम विलंब वाला प्रोफ़ाइल चुनें।</string>
+    <string name="detection_exposure_timing_hint">नज़दीकी निकास आज़माएँ, जुड़े हुए मध्यवर्ती चरण कम करें या कम विलंब वाला सर्वर चुनें।</string>
     <string name="detection_exposure_native_signs_label">नेटिव रनटाइम के संकेत</string>
     <string name="detection_exposure_native_signs_hint">असंबंधित इंस्ट्रुमेंटेशन हटाएँ और लक्षित डिवाइस प्रोफ़ाइल पर फिर जाँचें।</string>
     <string name="detection_exposure_call_transport_label">कॉल ट्रांसपोर्ट में लीक</string>

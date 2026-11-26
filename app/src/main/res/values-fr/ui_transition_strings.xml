@@ -6,6 +6,6 @@
     <string name="runtime_config_preview_dns">DNS</string>
     <string name="runtime_config_preview_strategy">Stratégie de contournement TCP</string>
     <string name="runtime_config_preview_route_unresolved">Déterminé lors de la reconnexion</string>
-    <string name="runtime_config_preview_note">Ce résumé des paramètres enregistrés est partiel. Les profils et les itinéraires sont déterminés lors de la reconnexion. Les autres modifications enregistrées peuvent aussi être appliquées. Les valeurs effectives sont confirmées après la reconnexion.</string>
+    <string name="runtime_config_preview_note">Ce résumé des paramètres enregistrés est partiel. Les serveurs et les itinéraires sont déterminés lors de la reconnexion. Les autres modifications enregistrées peuvent aussi être appliquées. Les valeurs effectives sont confirmées après la reconnexion.</string>
     <string name="runtime_config_preview_unavailable">Indisponible</string>
 </resources>

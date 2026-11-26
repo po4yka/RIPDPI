@@ -40,7 +40,7 @@
     <string name="diagnostics_audit_progress_title">Выполняется сетевой аудит</string>
     <string name="diagnostics_audit_unavailable_title">Автоматический аудит недоступен</string>
     <string name="diagnostics_probe_manual_apply_title">Как использовать этот результат</string>
-    <string name="diagnostics_probe_manual_apply_body">Автоматическое зондирование не изменяет настройки RIPDPI. Ознакомьтесь с рекомендуемой стратегией ниже, затем вручную скопируйте нужные части в свой обычный профиль.</string>
+    <string name="diagnostics_probe_manual_apply_body">Автоматическое зондирование не изменяет настройки RIPDPI. Ознакомьтесь с рекомендуемой стратегией ниже, затем вручную скопируйте нужные части в свой пресет.</string>
     <string name="diagnostics_probe_latest_section">Последняя рекомендация</string>
     <string name="diagnostics_probe_evidence_section">Данные зондирования</string>
     <string name="diagnostics_probe_status_recommended">Рекомендовано</string>
@@ -109,12 +109,12 @@
     <string name="diagnostics_remediation_open_owned_stack_action">Открыть браузер RIPDPI</string>
     <string name="diagnostics_remediation_browser_relay_title">Предпочтите релей с браузерной маскировкой</string>
     <string name="diagnostics_remediation_browser_relay_summary">Прямой режим завершился ошибкой с признаками блокировки TLS/IP. Переключитесь на релейный профиль, который маскируется под обычный HTTPS браузера.</string>
-    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">Откройте «Редактор профиля».</string>
+    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">Откройте «Редактор пресета».</string>
     <string name="diagnostics_remediation_browser_relay_step_enable_relay">Включите путь через вышестоящий релей для этого режима.</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">Выберите браузерно-маскирующий пресет, например NaiveProxy или ShadowTLS, затем повторите диагностику.</string>
     <string name="diagnostics_remediation_quic_relay_title">Предпочтите QUIC-ориентированный релей</string>
     <string name="diagnostics_remediation_quic_relay_summary">Сохранённые данные о возможностях показывают, что пути через UDP/QUIC-релей работают. Переключитесь на QUIC-ориентированный релей вместо ещё одной попытки прямого подключения.</string>
-    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">Откройте «Редактор профиля».</string>
+    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">Откройте «Редактор пресета».</string>
     <string name="diagnostics_remediation_quic_relay_step_enable_relay">Включите путь через вышестоящий релей для этого режима.</string>
     <string name="diagnostics_remediation_quic_relay_step_choose_preset">Выберите QUIC-ориентированный релейный пресет, например TUIC, Hysteria2 или MASQUE, затем повторите диагностику.</string>
     <string name="diagnostics_remediation_no_hint_title">Надёжной подсказки по релею пока нет</string>
@@ -122,7 +122,7 @@
     <string name="diagnostics_remediation_no_hint_step_open_history">Откройте «История».</string>
     <string name="diagnostics_remediation_no_hint_step_review_evidence">Проверьте последнюю диагностическую сессию и данные о возможностях для этого адреса.</string>
     <string name="diagnostics_remediation_no_hint_step_retry">Повторите запуск после ещё одного прогона на той же сети.</string>
-    <string name="diagnostics_remediation_open_mode_editor_action">Открыть «Редактор профиля»</string>
+    <string name="diagnostics_remediation_open_mode_editor_action">Открыть «Редактор пресета»</string>
     <string name="diagnostics_profile_badge_all_builtin">Все встроенные методы</string>
     <string name="diagnostics_profile_badge_raw_only">Только напрямую через сеть</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">Напрямую или через активное соединение</string>
@@ -1706,7 +1706,7 @@
     <string name="detection_exposure_network_observability_hint">Проверьте MTU, интерфейсы и маршрутизацию на признаки туннеля.</string>
     <string name="detection_exposure_timing_label">временная аномалия</string>
     <string name="detection_exposure_timing_reason">Задержка или временные характеристики отличаются от обычного прямого трафика HTTPS.</string>
-    <string name="detection_exposure_timing_hint">Попробуйте более близкую точку выхода, сократите цепочку переходов или выберите профиль с меньшей задержкой.</string>
+    <string name="detection_exposure_timing_hint">Попробуйте более близкую точку выхода, сократите цепочку переходов или выберите сервер с меньшей задержкой.</string>
     <string name="detection_exposure_native_signs_label">признак нативной среды выполнения</string>
     <string name="detection_exposure_native_signs_hint">Удалите посторонние средства инструментирования и повторите проверку на целевом профиле устройства.</string>
     <string name="detection_exposure_call_transport_label">утечка транспорта звонков</string>

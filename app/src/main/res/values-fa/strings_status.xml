@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">باز کردن صفحه ورود</string>
     <string name="status_network_condition_whitelist_title">ممکن است شبکه ترافیک را فیلتر کند</string>
     <string name="status_network_condition_whitelist_body">سایت‌های خارجی ناموفق هستند در حالی که سایت‌های محلی کار می‌کنند. این شبکه ممکن است فقط مقصدهای تأییدشده را مجاز کند.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">نمایه رله فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">سرور رلهٔ فهرست سفید ذخیره‌شده خود را امتحان کنید.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">بدون اتصال</string>
     <string name="status_network_condition_no_connectivity_body">این شبکه مسیر فعالی ندارد. اتصال خود را بررسی کنید و دوباره تلاش کنید.</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">از اقدام اصلاحی آنجا برای باز کردن مرجع در مرورگر RIPDPI استفاده کنید.</string>
     <string name="status_remediation_owned_stack_step_verify_result">قبل از ترویج تغییرات رلهٔ دیگر، تأیید کنید که مرجع آنجا بارگذاری می‌شود.</string>
     <string name="status_remediation_browser_relay_title">ترجیح رله با استتار مرورگری</string>
-    <string name="status_remediation_browser_relay_summary">تحلیل خانه یک شکست حالت مستقیم نوع TLS/IP پیدا کرد. ویرایشگر نمایه را باز کنید و به یک پیش‌تنظیم رلهٔ استتار مرورگری تغییر دهید.</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">ویرایشگر نمایه را باز کنید.</string>
+    <string name="status_remediation_browser_relay_summary">تحلیل خانه یک شکست حالت مستقیم نوع TLS/IP پیدا کرد. ویرایشگر پیش‌تنظیم را باز کنید و به یک پیش‌تنظیم رلهٔ استتار مرورگری تغییر دهید.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">ویرایشگر پیش‌تنظیم را باز کنید.</string>
     <string name="status_remediation_browser_relay_step_enable_relay">مسیر رلهٔ بالادست را برای حالت فعلی فعال کنید.</string>
     <string name="status_remediation_browser_relay_step_choose_preset">یک پیش‌تنظیم استتار مرورگری مانند NaiveProxy یا ShadowTLS انتخاب کنید، سپس تحلیل را دوباره اجرا کنید.</string>
     <string name="status_remediation_quic_relay_title">ترجیح رلهٔ سنگین QUIC</string>
-    <string name="status_remediation_quic_relay_summary">تحلیل خانه قابلیت ذخیره‌شدهٔ رلهٔ QUIC/UDP پیدا کرد. به‌جای تلاش مستقیم دیگر، ویرایشگر نمایه را باز کنید و به یک پیش‌تنظیم رلهٔ سنگین QUIC تغییر دهید.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">ویرایشگر نمایه را باز کنید.</string>
+    <string name="status_remediation_quic_relay_summary">تحلیل خانه قابلیت ذخیره‌شدهٔ رلهٔ QUIC/UDP پیدا کرد. به‌جای تلاش مستقیم دیگر، ویرایشگر پیش‌تنظیم را باز کنید و به یک پیش‌تنظیم رلهٔ سنگین QUIC تغییر دهید.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">ویرایشگر پیش‌تنظیم را باز کنید.</string>
     <string name="status_remediation_quic_relay_step_enable_relay">مسیر رلهٔ بالادست را برای حالت فعلی فعال کنید.</string>
     <string name="status_remediation_quic_relay_step_choose_preset">یک پیش‌تنظیم رلهٔ سنگین QUIC مانند TUIC، Hysteria2، یا MASQUE انتخاب کنید، سپس تحلیل را دوباره اجرا کنید.</string>
     <string name="status_remediation_no_hint_title">هنوز هیچ راهنمایی قابل اعتماد برای رله وجود ندارد</string>
@@ -213,8 +213,8 @@
     <string name="qs_tile_subtitle_tap_disconnect">برای قطع، ضربه بزنید</string>
     <string name="shortcut_diagnostics_disabled">تشخیص‌ها در دسترس نیست</string>
     <string name="shortcut_quick_connect_disabled">اتصال در دسترس نیست</string>
-    <string name="shortcut_open_config">باز کردن نمایه‌ها</string>
-    <string name="shortcut_open_config_short">نمایه‌ها</string>
+    <string name="shortcut_open_config">باز کردن پیش‌تنظیم‌ها و سرورها</string>
+    <string name="shortcut_open_config_short">سرورها</string>
     <string name="shortcut_open_settings">باز کردن تنظیمات</string>
     <string name="shortcut_open_settings_short">تنظیمات</string>
     <string name="status_indicator_description">وضعیت: %1$s</string>
@@ -459,7 +459,7 @@
     <string name="pause_resuming">در حال ازسرگیری اتصال…</string>
     <string name="pause_cleanup_pending">پاک‌سازی کامل نشده است. توقف هنوز تأیید نشده است.</string>
     <string name="pause_deferred">ازسرگیری نیاز به بررسی دارد</string>
-    <string name="pause_saved_settings">این حالت با تنظیمات ذخیره‌شده فعلی از سر گرفته می‌شود. ویرایش‌ها توقف را حفظ می‌کنند؛ شروع، توقف، فعال‌سازی یا حذف نمایه آن را لغو می‌کند.</string>
+    <string name="pause_saved_settings">این حالت با تنظیمات ذخیره‌شده فعلی از سر گرفته می‌شود. ویرایش‌ها توقف را حفظ می‌کنند؛ شروع، توقف، فعال‌سازی یا حذف سرور آن را لغو می‌کند.</string>
     <string name="pause_remaining">دقیقه‌های باقی‌مانده: %1$s</string>
     <string name="pause_resume_now">ازسرگیری اکنون</string>
     <string name="pause_stop">توقف و لغو ازسرگیری</string>

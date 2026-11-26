@@ -79,7 +79,7 @@
     <string name="warp_scanner_enabled_body">探测候选 WARP 端点,并在每次网络切换后复用最佳结果。</string>
     <string name="warp_scanner_rtt_body">丢弃测量延迟超出此预算(毫秒)的扫描候选项。</string>
     <string name="warp_setup_state_title">设置状态</string>
-    <string name="relay_editor_activation_failed">无法激活此配置文件。请检查详细信息后重试。</string>
+    <string name="relay_editor_activation_failed">无法激活此服务器。请检查详细信息后重试。</string>
     <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">AmneziaWG 服务器</string>
     <string name="awg_section_interface">接口</string>
@@ -132,10 +132,10 @@
     <string name="awg_cohort_replace_title">替换混淆设置？</string>
     <string name="awg_cohort_replace_body">此预设会替换所有混淆设置并清除标头保护密钥。仅在服务器设置匹配时使用。</string>
     <string name="awg_cohort_replace_action">替换</string>
-    <string name="awg_delete_action">删除配置</string>
-    <string name="awg_delete_title">删除此配置？</string>
-    <string name="awg_delete_body">该配置及其密钥将从此设备中移除。</string>
-    <string name="awg_delete_failed">无法删除配置，请重试。</string>
+    <string name="awg_delete_action">删除服务器</string>
+    <string name="awg_delete_title">删除此服务器？</string>
+    <string name="awg_delete_body">该服务器及其密钥将从此设备中移除。</string>
+    <string name="awg_delete_failed">无法删除服务器，请重试。</string>
     <string name="relay_delete_in_use">当前连接正在使用</string>
     <string name="awg_cohort_picker_label">群组预设</string>
     <string name="awg_cohort_custom">自定义</string>
@@ -149,7 +149,7 @@
     <string name="awg_connect_error">连接失败。请检查服务器信息后重试。</string>
     <string name="awg_field_name">名称</string>
     <string name="awg_save_action">保存</string>
-    <string name="awg_save_error">无法保存配置文件。请重试。</string>
+    <string name="awg_save_error">无法保存服务器。请重试。</string>
     <string name="awg_saved_hint">已保存。</string>
     <string name="awg_generate_key_action">生成密钥对</string>
     <string name="awg_key_generation_error">无法生成密钥对。请重试。</string>
@@ -208,7 +208,7 @@
     <string name="ssh_reveal_secret_action">显示</string>
     <string name="ssh_save_action">保存</string>
     <string name="outbound_group_fallback">分组 #%1$d</string>
-    <string name="outbound_profile_fallback">配置文件 #%1$d</string>
+    <string name="outbound_profile_fallback">服务器 #%1$d</string>
     <string name="xray_capability_vpn_privacy_title">VPN 隐私</string>
     <string name="xray_capability_vpn_privacy_desc">将设备的所有流量通过受保护的隧道传输。</string>
     <string name="xray_capability_relay_title">中继</string>
@@ -346,7 +346,7 @@
     <string name="subscription_status_last_refresh_format">上次更新：%1$s</string>
     <string name="subscription_status_token_expiry_format">令牌到期：%1$s</string>
     <string name="subscription_status_credential_expiry_format">凭据到期：%1$s</string>
-    <string name="subscription_status_replacement_help">已保存的配置文件仍可使用。请导入新的订阅链接以恢复更新。</string>
+    <string name="subscription_status_replacement_help">已保存的服务器仍可使用。请导入新的订阅链接以恢复更新。</string>
     <string name="subscription_status_refresh_action">立即更新</string>
     <string name="subscription_status_active">有效</string>
     <string name="subscription_status_expired">已到期</string>
@@ -358,17 +358,17 @@
     <string name="subscription_status_delete_action">删除</string>
     <string name="subscription_status_delete_title">删除“%1$s”？</string>
     <string name="subscription_status_delete_title_unnamed">删除此订阅？</string>
-    <string name="subscription_status_delete_body">此订阅及其配置文件将从此设备中移除。</string>
+    <string name="subscription_status_delete_body">此订阅及其服务器将从此设备中移除。</string>
     <string name="subscription_status_delete_failed">删除失败</string>
     <string name="subscription_status_url_format">订阅网址：%1$s</string>
     <string name="subscription_status_token_format">令牌：%1$s</string>
     <string name="subscription_home_expiring_title">订阅即将到期</string>
     <string name="subscription_home_expired_title">订阅已到期</string>
-    <string name="subscription_home_expired_body">%1$s 已无法更新。现有配置文件仍可使用。</string>
+    <string name="subscription_home_expired_body">%1$s 已无法更新。现有服务器仍可使用。</string>
     <string name="subscription_home_invalidated_title">订阅不可用</string>
-    <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有配置文件仍可使用。</string>
-    <string name="relay_editor_profile_not_found_title">未找到配置文件</string>
-    <string name="relay_editor_profile_not_found_body">此配置文件已被删除，或打开它的链接有误。请返回并从列表中选择一个配置文件。</string>
+    <string name="subscription_home_invalidated_body">%1$s 已到期或被撤销。现有服务器仍可使用。</string>
+    <string name="relay_editor_profile_not_found_title">未找到服务器</string>
+    <string name="relay_editor_profile_not_found_body">此服务器已被删除，或打开它的链接有误。请返回并从列表中选择一个服务器。</string>
     <string name="relay_editor_section_credentials">凭据</string>
     <string name="relay_editor_save_incomplete_hint">要保存，请填写服务器、端口和凭据，并修正无效的字段。</string>
     <string name="relay_editor_range_helper">%1$d 至 %2$d</string>
@@ -388,7 +388,7 @@
     <string name="subscription_add_continue">继续</string>
     <string name="awg_conf_import_failed_title">配置未导入</string>
     <string name="awg_conf_import_failed_body">该文本不是有效的 WireGuard 或 AmneziaWG .conf，或使用了 RIPDPI 不支持的选项。</string>
-    <string name="awg_conf_subscription_server_mismatch_body">此配置对应的服务器与该订阅配置文件的服务器不同。请使用同一服务器的配置。</string>
+    <string name="awg_conf_subscription_server_mismatch_body">此配置对应的服务器与已保存订阅的服务器不同。请使用同一服务器的配置。</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI 无法读取该文件。文件为空、大于 64 KB 或不是文本文件。</string>
     <string name="awg_conf_extra_peers_title">仅使用第一个对端</string>
     <string name="awg_conf_extra_peers_body">已忽略的额外 [Peer] 部分：%1$d。RIPDPI 仅通过第一个对端连接。</string>
@@ -417,7 +417,7 @@
         <item quantity="other">%1$s 将在 %2$d 天后到期。请更新或准备新的订阅链接。</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="other">已分配 %1$d 个配置文件</item>
+        <item quantity="other">已分配 %1$d 个服务器</item>
     </plurals>
     <string name="xray_import_error_restore_failed">无法加载当前 Xray 提供程序状态。请重试后再完成。</string>
     <string name="xray_import_error_typed_unsupported">暂不支持此 Xray 传输或安全选项。</string>

@@ -33,7 +33,7 @@
     <string name="block_signal_quic_breakage">شکستگی QUIC</string>
     <string name="block_signal_tcp_retransmissions">بازارسال‌های TCP</string>
     <string name="title_onboarding">آشناسازی</string>
-    <string name="title_mode_editor">ویرایشگر نمایه</string>
+    <string name="title_mode_editor">ویرایشگر پیش‌تنظیم</string>
     <string name="title_dns_settings">تنظیمات DNS</string>
     <string name="title_advanced_settings">تنظیمات پیشرفته</string>
     <string name="title_strategy_config">پیکربندی راهبرد</string>
@@ -314,6 +314,6 @@
     <string name="ui_rule_save_failed_body">تغییرات شما حفظ شده‌اند. ذخیره را دوباره امتحان کنید.</string>
     <string name="ui_app_picker_no_matches">برنامه مطابقی پیدا نشد</string>
     <string name="ui_app_picker_clear_search">پاک کردن جستجو</string>
-    <string name="ui_profile_catalog_retry">بارگذاری دوباره نمایه‌ها</string>
+    <string name="ui_profile_catalog_retry">بارگذاری دوباره سرورها</string>
     <string name="scanner_camera_unavailable">دوربین در دسترس نیست. همچنان می‌توانید تصویر QR را وارد کنید.</string>
 </resources>

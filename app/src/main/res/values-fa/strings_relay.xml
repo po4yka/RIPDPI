@@ -79,7 +79,7 @@
     <string name="warp_scanner_parallelism_title">موازی‌سازی اسکنر</string>
     <string name="warp_section_title">Cloudflare WARP</string>
     <string name="warp_zero_trust_org_body">هنگامی نمایش داده می‌شود که نمایه فعال متعلق به ثبت‌نام Zero Trust باشد.</string>
-    <string name="relay_editor_activation_failed">این نمایه فعال نشد. جزئیات را بررسی کنید و دوباره تلاش کنید.</string>
+    <string name="relay_editor_activation_failed">این سرور فعال نشد. جزئیات را بررسی کنید و دوباره تلاش کنید.</string>
     <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">سرور AmneziaWG</string>
     <string name="awg_section_interface">رابط</string>
@@ -132,10 +132,10 @@
     <string name="awg_cohort_replace_title">تنظیمات مبهم‌سازی جایگزین شود؟</string>
     <string name="awg_cohort_replace_body">این پیش‌تنظیم تمام تنظیمات مبهم‌سازی را جایگزین و کلید محافظت از سربرگ را پاک می‌کند. فقط در صورت تطابق با تنظیمات سرور از آن استفاده کنید.</string>
     <string name="awg_cohort_replace_action">جایگزینی</string>
-    <string name="awg_delete_action">حذف نمایه</string>
-    <string name="awg_delete_title">این نمایه حذف شود؟</string>
-    <string name="awg_delete_body">نمایه و کلیدهای آن از این دستگاه حذف می‌شوند.</string>
-    <string name="awg_delete_failed">حذف نمایه ممکن نشد. دوباره تلاش کنید.</string>
+    <string name="awg_delete_action">حذف سرور</string>
+    <string name="awg_delete_title">این سرور حذف شود؟</string>
+    <string name="awg_delete_body">سرور و کلیدهای آن از این دستگاه حذف می‌شوند.</string>
+    <string name="awg_delete_failed">حذف سرور ممکن نشد. دوباره تلاش کنید.</string>
     <string name="relay_delete_in_use">در حال استفاده توسط اتصال فعال</string>
     <string name="awg_cohort_picker_label">پیش‌تنظیم گروه</string>
     <string name="awg_cohort_custom">سفارشی</string>
@@ -149,7 +149,7 @@
     <string name="awg_connect_error">اتصال برقرار نشد. اطلاعات سرور را بررسی کنید و دوباره تلاش کنید.</string>
     <string name="awg_field_name">نام</string>
     <string name="awg_save_action">ذخیره</string>
-    <string name="awg_save_error">ذخیره نمایه ممکن نشد. دوباره تلاش کنید.</string>
+    <string name="awg_save_error">ذخیره سرور ممکن نشد. دوباره تلاش کنید.</string>
     <string name="awg_saved_hint">ذخیره شد.</string>
     <string name="awg_generate_key_action">ساخت جفت کلید</string>
     <string name="awg_key_generation_error">ساخت جفت کلید ممکن نشد. دوباره تلاش کنید.</string>
@@ -208,7 +208,7 @@
     <string name="ssh_reveal_secret_action">نمایش</string>
     <string name="ssh_save_action">ذخیره</string>
     <string name="outbound_group_fallback">گروه شماره %1$d</string>
-    <string name="outbound_profile_fallback">نمایه شماره %1$d</string>
+    <string name="outbound_profile_fallback">سرور شماره %1$d</string>
     <string name="xray_capability_vpn_privacy_title">حریم خصوصی وی‌پی‌ان</string>
     <string name="xray_capability_vpn_privacy_desc">تمام ترافیک دستگاه را از تونل محافظت‌شده عبور می‌دهد.</string>
     <string name="xray_capability_relay_title">رله</string>
@@ -347,7 +347,7 @@
     <string name="subscription_status_last_refresh_format">آخرین به‌روزرسانی: %1$s</string>
     <string name="subscription_status_token_expiry_format">انقضای توکن: %1$s</string>
     <string name="subscription_status_credential_expiry_format">انقضای اعتبارنامه: %1$s</string>
-    <string name="subscription_status_replacement_help">نمایه‌های ذخیره‌شده قابل استفاده می‌مانند. برای ادامه به‌روزرسانی‌ها پیوند جایگزین وارد کنید.</string>
+    <string name="subscription_status_replacement_help">سرورهای ذخیره‌شده قابل استفاده می‌مانند. برای ادامه به‌روزرسانی‌ها پیوند اشتراک جایگزین وارد کنید.</string>
     <string name="subscription_status_refresh_action">اکنون به‌روزرسانی شود</string>
     <string name="subscription_status_active">فعال</string>
     <string name="subscription_status_expired">منقضی‌شده</string>
@@ -359,17 +359,17 @@
     <string name="subscription_status_delete_action">حذف</string>
     <string name="subscription_status_delete_title">«%1$s» حذف شود؟</string>
     <string name="subscription_status_delete_title_unnamed">این اشتراک حذف شود؟</string>
-    <string name="subscription_status_delete_body">این اشتراک و نمایه‌های آن از این دستگاه حذف می‌شوند.</string>
+    <string name="subscription_status_delete_body">این اشتراک و سرورهای آن از این دستگاه حذف می‌شوند.</string>
     <string name="subscription_status_delete_failed">حذف ناموفق بود</string>
     <string name="subscription_status_url_format">نشانی اشتراک: %1$s</string>
     <string name="subscription_status_token_format">توکن: %1$s</string>
     <string name="subscription_home_expiring_title">اشتراک به‌زودی منقضی می‌شود</string>
     <string name="subscription_home_expired_title">اشتراک منقضی شد</string>
-    <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. نمایه‌های موجود همچنان در دسترس‌اند.</string>
+    <string name="subscription_home_expired_body">%1$s دیگر به‌روزرسانی نمی‌شود. سرورهای موجود همچنان در دسترس‌اند.</string>
     <string name="subscription_home_invalidated_title">اشتراک در دسترس نیست</string>
-    <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. نمایه‌های موجود همچنان در دسترس‌اند.</string>
-    <string name="relay_editor_profile_not_found_title">نمایه پیدا نشد</string>
-    <string name="relay_editor_profile_not_found_body">این نمایه حذف شده یا پیوندی که آن را باز کرده نادرست است. برگردید و یک نمایه از فهرست انتخاب کنید.</string>
+    <string name="subscription_home_invalidated_body">%1$s منقضی یا لغو شده است. سرورهای موجود همچنان در دسترس‌اند.</string>
+    <string name="relay_editor_profile_not_found_title">سرور پیدا نشد</string>
+    <string name="relay_editor_profile_not_found_body">این سرور حذف شده یا پیوندی که آن را باز کرده نادرست است. برگردید و یک سرور از فهرست انتخاب کنید.</string>
     <string name="relay_editor_section_credentials">اطلاعات ورود</string>
     <string name="relay_editor_save_incomplete_hint">برای ذخیره، سرور، درگاه و اطلاعات ورود را وارد کنید و فیلدهای نامعتبر را اصلاح کنید.</string>
     <string name="relay_editor_range_helper">از %1$d تا %2$d</string>
@@ -391,7 +391,7 @@
     <string name="subscription_add_continue">ادامه</string>
     <string name="awg_conf_import_failed_title">پیکربندی وارد نشد</string>
     <string name="awg_conf_import_failed_body">این متن یک فایل ‎.conf معتبر WireGuard یا AmneziaWG نیست، یا از گزینه‌هایی استفاده می‌کند که RIPDPI پشتیبانی نمی‌کند.</string>
-    <string name="awg_conf_subscription_server_mismatch_body">این پیکربندی برای سروری غیر از سرور این نمایه اشتراک است. از پیکربندی همان سرور استفاده کنید.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">این پیکربندی برای سروری غیر از سرور اشتراک ذخیره‌شده است. از پیکربندی همان سرور استفاده کنید.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI نتوانست فایل را بخواند. فایل خالی است، بزرگ‌تر از ۶۴ کیلوبایت است یا فایل متنی نیست.</string>
     <string name="awg_conf_extra_peers_title">فقط نخستین همتا استفاده می‌شود</string>
     <string name="awg_conf_extra_peers_body">بخش‌های [Peer] اضافی نادیده گرفته شد: %1$d. RIPDPI فقط از طریق نخستین همتا وصل می‌شود.</string>
@@ -422,8 +422,8 @@
         <item quantity="other">%1$s تا %2$d روز دیگر منقضی می‌شود. آن را به‌روزرسانی یا پیوند جایگزین آماده کنید.</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d نمایه اختصاص‌یافته</item>
-        <item quantity="other">%1$d نمایه اختصاص‌یافته</item>
+        <item quantity="one">%1$d سرور اختصاص‌یافته</item>
+        <item quantity="other">%1$d سرور اختصاص‌یافته</item>
     </plurals>
     <string name="xray_import_error_restore_failed">بارگذاری وضعیت فعلی ارائه‌دهنده Xray ناموفق بود. پیش از پایان، دوباره تلاش کنید.</string>
     <string name="xray_import_error_typed_unsupported">این ترابری یا گزینه امنیتی Xray هنوز پشتیبانی نمی‌شود.</string>

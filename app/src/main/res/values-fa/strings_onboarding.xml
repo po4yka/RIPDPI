@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">رابط را انتخاب کنید</string>
     <string name="onboarding_persona_guided_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
-    <string name="onboarding_persona_advanced_body">همه ابزارهای تشخیص، نمایه‌ها و تنظیمات سطح پایین را نمایش می‌دهد.</string>
+    <string name="onboarding_persona_advanced_body">همه ابزارهای تشخیص، پیش‌تنظیم‌ها و تنظیمات سطح پایین را نمایش می‌دهد.</string>
     <string name="biometric_dialog_cancel">انصراف</string>
     <string name="biometric_prompt_action">بازگشایی</string>
     <string name="biometric_prompt_no_pin_title">پین پشتیبان در دسترس نیست</string>
@@ -108,7 +108,7 @@
     <string name="clipboard_label_detection_diagnostics">تشخیص عیوب شناسایی</string>
     <string name="clipboard_label_detection_report">گزارش شناسایی</string>
     <string name="clipboard_label_detection_markdown_export">خروجی Markdown شناسایی</string>
-    <string name="clipboard_label_profile_link">پیوند نمایه RIPDPI</string>
+    <string name="clipboard_label_profile_link">پیوند سرور RIPDPI</string>
     <string name="clipboard_label_setup_sheet">راهنمای راه‌اندازی RIPDPI</string>
     <string name="clipboard_label_log_entry">ورودی گزارش</string>
     <string name="biometric_prompt_device_credential_title">از قفل صفحه استفاده کنید</string>

@@ -34,7 +34,7 @@
     <string name="block_signal_quic_breakage">QUIC breakage</string>
     <string name="block_signal_tcp_retransmissions">TCP retransmissions</string>
     <string name="title_onboarding">Onboarding</string>
-    <string name="title_mode_editor">Profile editor</string>
+    <string name="title_mode_editor">Preset editor</string>
     <string name="title_dns_settings">DNS settings</string>
     <string name="title_advanced_settings">Advanced settings</string>
     <string name="title_strategy_config">Strategy config</string>
@@ -320,6 +320,6 @@
     <string name="ui_rule_save_failed_body">Your changes are kept. Try saving again.</string>
     <string name="ui_app_picker_no_matches">No matching apps</string>
     <string name="ui_app_picker_clear_search">Clear search</string>
-    <string name="ui_profile_catalog_retry">Reload profiles</string>
+    <string name="ui_profile_catalog_retry">Reload servers</string>
     <string name="scanner_camera_unavailable">The camera is unavailable. You can still import a QR image.</string>
 </resources>

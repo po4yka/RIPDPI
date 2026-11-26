@@ -5,10 +5,10 @@
     <string name="migration_received">تم استلام البديل؛ لم يُختبر المسار</string>
     <string name="migration_privacy">يبقى الإيصال على هذا الجهاز حتى تشاركه. يفحص الاختبار مسارًا واحدًا وليس جميع التطبيقات.</string>
     <string name="migration_url">عنوان HTTP(S) للاختبار</string>
-    <string name="migration_awg_help">لاستخدام AmneziaWG، اتصل أولًا بملف البديل المستورد.</string>
+    <string name="migration_awg_help">لاستخدام AmneziaWG، اتصل أولًا بالخادم البديل المستورد.</string>
     <string name="migration_check_awg">اختبار مسار AmneziaWG رقم %1$d</string>
     <string name="migration_check_relay">اختبار مسار الترحيل رقم %1$d</string>
-    <string name="migration_connect_awg">اتصل بملف AmneziaWG البديل المحدد ثم أعد المحاولة.</string>
+    <string name="migration_connect_awg">اتصل بخادم AmneziaWG البديل المحدد ثم أعد المحاولة.</string>
     <string name="migration_changed">تغير التسليم أو الإعداد أو الشبكة. أعد الاختبار.</string>
     <string name="migration_invalid">أدخل عنوان HTTP(S) صالحًا واستخدم هدف نقل حاليًا.</string>
     <string name="migration_failed">لم ينجح اختبار المسار. لم يُسجّل إيصال نجاح الاختبار.</string>

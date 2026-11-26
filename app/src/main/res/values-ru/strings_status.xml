@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">Открыть страницу входа</string>
     <string name="status_network_condition_whitelist_title">Сеть может фильтровать трафик</string>
     <string name="status_network_condition_whitelist_body">Зарубежные сайты не открываются, а локальные работают. Эта сеть может разрешать только одобренные адреса.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">Попробуйте сохранённый профиль relay для белого списка.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">Попробуйте сохранённый сервер relay для белого списка.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">Нет подключения</string>
     <string name="status_network_condition_no_connectivity_body">В этой сети нет рабочего маршрута. Проверьте подключение и попробуйте снова.</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">Используйте действие восстановления в диагностике, чтобы открыть адрес в браузере RIPDPI.</string>
     <string name="status_remediation_owned_stack_step_verify_result">Убедитесь, что адрес там открывается, прежде чем менять релейные настройки.</string>
     <string name="status_remediation_browser_relay_title">Предпочтите релей с браузерной маскировкой</string>
-    <string name="status_remediation_browser_relay_summary">Анализ на экране «Статус» выявил ошибку прямого режима с признаками блокировки TLS/IP. Откройте «Редактор профиля» и переключитесь на релейный профиль с браузерной маскировкой.</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">Откройте «Редактор профиля».</string>
+    <string name="status_remediation_browser_relay_summary">Анализ на экране «Статус» выявил ошибку прямого режима с признаками блокировки TLS/IP. Откройте «Редактор пресета» и переключитесь на релейный пресет с браузерной маскировкой.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">Откройте «Редактор пресета».</string>
     <string name="status_remediation_browser_relay_step_enable_relay">Включите путь через вышестоящий релей для текущего режима.</string>
     <string name="status_remediation_browser_relay_step_choose_preset">Выберите браузерно-маскирующий пресет, например NaiveProxy или ShadowTLS, затем повторите анализ.</string>
     <string name="status_remediation_quic_relay_title">Предпочтите QUIC-ориентированный релей</string>
-    <string name="status_remediation_quic_relay_summary">Анализ на экране «Статус» нашёл сохранённые данные о возможности подключения через QUIC/UDP-релей. Откройте «Редактор профиля» и переключитесь на QUIC-ориентированный релейный профиль вместо ещё одной попытки прямого подключения.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">Откройте «Редактор профиля».</string>
+    <string name="status_remediation_quic_relay_summary">Анализ на экране «Статус» нашёл сохранённые данные о возможности подключения через QUIC/UDP-релей. Откройте «Редактор пресета» и переключитесь на QUIC-ориентированный релейный пресет вместо ещё одной попытки прямого подключения.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">Откройте «Редактор пресета».</string>
     <string name="status_remediation_quic_relay_step_enable_relay">Включите путь через вышестоящий релей для текущего режима.</string>
     <string name="status_remediation_quic_relay_step_choose_preset">Выберите QUIC-ориентированный релейный пресет, например TUIC, Hysteria2 или MASQUE, затем повторите анализ.</string>
     <string name="status_remediation_no_hint_title">Надёжной подсказки по релею пока нет</string>
@@ -211,8 +211,8 @@
     <string name="shortcut_quick_connect_disabled">Соединение недоступно</string>
     <string name="shortcut_quick_connect_short">Подключить</string>
     <string name="shortcut_quick_connect">Быстрое подключение</string>
-    <string name="shortcut_open_config">Открыть профили</string>
-    <string name="shortcut_open_config_short">Профили</string>
+    <string name="shortcut_open_config">Открыть пресеты и серверы</string>
+    <string name="shortcut_open_config_short">Серверы</string>
     <string name="shortcut_open_settings">Открыть настройки</string>
     <string name="shortcut_open_settings_short">Настройки</string>
     <string name="updates_section_title">Обновления</string>
@@ -471,7 +471,7 @@
     <string name="pause_resuming">Возобновление соединения…</string>
     <string name="pause_cleanup_pending">Освобождение ресурсов не завершено. Пауза ещё не подтверждена.</string>
     <string name="pause_deferred">Возобновление требует внимания</string>
-    <string name="pause_saved_settings">Возобновление использует этот режим с текущими сохранёнными настройками. Обычные изменения сохраняют паузу; запуск, остановка, активация или удаление профиля отменяют её.</string>
+    <string name="pause_saved_settings">Возобновление использует этот режим с текущими сохранёнными настройками. Обычные изменения сохраняют паузу; запуск, остановка, активация или удаление сервера отменяют её.</string>
     <string name="pause_remaining">Осталось минут: %1$s</string>
     <string name="pause_resume_now">Возобновить сейчас</string>
     <string name="pause_stop">Остановить и отменить возобновление</string>

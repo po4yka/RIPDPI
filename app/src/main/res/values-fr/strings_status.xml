@@ -96,7 +96,7 @@
     <string name="status_remediation_no_actionable_step_review">Examinez les détails et preuves du dernier audit.</string>
     <string name="status_remediation_no_hint_summary">L\'analyse d\'accueil n\'a trouvé aucune solution directe, mais les preuves de capacité enregistrées restent trop minces pour recommander une famille de relais stable.</string>
     <string name="status_remediation_owned_stack_step_verify_result">Vérifiez que l\'autorité s\'y charge avant de promouvoir d\'autres changements de relais.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">Ouvrez l\'éditeur de profil.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">Ouvrez l\'éditeur de préréglage.</string>
     <string name="status_remediation_review_step_rerun">Lancez une autre analyse si vous avez toujours besoin d\'un chemin vérifié.</string>
     <string name="status_remediation_stale_title">Ce résultat est obsolète</string>
     <string name="status_connecting">Connexion en cours</string>
@@ -105,7 +105,7 @@
     <string name="status_network_condition_captive_action">Ouvrir la page de connexion</string>
     <string name="status_network_condition_whitelist_title">Le réseau filtre peut-être le trafic</string>
     <string name="status_network_condition_whitelist_body">Les sites étrangers échouent tandis que les sites locaux fonctionnent. Ce réseau n\'autorise peut-être que les destinations approuvées.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">Essayez votre profil de relais de liste blanche enregistré.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">Essayez votre serveur de relais de liste blanche enregistré.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">Aucune connectivité</string>
     <string name="status_network_condition_no_connectivity_body">Ce réseau n\'a aucune route fonctionnelle. Vérifiez votre connexion et réessayez.</string>
@@ -136,12 +136,12 @@
     <string name="status_mode_card_status_inactive">Inactif</string>
     <string name="status_mode_vpn">Tout l\'appareil</string>
     <string name="status_quality_excellent">Excellent</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">Ouvrir l\'éditeur de profil.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">Ouvrir l\'éditeur de préréglage.</string>
     <string name="status_remediation_command_line_step_retry">Retournez à l\'Accueil et relancez l\'analyse complète.</string>
     <string name="status_remediation_no_actionable_title">Examiner la dernière analyse</string>
     <string name="status_remediation_no_hint_title">Pas encore d\'indice de relais fiable</string>
     <string name="status_remediation_owned_stack_summary">L’analyse d’accueil a constaté que seule la pile gérée par RIPDPI fonctionne. Ouvrez Diagnostics et accédez à l’autorité via le navigateur RIPDPI.</string>
-    <string name="status_remediation_quic_relay_summary">L\'analyse d\'accueil a trouvé une capacité de relais QUIC/UDP enregistrée. Ouvrez l\'éditeur de profil et passez à un préréglage de relais axé sur QUIC plutôt qu\'une autre tentative directe.</string>
+    <string name="status_remediation_quic_relay_summary">L\'analyse d\'accueil a trouvé une capacité de relais QUIC/UDP enregistrée. Ouvrez l\'éditeur de préréglage et passez à un préréglage de relais axé sur QUIC plutôt qu\'une autre tentative directe.</string>
     <string name="status_remediation_review_title">Examiner les étapes échouées</string>
     <string name="status_error_title">La ligne sécurisée nécessite votre attention</string>
     <string name="qs_tile_subtitle_tap_connect">Appuyer pour se connecter</string>
@@ -170,7 +170,7 @@
     <string name="status_mode_card_remote_server_unknown">Serveur non configuré</string>
     <string name="status_mode_diagnostic_scan">Analyse de diagnostic</string>
     <string name="status_quality_good">Bon</string>
-    <string name="status_remediation_browser_relay_summary">L\'analyse d\'accueil a trouvé une panne en mode direct de type TLS/IP. Ouvrez l\'éditeur de profil et passez à un préréglage de relais de camouflage navigateur.</string>
+    <string name="status_remediation_browser_relay_summary">L\'analyse d\'accueil a trouvé une panne en mode direct de type TLS/IP. Ouvrez l\'éditeur de préréglage et passez à un préréglage de relais de camouflage navigateur.</string>
     <string name="status_remediation_command_line_title">L\'analyse complète est bloquée</string>
     <string name="status_remediation_no_hint_step_open_diagnostics">Ouvrez Diagnostic.</string>
     <string name="status_remediation_open_diagnostics_action">Ouvrir le diagnostic</string>
@@ -213,8 +213,8 @@
     <string name="status_remediation_stale_step_rerun">Lancez une nouvelle analyse sur le réseau actuel.</string>
     <string name="status_stat_mode">Mode</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
-    <string name="shortcut_open_config">Ouvrir les profils</string>
-    <string name="shortcut_open_config_short">Profils</string>
+    <string name="shortcut_open_config">Ouvrir les préréglages et serveurs</string>
+    <string name="shortcut_open_config_short">Serveurs</string>
     <string name="shortcut_open_settings">Ouvrir les paramètres</string>
     <string name="shortcut_open_settings_short">Paramètres</string>
     <string name="status_indicator_description">Statut : %1$s</string>
@@ -463,7 +463,7 @@
     <string name="pause_resuming">Reprise de la connexion…</string>
     <string name="pause_cleanup_pending">Le nettoyage est incomplet. La pause n’est pas encore confirmée.</string>
     <string name="pause_deferred">La reprise nécessite votre attention</string>
-    <string name="pause_saved_settings">Ce mode reprend avec les paramètres enregistrés actuels. Les modifications conservent la pause ; démarrer, arrêter, activer ou supprimer un profil l’annule.</string>
+    <string name="pause_saved_settings">Ce mode reprend avec les paramètres enregistrés actuels. Les modifications conservent la pause ; démarrer, arrêter, activer ou supprimer un serveur l’annule.</string>
     <string name="pause_remaining">Minutes restantes : %1$s</string>
     <string name="pause_resume_now">Reprendre maintenant</string>
     <string name="pause_stop">Arrêter et annuler la reprise</string>

@@ -56,23 +56,23 @@
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
-    <string name="config_editor_title">Edit profile</string>
+    <string name="config_editor_title">Edit preset</string>
     <string name="config_editor_body">Editing %1$s. Changes are saved on this device when you tap Save.</string>
     <string name="config_dns_disabled_helper">DNS override is only applied in local VPN mode.</string>
     <string name="config_proxy_helper">Where the local proxy listener binds.</string>
     <string name="config_relay_title">Outbound relay protocol</string>
     <string name="config_relay_body">Send proxied traffic through a remote relay server. Secrets stay in the keystore-backed credential store on this device.</string>
     <string name="config_relay_enable">Enable upstream relay</string>
-    <string name="config_relay_profile_id">Profile ID</string>
-    <string name="config_relay_profile_id_helper">Used to bind secure credentials to the saved relay profile.</string>
-    <string name="config_relay_profile_id_taken">This profile ID belongs to another saved profile.</string>
+    <string name="config_relay_profile_id">Server ID</string>
+    <string name="config_relay_profile_id_helper">Used to bind secure credentials to the saved server.</string>
+    <string name="config_relay_profile_id_taken">This server ID belongs to another saved server.</string>
     <string name="config_relay_kind_vless" translatable="false">VLESS</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_kind_hysteria2" translatable="false">Hysteria2</string>
     <string name="config_relay_kind_chain">Chain relay</string>
     <string name="config_relay_kind_masque" translatable="false">MASQUE</string>
     <string name="config_relay_credentials_title">Relay credentials missing</string>
-    <string name="config_relay_credentials_body">This profile needs secure credential material before it can start.</string>
+    <string name="config_relay_credentials_body">This server needs secure credential material before it can start.</string>
     <string name="config_relay_server">Relay server</string>
     <string name="config_relay_server_port">Relay port</string>
     <string name="config_relay_server_name">TLS server name</string>
@@ -122,11 +122,11 @@
     <string name="config_relay_naive_check_dns">The app cannot find the address of the server name.</string>
     <string name="config_relay_naive_check_connect">The server could not be reached. Check the address and the port.</string>
     <string name="config_relay_naive_check_timeout">The server did not answer in time.</string>
-    <string name="config_relay_naive_check_failed">The test could not run. Check the profile fields.</string>
+    <string name="config_relay_naive_check_failed">The test could not run. Check the server fields.</string>
     <string name="config_relay_naive_quic">Use HTTP/3 (QUIC)</string>
-    <string name="config_relay_naive_quic_helper">The server must support HTTP/3, and the profile must not have a certificate pin. Test connection checks only HTTPS.</string>
+    <string name="config_relay_naive_quic_helper">The server must support HTTP/3, and the saved server must not have a certificate pin. Test connection checks only HTTPS.</string>
     <string name="config_relay_naive_concurrency">Parallel connections</string>
-    <string name="config_relay_naive_concurrency_helper">1 to 4. More connections can be faster on a throttled network, but they are easier to detect. A value above 1 needs a profile without a certificate pin.</string>
+    <string name="config_relay_naive_concurrency_helper">1 to 4. More connections can be faster on a throttled network, but they are easier to detect. A value above 1 needs a server without a certificate pin.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
     <string name="config_relay_naive_extra_headers">Extra headers (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>
@@ -135,13 +135,13 @@
     <string name="config_relay_naive_server_pin">Server certificate pin (optional)</string>
     <string name="config_relay_naive_server_pin_helper">SHA-256 of the server leaf certificate (64 hex digits). When set, the server is trusted only if its certificate matches, without a public CA chain or hostname check. Leave empty to use normal certificate validation.</string>
     <string name="config_relay_naive_server_pin_error_invalid">Enter a SHA-256 certificate pin: 64 hex digits, optionally separated by colons.</string>
-    <string name="config_relay_chain_editor_intro">Build an ordered chain of saved relay profiles. The first hop is the entry, the last is the exit. Long-press a hop to drag it into place. UDP is disabled for chains.</string>
+    <string name="config_relay_chain_editor_intro">Build an ordered chain of saved servers. The first hop is the entry, the last is the exit. Long-press a hop to drag it into place. UDP is disabled for chains.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Entry</string>
     <string name="config_relay_chain_hop_exit">Hop %1$d · Exit</string>
     <string name="config_relay_chain_hop_middle">Hop %1$d · Middle</string>
-    <string name="config_relay_chain_hop_profile_label">Relay profile</string>
-    <string name="config_relay_chain_hop_select_placeholder">Select profile</string>
-    <string name="config_relay_chain_hop_empty_profiles">Save relay profiles first, then choose them as chain hops.</string>
+    <string name="config_relay_chain_hop_profile_label">Server</string>
+    <string name="config_relay_chain_hop_select_placeholder">Select server</string>
+    <string name="config_relay_chain_hop_empty_profiles">Save servers first, then choose them as chain hops.</string>
     <string name="config_relay_chain_hop_add">Add hop</string>
     <string name="config_relay_chain_hop_remove">Remove hop</string>
     <string name="config_relay_chain_hop_move_up">Move hop up</string>
@@ -973,22 +973,22 @@ Source: %2$s</string>
     <string name="tcp_flag_orig_clear_title">Original packet: clear flags</string>
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">Share server</string>
-    <string name="profile_share_title">Share profile</string>
+    <string name="profile_share_title">Share server</string>
     <string name="profile_share_warning_title">This QR code contains secrets</string>
     <string name="profile_share_warning_body">The QR code and link embed your credentials. Only share them with someone you trust, over a channel you trust.</string>
-    <string name="profile_share_loading_title">Loading profile</string>
-    <string name="profile_share_loading_body">Preparing the saved profile for export.</string>
+    <string name="profile_share_loading_title">Loading server</string>
+    <string name="profile_share_loading_body">Preparing the saved server for export.</string>
     <string name="profile_share_link_title">Subscription link</string>
-    <string name="profile_share_subscription_label">Subscription/profile link</string>
+    <string name="profile_share_subscription_label">Subscription/server link</string>
     <string name="profile_share_copy_uri_action">Copy link</string>
     <string name="profile_share_share_link_action">Share link</string>
     <string name="profile_share_sheet_title">Setup sheet</string>
     <string name="profile_share_copy_sheet_action">Copy setup sheet</string>
     <string name="profile_share_share_sheet_action">Share setup sheet</string>
-    <string name="profile_share_unshareable_title">Profile cannot be shared</string>
-    <string name="profile_share_unshareable_body">This profile has no shareable link form.</string>
+    <string name="profile_share_unshareable_title">Server cannot be shared</string>
+    <string name="profile_share_unshareable_body">This server has no shareable link form.</string>
     <string name="profile_share_qr_unavailable">This link does not fit in a QR code. Copy or share the link below.</string>
-    <string name="profile_share_qr_content_description">QR code for the saved profile</string>
+    <string name="profile_share_qr_content_description">QR code for the saved server</string>
     <!-- Strategy A/B comparison surface -->
     <!-- Strategy import screen -->
     <!-- Profile Variants screen -->
@@ -1140,10 +1140,10 @@ Source: %2$s</string>
     <string name="config_chain_step_tlsrec_add">Add tlsrec</string>
     <string name="config_chain_step_tlsrec_explanation">Fragments the TLS record before TCP send steps run.</string>
     <string name="config_chain_step_tlsrec_label">TLS record split</string>
-    <string name="config_relay_chain_error_required">Select both entry and exit profiles.</string>
-    <string name="config_relay_chain_error_same_hop">Entry and exit must use different profiles.</string>
-    <string name="config_relay_chain_error_unsupported_entry">Selected entry profile cannot be used as a chain entry.</string>
-    <string name="config_relay_chain_error_unsupported_exit">Selected exit profile cannot be used as a chain exit.</string>
+    <string name="config_relay_chain_error_required">Select both entry and exit servers.</string>
+    <string name="config_relay_chain_error_same_hop">Entry and exit must use different servers.</string>
+    <string name="config_relay_chain_error_unsupported_entry">Selected entry server cannot be used as a chain entry.</string>
+    <string name="config_relay_chain_error_unsupported_exit">Selected exit server cannot be used as a chain exit.</string>
     <string name="config_relay_chain_missing_entry_trust">Entry hop is missing jurisdiction or operator metadata.</string>
     <string name="config_relay_chain_missing_exit_trust">Exit hop is missing jurisdiction or operator metadata.</string>
     <string name="config_relay_chain_shared_join">" and "</string>
@@ -1151,7 +1151,7 @@ Source: %2$s</string>
     <string name="config_relay_chain_shared_operator">operator %1$s</string>
     <string name="config_relay_chain_shared_trust_body">Entry and exit share %1$s. Use different jurisdictions and operators to reduce correlation risk.</string>
     <string name="config_relay_obfs4_bridge_line_helper">Paste a full obfs4 bridge line from your bridge source.</string>
-    <string name="config_relay_shadowtls_inner_profile_id">Inner profile ID</string>
+    <string name="config_relay_shadowtls_inner_profile_id">Inner server ID</string>
     <string name="config_relay_shadowtls_password">ShadowTLS password</string>
     <string name="config_relay_tuic_congestion_bbr">BBR</string>
     <string name="config_relay_tuic_congestion_control">Congestion control</string>
@@ -1161,7 +1161,7 @@ Source: %2$s</string>
     <string name="config_relay_masque_root_certificate">Root certificate (PEM)</string>
     <string name="config_relay_tuic_alpn">ALPN (comma-separated)</string>
     <string name="config_relay_tuic_uuid">TUIC UUID</string>
-    <string name="profile_share_setup_sheet_template">RIPDPI setup sheet\n\nProfile: %1$s\nType: %2$s\n\nSubscription/profile link:\n%3$s\n\nHiddify:\n1. Open Hiddify.\n2. Choose Add profile.\n3. Scan the QR code or paste the link above.\n\nAmneziaVPN:\n1. Open AmneziaVPN.\n2. Choose Add server from link or QR.\n3. Scan the QR code or paste the link above.\n\nKeep this sheet private. The QR code and link contain credentials.</string>
+    <string name="profile_share_setup_sheet_template">RIPDPI setup sheet\n\nServer: %1$s\nType: %2$s\n\nSubscription/server link:\n%3$s\n\nHiddify:\n1. Open Hiddify.\n2. Choose Add profile.\n3. Scan the QR code or paste the link above.\n\nAmneziaVPN:\n1. Open AmneziaVPN.\n2. Choose Add server from link or QR.\n3. Scan the QR code or paste the link above.\n\nKeep this sheet private. The QR code and link contain credentials.</string>
     <string name="strategy_tuner_strategy_unregistered">Strategy is no longer registered</string>
     <string name="strategy_config_restore_failed_title">Draft recovery failed</string>
     <string name="strategy_config_restore_failed_body">Your saved draft is still on this device. Retry recovery or discard it to leave.</string>
@@ -1262,24 +1262,24 @@ Source: %2$s</string>
     <string name="profile_quality_promoted_goodput">Selector promoted a member for higher goodput.</string>
     <string name="profile_quality_promoted_latency">Selector promoted a member for lower loaded latency.</string>
     <string name="profile_quality_cooldown">Current selection retained during cooldown.</string>
-    <string name="profile_search_label">Search profiles</string>
+    <string name="profile_search_label">Search servers</string>
     <string name="profile_search_clear">Clear search</string>
     <string name="profile_search_all">All</string>
-    <string name="profile_search_no_results">No profiles match this search and filter.</string>
+    <string name="profile_search_no_results">No servers match this search and filter.</string>
     <string name="profile_search_reset">Reset search and filter</string>
     <string name="profile_search_open">Search all servers</string>
     <string name="profile_utility_title">Server checks</string>
     <string name="profile_utility_favorites">Favorites</string>
     <string name="profile_utility_recents">Recently used</string>
-    <string name="profile_utility_saved">Saved profiles</string>
+    <string name="profile_utility_saved">Saved servers</string>
     <string name="profile_utility_check">Check</string>
     <string name="profile_utility_check_select">Check and select</string>
     <string name="profile_utility_checking">Checking…</string>
     <string name="profile_utility_measured">HTTP: %1$s ms</string>
     <string name="profile_utility_handshake_measured">Handshake: %1$s ms</string>
     <string name="profile_utility_not_checked">Not checked</string>
-    <string name="profile_utility_unsupported">This profile cannot be checked here.</string>
-    <string name="profile_utility_environment_changed">Network, policy or profile changed. Check again.</string>
+    <string name="profile_utility_unsupported">This server cannot be checked here.</string>
+    <string name="profile_utility_environment_changed">Network, policy or server changed. Check again.</string>
     <string name="profile_utility_failed">HTTP check failed. Selection is unchanged.</string>
     <string name="profile_utility_timeout">Check timed out. Selection is unchanged.</string>
     <string name="profile_utility_cleanup_pending">Native cleanup is pending. Selection is unchanged.</string>
@@ -1287,14 +1287,14 @@ Source: %2$s</string>
     <string name="profile_utility_favorite_add">Add %1$s to favorites</string>
     <string name="profile_utility_favorite_remove">Remove %1$s from favorites</string>
     <string name="profile_utility_last_used">Last used: %1$s</string>
-    <string name="profile_utility_empty">No saved profiles.</string>
-    <string name="profile_utility_disclosure">Check measures an HTTP request. Check and select applies the profile only after a successful check.</string>
-    <string name="profile_utility_command_failed">Command could not be completed. Check the profile state.</string>
-    <string name="profile_utility_selection_failed">Profile could not be applied. Check the saved and applied profiles.</string>
+    <string name="profile_utility_empty">No saved servers.</string>
+    <string name="profile_utility_disclosure">Check measures an HTTP request. Check and select applies the server only after a successful check.</string>
+    <string name="profile_utility_command_failed">Command could not be completed. Check the server state.</string>
+    <string name="profile_utility_selection_failed">Server could not be applied. Check the saved and applied servers.</string>
     <string name="profile_utility_url">Probe URL</string>
     <string name="profile_utility_url_invalid">Enter an http:// or https:// URL.</string>
-    <string name="profile_utility_applied">Applied profile</string>
-    <string name="profile_utility_loading">Loading profiles…</string>
+    <string name="profile_utility_applied">Applied server</string>
+    <string name="profile_utility_loading">Loading servers…</string>
     <string name="profile_utility_checked_at">Checked: %1$s</string>
     <string name="profile_utility_busy">The Xray runtime is busy. Pause or stop it, then try again.</string>
     <string name="profile_utility_check_fastest">Check and select fastest</string>
@@ -1317,7 +1317,7 @@ Source: %2$s</string>
     <string name="runtime_config_superseded">A newer Start or Stop replaced this reconnect.</string>
     <string name="runtime_config_cancelled">Reconnect cancelled. Saved settings have been kept.</string>
     <string name="config_listener_section">Local listener</string>
-    <string name="profile_utility_empty_import">Import a profile</string>
+    <string name="profile_utility_empty_import">Import a server</string>
     <string name="ripdpi_fake_seq_mode_sequential">Sequential</string>
     <string name="host_pack_youtube_description">Video playback, embeds, and CDN endpoints from public geosite lists.</string>
     <string name="host_pack_telegram_description">Messenger, CDN, and share links bundled from public geosite sources.</string>
@@ -1352,7 +1352,7 @@ Source: %2$s</string>
         <item quantity="other">%1$d step rules in the chain DSL still add their own activation filters on top of the group window.</item>
     </plurals>
     <string name="runtime_config_unknown_body">The running connection has not confirmed which settings it uses. Disconnect and connect again to apply your saved settings.</string>
-    <string name="config_profile_change">Change profile</string>
+    <string name="config_profile_change">Change server</string>
     <string name="config_path_direct">Direct</string>
     <string name="config_path_relay">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker transport</string>

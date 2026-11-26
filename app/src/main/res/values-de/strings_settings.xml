@@ -105,7 +105,7 @@
     <string name="settings_permission_action_review">Prüfen</string>
     <string name="settings_permission_status_required">Erforderlich</string>
     <string name="settings_permissions_section">Berechtigungen</string>
-    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
+    <string name="settings_reset_body">Alle Einstellungen auf ihre Standardwerte zurücksetzen. Server, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_security_section">Datenschutz</string>
     <string name="settings_support_debug_bundle_body">Aktuelle Protokolle und Diagnosedaten als ZIP-Datei für den Support teilen. Paketmitschnitte sind nicht enthalten.</string>
     <string name="settings_tethering_dns_warning_body">Wenn Tethering aktiv ist, führt Android einen lokalen DNS-Server aus, der das VPN umgeht. Apps können dies nutzen, um Tracking-Beacons außerhalb des Tunnels zu senden.</string>
@@ -168,7 +168,7 @@
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
     <string name="settings_permissions_vpn_needed">Erteilen Sie die Android-VPN-Zustimmung, bevor RIPDPI den lokalen VPN-Pfad starten kann.</string>
-    <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück, und alle Anpassungen gehen verloren. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
+    <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück, und alle Anpassungen gehen verloren. Server, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_dynamic_color_title">Hintergrundfarben verwenden</string>
     <string name="settings_dynamic_color_body">App-Farben an das Hintergrundbild anpassen.</string>
@@ -178,13 +178,13 @@
     <string name="import_error_unsupported">Nicht unterstützter Import-Link.</string>
     <string name="import_error_missing_url">Dem Import-Link fehlt die Abonnement-URL.</string>
     <string name="import_error_bad_encoding">Der Import-Link ist fehlerhaft.</string>
-    <string name="import_profile_confirm_title">Profil importieren</string>
+    <string name="import_profile_confirm_title">Server importieren</string>
     <string name="import_profile_confirm_empty_title">Nichts zu importieren</string>
-    <string name="import_profile_confirm_empty_body">Dieser Link enthält kein verwendbares Proxy-Profil.</string>
+    <string name="import_profile_confirm_empty_body">Dieser Link enthält keinen verwendbaren Server.</string>
     <string name="import_confirm_add_action">Hinzufügen</string>
-    <string name="import_profile_confirm_error">Dieses Profil konnte nicht importiert werden. Prüfen Sie, ob der Link vollständig und gültig ist.</string>
+    <string name="import_profile_confirm_error">Dieser Server konnte nicht importiert werden. Prüfen Sie, ob der Link vollständig und gültig ist.</string>
     <string name="import_profile_confirm_tls_pin">Fingerabdruck des TLS-Zertifikats: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">Dieses Profil überprüft das TLS-Zertifikat des Servers nicht.</string>
+    <string name="import_profile_confirm_tls_unverified">Die TLS-Zertifikatsprüfung ist für diesen Server deaktiviert.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Importierte Konfiguration</string>
     <string name="import_subscription_confirm_title">Abonnement hinzufügen</string>
@@ -227,7 +227,7 @@
     <string name="settings_domain_bypass_body">Ausgewählte Domains am Proxy vorbei (direkt) leiten</string>
     <string name="settings_routing_rules_body">Eigene Routing-Regeln erstellen und sortieren</string>
     <string name="settings_split_tunnel_body">Legen Sie pro App fest, welche Apps das VPN nutzen</string>
-    <string name="settings_backup_body">Profile, Gruppen, Regeln und Einstellungen in eine Datei exportieren.</string>
+    <string name="settings_backup_body">Server, Gruppen, Regeln und Einstellungen in eine Datei exportieren.</string>
     <string name="backup_export_section">Exportieren</string>
     <string name="backup_export_intro_title">Die Sicherung bleibt auf dem Gerät</string>
     <string name="backup_export_intro_body">Die Sicherung wird nur in die von Ihnen gewählte Datei geschrieben. Nichts wird hochgeladen.</string>
@@ -262,7 +262,7 @@
     <string name="backup_import_preview_title">Sicherung prüfen</string>
     <string name="backup_import_preview_schema">Sicherung Version %1$d, erstellt von App %2$s</string>
     <string name="backup_import_shareable_title">Teilbare Sicherung</string>
-    <string name="backup_import_category_profiles">Profile und Gruppen (Profile: %1$d, Gruppen: %2$d)</string>
+    <string name="backup_import_category_profiles">Server und Gruppen (Server: %1$d, Gruppen: %2$d)</string>
     <string name="backup_import_category_routes">Routing-Regeln (%1$d)</string>
     <string name="backup_import_category_settings">Einstellungen (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Nicht markierte Kategorien behalten ihre aktuellen Werte.</string>
@@ -275,10 +275,10 @@
     <string name="backup_share_reminder_cancel">Abbrechen</string>
     <string name="backup_reset_section">App-Daten löschen</string>
     <string name="backup_reset_warning_title">Das kann nicht rückgängig gemacht werden</string>
-    <string name="backup_reset_warning_body">Beim Löschen werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und Diagnosedaten entfernt und die App auf die Ersteinrichtung neu gestartet. Exportieren Sie zuerst eine Sicherung, wenn Sie diese Daten behalten möchten.</string>
+    <string name="backup_reset_warning_body">Beim Löschen werden alle Server, Gruppen, Routing-Regeln, Einstellungen und Diagnosedaten entfernt und die App auf die Ersteinrichtung neu gestartet. Exportieren Sie zuerst eine Sicherung, wenn Sie diese Daten behalten möchten.</string>
     <string name="backup_reset_action">Alle App-Daten löschen</string>
     <string name="backup_reset_dialog_title">Alle App-Daten löschen?</string>
-    <string name="backup_reset_dialog_body">Geben Sie %1$s ein, um zu bestätigen. Dadurch werden alle Profile, Gruppen, Routing-Regeln, Einstellungen und der Diagnoseverlauf gelöscht und die App neu gestartet.</string>
+    <string name="backup_reset_dialog_body">Geben Sie %1$s ein, um zu bestätigen. Dadurch werden alle Server, Gruppen, Routing-Regeln, Einstellungen und der Diagnoseverlauf gelöscht und die App neu gestartet.</string>
     <string name="backup_reset_confirm_action">Löschen und neu starten</string>
     <string name="backup_reset_cancel_action">Abbrechen</string>
     <string name="support_settings_title">Link zu Support-Einstellungen</string>
@@ -322,8 +322,8 @@
     <string name="settings_storage_failed">RIPDPI konnte die Einstellungen nicht speichern. Gib Speicherplatz frei und versuche es erneut.</string>
     <string name="import_subscription_confirm_empty_body">Dieser Link enthält keine Abonnement-URL.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d Profil kann nicht wiederhergestellt werden, da die Anmeldedaten entfernt wurden. Gruppen, Routen und Einstellungen können wiederhergestellt werden.</item>
-        <item quantity="other">%1$d Profile können nicht wiederhergestellt werden, da die Anmeldedaten entfernt wurden. Gruppen, Routen und Einstellungen können wiederhergestellt werden.</item>
+        <item quantity="one">%1$d Server kann nicht wiederhergestellt werden, da die Anmeldedaten entfernt wurden. Gruppen, Routen und Einstellungen können wiederhergestellt werden.</item>
+        <item quantity="other">%1$d Server können nicht wiederhergestellt werden, da die Anmeldedaten entfernt wurden. Gruppen, Routen und Einstellungen können wiederhergestellt werden.</item>
     </plurals>
     <string name="export_preview_title">Export prüfen</string>
     <string name="export_preview_preparing">Lokale Kopie wird vorbereitet…</string>

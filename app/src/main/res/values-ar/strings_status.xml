@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">فتح صفحة تسجيل الدخول</string>
     <string name="status_network_condition_whitelist_title">قد تفلتر الشبكة حركة المرور</string>
     <string name="status_network_condition_whitelist_body">المواقع الخارجية تفشل بينما المحلية تعمل. قد تسمح هذه الشبكة بالوجهات المعتمدة فقط.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">جرّب ملف تعريف الترحيل المدرج في القائمة البيضاء المحفوظة.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">جرّب خادم الترحيل المدرج في القائمة البيضاء المحفوظة.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">لا يوجد اتصال</string>
     <string name="status_network_condition_no_connectivity_body">لا يوجد مسار عمل لهذه الشبكة. تحقق من اتصالك وحاول مجددًا.</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">استخدم إجراء المعالجة هناك لفتح الجهة في متصفح RIPDPI.</string>
     <string name="status_remediation_owned_stack_step_verify_result">تحقق من تحميل الجهة هناك قبل ترقية أي تغييرات أخرى على الترحيل.</string>
     <string name="status_remediation_browser_relay_title">فضّل ترحيلاً بتمويه المتصفح</string>
-    <string name="status_remediation_browser_relay_summary">عثر تحليل الشاشة الرئيسية على فشل في الوضع المباشر عبر TLS/IP. افتح محرر الملف الشخصي وانتقل إلى إعداد مسبق للترحيل بتمويه المتصفح.</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">افتح محرر الملف الشخصي.</string>
+    <string name="status_remediation_browser_relay_summary">عثر تحليل الشاشة الرئيسية على فشل في الوضع المباشر عبر TLS/IP. افتح محرر الإعداد المسبق وانتقل إلى إعداد مسبق للترحيل بتمويه المتصفح.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">افتح محرر الإعداد المسبق.</string>
     <string name="status_remediation_browser_relay_step_enable_relay">فعّل مسار الترحيل الصاعد للوضع الحالي.</string>
     <string name="status_remediation_browser_relay_step_choose_preset">اختر إعداداً مسبقاً بتمويه المتصفح مثل NaiveProxy أو ShadowTLS، ثم أعِد التحليل.</string>
     <string name="status_remediation_quic_relay_title">فضّل ترحيلاً يعتمد على QUIC</string>
-    <string name="status_remediation_quic_relay_summary">عثر تحليل الشاشة الرئيسية على إمكانية ترحيل QUIC/UDP محفوظة. افتح محرر الملف الشخصي وانتقل إلى إعداد مسبق يعتمد على QUIC بدلاً من إعادة المحاولة المباشرة.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">افتح محرر الملف الشخصي.</string>
+    <string name="status_remediation_quic_relay_summary">عثر تحليل الشاشة الرئيسية على إمكانية ترحيل QUIC/UDP محفوظة. افتح محرر الإعداد المسبق وانتقل إلى إعداد مسبق يعتمد على QUIC بدلاً من إعادة المحاولة المباشرة.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">افتح محرر الإعداد المسبق.</string>
     <string name="status_remediation_quic_relay_step_enable_relay">فعّل مسار الترحيل الصاعد للوضع الحالي.</string>
     <string name="status_remediation_quic_relay_step_choose_preset">اختر إعداداً مسبقاً يعتمد على QUIC مثل TUIC أو Hysteria2 أو MASQUE، ثم أعِد التحليل.</string>
     <string name="status_remediation_no_hint_title">لا توجد تلميحات موثوقة للترحيل بعد</string>
@@ -211,8 +211,8 @@
     <string name="shortcut_diagnostics">تشغيل التشخيصات</string>
     <string name="shortcut_diagnostics_short">التشخيصات</string>
     <string name="shortcut_diagnostics_disabled">التشخيصات غير متاحة</string>
-    <string name="shortcut_open_config">فتح الملفات الشخصية</string>
-    <string name="shortcut_open_config_short">الملفات الشخصية</string>
+    <string name="shortcut_open_config">فتح الإعدادات المسبقة والخوادم</string>
+    <string name="shortcut_open_config_short">الخوادم</string>
     <string name="shortcut_open_settings">فتح الإعدادات</string>
     <string name="shortcut_open_settings_short">الإعدادات</string>
     <string name="qs_tile_label_connected">RIPDPI: متصل</string>
@@ -490,7 +490,7 @@
     <string name="pause_resuming">جارٍ استئناف الاتصال…</string>
     <string name="pause_cleanup_pending">لم يكتمل التنظيف. لم يُؤكد الإيقاف المؤقت بعد.</string>
     <string name="pause_deferred">الاستئناف يحتاج إلى مراجعة</string>
-    <string name="pause_saved_settings">يُستأنف هذا الوضع بالإعدادات المحفوظة الحالية. تعديلات الإعدادات تحفظ التوقف؛ البدء أو الإيقاف أو تفعيل ملف أو حذفه يلغيه.</string>
+    <string name="pause_saved_settings">يُستأنف هذا الوضع بالإعدادات المحفوظة الحالية. تعديلات الإعدادات تحفظ التوقف؛ البدء أو الإيقاف أو تفعيل خادم أو حذفه يلغيه.</string>
     <string name="pause_remaining">الدقائق المتبقية: %1$s</string>
     <string name="pause_resume_now">استئناف الآن</string>
     <string name="pause_stop">إيقاف وإلغاء الاستئناف</string>

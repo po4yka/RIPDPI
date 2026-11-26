@@ -148,9 +148,9 @@
     <string name="settings_full_tunnel_body">Направлять весь трафик через VPN без исключений приложений. Предотвращает прямую отправку трафика модулями шпионского ПО, но российские приложения могут обнаружить VPN.</string>
     <string name="settings_full_tunnel_title">Режим полного туннеля</string>
     <string name="settings_reset_action">Сбросить</string>
-    <string name="settings_reset_body">Вернуть все настройки к значениям по умолчанию. Профили, группы, правила маршрутизации и история диагностики сохранятся.</string>
+    <string name="settings_reset_body">Вернуть все настройки к значениям по умолчанию. Серверы, группы, правила маршрутизации и история диагностики сохранятся.</string>
     <string name="settings_reset_confirm">Сбросить</string>
-    <string name="settings_reset_dialog_body">Все настройки вернутся к значениям по умолчанию, а ваши изменения будут потеряны. Профили, группы, правила маршрутизации и история диагностики сохранятся.</string>
+    <string name="settings_reset_dialog_body">Все настройки вернутся к значениям по умолчанию, а ваши изменения будут потеряны. Серверы, группы, правила маршрутизации и история диагностики сохранятся.</string>
     <string name="settings_reset_dialog_title">Сбросить настройки?</string>
     <string name="settings_reset_title">Сбросить настройки</string>
     <string name="settings_strategy_pack_allow_rollback_override_body">Только для отладки. Разрешить загружаемые последовательности strategy-pack равного или более низкого уровня для локальной проверки. Подпись, совместимость и проверки свежести по-прежнему применяются.</string>
@@ -176,13 +176,13 @@
     <string name="import_error_unsupported">Неподдерживаемая ссылка импорта.</string>
     <string name="import_error_missing_url">В ссылке импорта отсутствует URL подписки.</string>
     <string name="import_error_bad_encoding">Ссылка импорта повреждена.</string>
-    <string name="import_profile_confirm_title">Импорт профиля</string>
+    <string name="import_profile_confirm_title">Импорт сервера</string>
     <string name="import_profile_confirm_empty_title">Нечего импортировать</string>
-    <string name="import_profile_confirm_empty_body">Эта ссылка не содержит пригодного профиля прокси.</string>
+    <string name="import_profile_confirm_empty_body">Эта ссылка не содержит пригодного сервера.</string>
     <string name="import_confirm_add_action">Добавить</string>
-    <string name="import_profile_confirm_error">Не удалось импортировать профиль. Проверьте, что ссылка полная и корректная.</string>
+    <string name="import_profile_confirm_error">Не удалось импортировать сервер. Проверьте, что ссылка полная и корректная.</string>
     <string name="import_profile_confirm_tls_pin">Отпечаток TLS-сертификата: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">Этот профиль не проверяет TLS-сертификат сервера.</string>
+    <string name="import_profile_confirm_tls_unverified">Проверка TLS-сертификата для этого сервера отключена.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Импортированная конфигурация</string>
     <string name="import_subscription_confirm_title">Добавить подписку</string>
@@ -228,7 +228,7 @@
     <string name="settings_domain_bypass_body">Держать выбранные домены вне прокси (напрямую)</string>
     <string name="settings_routing_rules_body">Создавайте и упорядочивайте свои правила маршрутизации</string>
     <string name="settings_split_tunnel_body">Выберите, какие приложения используют VPN</string>
-    <string name="settings_backup_body">Экспорт профилей, групп, правил и настроек в файл.</string>
+    <string name="settings_backup_body">Экспорт серверов, групп, правил и настроек в файл.</string>
     <string name="backup_export_section">Экспорт</string>
     <string name="backup_export_intro_title">Копия остаётся на устройстве</string>
     <string name="backup_export_intro_body">Резервная копия сохраняется только в выбранный вами файл. Ничего не загружается.</string>
@@ -263,7 +263,7 @@
     <string name="backup_import_preview_title">Просмотр копии</string>
     <string name="backup_import_preview_schema">Версия копии %1$d, создана приложением %2$s</string>
     <string name="backup_import_shareable_title">Копия для обмена</string>
-    <string name="backup_import_category_profiles">Профили и группы (профили: %1$d, группы: %2$d)</string>
+    <string name="backup_import_category_profiles">Серверы и группы (серверы: %1$d, группы: %2$d)</string>
     <string name="backup_import_category_routes">Правила маршрутизации (%1$d)</string>
     <string name="backup_import_category_settings">Настройки (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Невыбранные категории сохранят текущие значения.</string>
@@ -276,10 +276,10 @@
     <string name="backup_share_reminder_cancel">Отмена</string>
     <string name="backup_reset_section">Удаление данных</string>
     <string name="backup_reset_warning_title">Это нельзя отменить</string>
-    <string name="backup_reset_warning_body">Удаление сотрёт все профили, группы, правила маршрутизации, настройки и записи диагностики, после чего перезапустит приложение к начальной настройке. Сначала экспортируйте резервную копию, если хотите сохранить эти данные.</string>
+    <string name="backup_reset_warning_body">Удаление сотрёт все серверы, группы, правила маршрутизации, настройки и записи диагностики, после чего перезапустит приложение к начальной настройке. Сначала экспортируйте резервную копию, если хотите сохранить эти данные.</string>
     <string name="backup_reset_action">Удалить все данные приложения</string>
     <string name="backup_reset_dialog_title">Удалить все данные приложения?</string>
-    <string name="backup_reset_dialog_body">Введите %1$s для подтверждения. Это удалит все профили, группы, правила маршрутизации, настройки и историю диагностики, после чего перезапустит приложение.</string>
+    <string name="backup_reset_dialog_body">Введите %1$s для подтверждения. Это удалит все серверы, группы, правила маршрутизации, настройки и историю диагностики, после чего перезапустит приложение.</string>
     <string name="backup_reset_confirm_action">Удалить и перезапустить</string>
     <string name="backup_reset_cancel_action">Отмена</string>
     <string name="support_settings_title">Ссылка на настройки от поддержки</string>
@@ -323,10 +323,10 @@
     <string name="settings_storage_failed">RIPDPI не удалось записать настройки в хранилище. Освободите место и попробуйте снова.</string>
     <string name="import_subscription_confirm_empty_body">Эта ссылка не содержит URL подписки.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d профиль нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
-        <item quantity="few">%1$d профиля нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
-        <item quantity="many">%1$d профилей нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
-        <item quantity="other">%1$d профиля нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="one">%1$d сервер нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="few">%1$d сервера нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="many">%1$d серверов нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
+        <item quantity="other">%1$d сервера нельзя восстановить, так как учётные данные удалены. Группы, маршруты и настройки восстановить можно.</item>
     </plurals>
     <string name="export_preview_title">Просмотр экспорта</string>
     <string name="export_preview_preparing">Подготовка локальной копии…</string>

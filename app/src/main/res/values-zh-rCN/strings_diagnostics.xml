@@ -39,7 +39,7 @@
     <string name="diagnostics_audit_progress_title">正在运行网络审计</string>
     <string name="diagnostics_audit_unavailable_title">自动审计不可用</string>
     <string name="diagnostics_probe_manual_apply_title">如何使用此结果</string>
-    <string name="diagnostics_probe_manual_apply_body">自动探测不会更改您的 RIPDPI 设置。查看下方推荐的策略，然后将您想要的部分手动复制到您的常规配置文件中。</string>
+    <string name="diagnostics_probe_manual_apply_body">自动探测不会更改您的 RIPDPI 设置。查看下方推荐的策略，然后将您想要的部分手动复制到您的预设中。</string>
     <string name="diagnostics_probe_latest_section">最新建议</string>
     <string name="diagnostics_probe_evidence_section">探测证据</string>
     <string name="diagnostics_probe_status_recommended">推荐</string>
@@ -118,12 +118,12 @@
     <string name="diagnostics_remediation_open_owned_stack_action">打开 RIPDPI 浏览器</string>
     <string name="diagnostics_remediation_browser_relay_title">首选浏览器伪装中继</string>
     <string name="diagnostics_remediation_browser_relay_summary">直接模式以 TLS/IP 风格阻塞模式失败。切换到融入浏览器风格 HTTPS 的中继预设。</string>
-    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">打开配置文件编辑器。</string>
+    <string name="diagnostics_remediation_browser_relay_step_open_mode_editor">打开预设编辑器。</string>
     <string name="diagnostics_remediation_browser_relay_step_enable_relay">为此模式启用上游中继路径。</string>
     <string name="diagnostics_remediation_browser_relay_step_choose_preset">选择浏览器伪装预设，如 NaiveProxy 或 ShadowTLS，然后重试诊断。</string>
     <string name="diagnostics_remediation_quic_relay_title">首选 QUIC 重型中继</string>
     <string name="diagnostics_remediation_quic_relay_summary">已保存的能力证据表明 UDP/QUIC 中继路径仍然健康。切换到 QUIC 重型中继而不是强制另一次透明重试。</string>
-    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">打开配置文件编辑器。</string>
+    <string name="diagnostics_remediation_quic_relay_step_open_mode_editor">打开预设编辑器。</string>
     <string name="diagnostics_remediation_quic_relay_step_enable_relay">为此模式启用上游中继路径。</string>
     <string name="diagnostics_remediation_quic_relay_step_choose_preset">选择 QUIC 重型中继预设，如 TUIC、Hysteria2 或 MASQUE，然后重试诊断。</string>
     <string name="diagnostics_remediation_no_hint_title">尚无可靠的中继提示</string>
@@ -131,7 +131,7 @@
     <string name="diagnostics_remediation_no_hint_step_open_history">打开历史。</string>
     <string name="diagnostics_remediation_no_hint_step_review_evidence">查看此目标网站的最新诊断会话和能力证据。</string>
     <string name="diagnostics_remediation_no_hint_step_retry">在同一网络上收集另一次运行后重试。</string>
-    <string name="diagnostics_remediation_open_mode_editor_action">打开配置文件编辑器</string>
+    <string name="diagnostics_remediation_open_mode_editor_action">打开预设编辑器</string>
     <string name="diagnostics_profile_badge_all_builtin">所有内置方法</string>
     <string name="diagnostics_profile_badge_raw_only">仅直连网络</string>
     <string name="diagnostics_profile_badge_raw_and_in_path">直连或活动连接</string>
@@ -1632,7 +1632,7 @@
     <string name="detection_exposure_network_observability_hint">检查 MTU、接口和路由设置中是否存在隧道特有的标志。</string>
     <string name="detection_exposure_timing_label">时序异常</string>
     <string name="detection_exposure_timing_reason">延迟或时序模式与普通直连 HTTPS 流量不同。</string>
-    <string name="detection_exposure_timing_hint">尝试更近的出口、减少链式跳数，或选择延迟更低的配置文件。</string>
+    <string name="detection_exposure_timing_hint">尝试更近的出口、减少链式跳数，或选择延迟更低的服务器。</string>
     <string name="detection_exposure_native_signs_label">原生运行时信号</string>
     <string name="detection_exposure_native_signs_hint">移除无关的插桩工具，并在目标设备配置文件下重新检测。</string>
     <string name="detection_exposure_call_transport_label">通话传输泄漏</string>

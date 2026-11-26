@@ -54,7 +54,7 @@
     <string name="settings_permissions_always_on_needed">برای جلوگیری سخت‌گیرانه از نشت، VPN همیشه روشن را برای RIPDPI در تنظیمات VPN Android فعال کنید.</string>
     <string name="settings_permissions_notifications_ready">اعلان‌های سرویس پیش‌زمینه برای RIPDPI در دسترس هستند.</string>
     <string name="settings_permissions_vpn_needed">قبل از اینکه RIPDPI بتواند مسیر VPN محلی را شروع کند، رضایت VPN Android را اعطا کنید.</string>
-    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض. نمایه‌ها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
+    <string name="settings_reset_body">بازگرداندن همه تنظیمات به مقادیر پیش‌فرض. سرورها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
     <string name="settings_reset_dialog_title">تنظیمات بازنشانی شود؟</string>
     <string name="settings_support_section">پشتیبانی</string>
     <string name="settings_dynamic_color_title">استفاده از رنگ‌های تصویر زمینه</string>
@@ -154,7 +154,7 @@
     <string name="settings_permissions_notifications_needed">پیشنهاد می‌شود تا اندروید بتواند وضعیت و هشدارهای سرویس VPN یا پراکسی محلی را نشان دهد.</string>
     <string name="settings_permissions_vpn_active">برای حالت VPN محلی انتخاب‌شده فعلی ضروری است.</string>
     <string name="settings_reset_action">بازنشانی</string>
-    <string name="settings_reset_dialog_body">این کار همه تنظیمات را به مقادیر پیش‌فرض بازمی‌گرداند و شخصی‌سازی‌های شما از بین می‌روند. نمایه‌ها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
+    <string name="settings_reset_dialog_body">این کار همه تنظیمات را به مقادیر پیش‌فرض بازمی‌گرداند و شخصی‌سازی‌های شما از بین می‌روند. سرورها، گروه‌ها، قوانین مسیریابی و تاریخچهٔ عیب‌یابی حفظ می‌شوند.</string>
     <string name="settings_security_section">حریم خصوصی</string>
     <string name="settings_support_debug_bundle_title">اشتراک‌گذاری بسته پشتیبانی</string>
     <string name="settings_tethering_dns_warning_title">خطر نشت DNS اشتراک اتصال</string>
@@ -179,13 +179,13 @@
     <string name="import_error_unsupported">پیوند درون‌ریزی پشتیبانی‌نشده.</string>
     <string name="import_error_missing_url">نشانی اشتراک در پیوند درون‌ریزی موجود نیست.</string>
     <string name="import_error_bad_encoding">پیوند درون‌ریزی نامعتبر است.</string>
-    <string name="import_profile_confirm_title">درون‌ریزی نمایه</string>
+    <string name="import_profile_confirm_title">درون‌ریزی سرور</string>
     <string name="import_profile_confirm_empty_title">چیزی برای درون‌ریزی نیست</string>
-    <string name="import_profile_confirm_empty_body">این پیوند شامل نمایهٔ پراکسی قابل‌استفاده‌ای نیست.</string>
+    <string name="import_profile_confirm_empty_body">این پیوند شامل سرور قابل‌استفاده‌ای نیست.</string>
     <string name="import_confirm_add_action">افزودن</string>
-    <string name="import_profile_confirm_error">این نمایه وارد نشد. بررسی کنید که پیوند کامل و معتبر باشد.</string>
+    <string name="import_profile_confirm_error">این سرور وارد نشد. بررسی کنید که پیوند کامل و معتبر باشد.</string>
     <string name="import_profile_confirm_tls_pin">اثر انگشت گواهی TLS: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">این نمایه گواهی TLS سرور را بررسی نمی‌کند.</string>
+    <string name="import_profile_confirm_tls_unverified">این سرور گواهی TLS را بررسی نمی‌کند.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">پیکربندی درون‌ریزی‌شده</string>
     <string name="import_subscription_confirm_title">افزودن اشتراک</string>
@@ -228,7 +228,7 @@
     <string name="settings_domain_bypass_body">نگه داشتن دامنه‌های انتخابی خارج از پراکسی (مستقیم)</string>
     <string name="settings_routing_rules_body">قوانین مسیریابی سفارشی بسازید و مرتب کنید</string>
     <string name="settings_split_tunnel_body">برای هر برنامه انتخاب کنید کدام برنامه‌ها از VPN استفاده کنند</string>
-    <string name="settings_backup_body">برون‌بری نمایه‌ها، گروه‌ها، قوانین و تنظیمات در یک فایل.</string>
+    <string name="settings_backup_body">برون‌بری سرورها، گروه‌ها، قوانین و تنظیمات در یک فایل.</string>
     <string name="backup_export_section">برون‌بری</string>
     <string name="backup_export_intro_title">پشتیبان روی دستگاه شما می‌ماند</string>
     <string name="backup_export_intro_body">پشتیبان فقط در فایلی که انتخاب می‌کنید نوشته می‌شود. چیزی بارگذاری نمی‌شود.</string>
@@ -263,7 +263,7 @@
     <string name="backup_import_preview_title">بررسی پشتیبان</string>
     <string name="backup_import_preview_schema">پشتیبان نسخه %1$d، ساخته‌شده توسط برنامه %2$s</string>
     <string name="backup_import_shareable_title">پشتیبان قابل اشتراک‌گذاری</string>
-    <string name="backup_import_category_profiles">نمایه‌ها و گروه‌ها (نمایه‌ها: %1$d، گروه‌ها: %2$d)</string>
+    <string name="backup_import_category_profiles">سرورها و گروه‌ها (سرورها: %1$d، گروه‌ها: %2$d)</string>
     <string name="backup_import_category_routes">قوانین مسیریابی (%1$d)</string>
     <string name="backup_import_category_settings">تنظیمات (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">دسته‌های انتخاب‌نشده مقادیر فعلی خود را حفظ می‌کنند.</string>
@@ -276,10 +276,10 @@
     <string name="backup_share_reminder_cancel">لغو</string>
     <string name="backup_reset_section">پاک کردن داده‌ها</string>
     <string name="backup_reset_warning_title">این کار قابل بازگشت نیست</string>
-    <string name="backup_reset_warning_body">پاک کردن داده‌ها همهٔ نمایه‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و سوابق عیب‌یابی را حذف می‌کند و سپس برنامه را به راه‌اندازی اولیه بازمی‌گرداند. اگر می‌خواهید این داده‌ها را نگه دارید، ابتدا یک نسخهٔ پشتیبان بگیرید.</string>
+    <string name="backup_reset_warning_body">پاک کردن داده‌ها همهٔ سرورها، گروه‌ها، قوانین مسیریابی، تنظیمات و سوابق عیب‌یابی را حذف می‌کند و سپس برنامه را به راه‌اندازی اولیه بازمی‌گرداند. اگر می‌خواهید این داده‌ها را نگه دارید، ابتدا یک نسخهٔ پشتیبان بگیرید.</string>
     <string name="backup_reset_action">پاک کردن همهٔ داده‌های برنامه</string>
     <string name="backup_reset_dialog_title">همهٔ داده‌های برنامه پاک شود؟</string>
-    <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ نمایه‌ها، گروه‌ها، قوانین مسیریابی، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
+    <string name="backup_reset_dialog_body">برای تأیید %1$s را تایپ کنید. این کار همهٔ سرورها، گروه‌ها، قوانین مسیریابی، تنظیمات و تاریخچهٔ عیب‌یابی را پاک می‌کند و سپس برنامه را دوباره راه‌اندازی می‌کند.</string>
     <string name="backup_reset_confirm_action">پاک کردن و راه‌اندازی مجدد</string>
     <string name="backup_reset_cancel_action">لغو</string>
     <string name="support_settings_title">پیوند تنظیمات پشتیبانی</string>
@@ -323,8 +323,8 @@
     <string name="settings_storage_failed">RIPDPI نتوانست تنظیمات را در حافظه ذخیره کند. فضا آزاد کنید و دوباره امتحان کنید.</string>
     <string name="import_subscription_confirm_empty_body">این پیوند شامل URL اشتراک نیست.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
-        <item quantity="other">%1$d نمایه را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
+        <item quantity="one">%1$d سرور را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
+        <item quantity="other">%1$d سرور را نمی‌توان بازیابی کرد زیرا اطلاعات ورود حذف شده است. گروه‌ها، مسیرها و تنظیمات همچنان قابل بازیابی هستند.</item>
     </plurals>
     <string name="export_preview_title">بازبینی خروجی</string>
     <string name="export_preview_preparing">در حال آماده‌سازی نسخهٔ محلی…</string>

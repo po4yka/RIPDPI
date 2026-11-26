@@ -155,10 +155,10 @@
     <string name="settings_reset_to_default">Reset to default</string>
     <string name="settings_clear_community_cache">Clear community cache</string>
     <string name="settings_reset_title">Reset settings</string>
-    <string name="settings_reset_body">Restore every setting to its default value. Profiles, groups, routing rules, and diagnostics history are kept.</string>
+    <string name="settings_reset_body">Restore every setting to its default value. Servers, groups, routing rules, and diagnostics history are kept.</string>
     <string name="settings_reset_action">Reset</string>
     <string name="settings_reset_dialog_title">Reset settings?</string>
-    <string name="settings_reset_dialog_body">This restores every setting to its default value, and your customizations will be lost. Profiles, groups, routing rules, and diagnostics history are kept.</string>
+    <string name="settings_reset_dialog_body">This restores every setting to its default value, and your customizations will be lost. Servers, groups, routing rules, and diagnostics history are kept.</string>
     <string name="settings_reset_confirm">Reset</string>
     <!-- Language picker (per plan i18n-es-de-fr v3.1 § H.3.1).
          language_name_* keys carry NATIVE display names of each locale;
@@ -184,13 +184,13 @@
     <string name="import_error_unsupported">Unsupported import link.</string>
     <string name="import_error_missing_url">Import link is missing a subscription URL.</string>
     <string name="import_error_bad_encoding">Import link is malformed.</string>
-    <string name="import_profile_confirm_title">Import profile</string>
+    <string name="import_profile_confirm_title">Import server</string>
     <string name="import_profile_confirm_empty_title">Nothing to import</string>
-    <string name="import_profile_confirm_empty_body">This link does not contain a usable proxy profile.</string>
+    <string name="import_profile_confirm_empty_body">This link does not contain a usable server.</string>
     <string name="import_confirm_add_action">Add</string>
-    <string name="import_profile_confirm_error">This profile could not be imported. Check that the link is complete and valid.</string>
+    <string name="import_profile_confirm_error">This server could not be imported. Check that the link is complete and valid.</string>
     <string name="import_profile_confirm_tls_pin">TLS certificate pin: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">This profile does not verify the server’s TLS certificate.</string>
+    <string name="import_profile_confirm_tls_unverified">TLS certificate verification is off for this server.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Imported configuration</string>
     <string name="import_subscription_confirm_title">Add subscription</string>
@@ -233,7 +233,7 @@
     <string name="settings_domain_bypass_body">Keep chosen domains off the proxy (direct)</string>
     <string name="settings_routing_rules_body">Create and order custom routing rules</string>
     <string name="settings_split_tunnel_body">Choose which apps use the VPN, per app</string>
-    <string name="settings_backup_body">Export your profiles, groups, rules, and settings to a file.</string>
+    <string name="settings_backup_body">Export your servers, groups, rules, and settings to a file.</string>
     <string name="backup_export_section">Export</string>
     <string name="backup_export_intro_title">Backup stays on your device</string>
     <string name="backup_export_intro_body">The backup is written only to the file you choose. Nothing is uploaded.</string>
@@ -268,7 +268,7 @@
     <string name="backup_import_preview_title">Review backup</string>
     <string name="backup_import_preview_schema">Backup version %1$d, created by app %2$s</string>
     <string name="backup_import_shareable_title">Shareable backup</string>
-    <string name="backup_import_category_profiles">Profiles and groups (profiles: %1$d, groups: %2$d)</string>
+    <string name="backup_import_category_profiles">Servers and groups (servers: %1$d, groups: %2$d)</string>
     <string name="backup_import_category_routes">Routing rules (%1$d)</string>
     <string name="backup_import_category_settings">Settings (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Unchecked categories keep their current values.</string>
@@ -281,10 +281,10 @@
     <string name="backup_share_reminder_cancel">Cancel</string>
     <string name="backup_reset_section">Erase app data</string>
     <string name="backup_reset_warning_title">This cannot be undone</string>
-    <string name="backup_reset_warning_body">Erasing removes every profile, group, routing rule, setting, and diagnostics record, then restarts the app to onboarding. Export a backup first if you want to keep this data.</string>
+    <string name="backup_reset_warning_body">Erasing removes every server, group, routing rule, setting, and diagnostics record, then restarts the app to onboarding. Export a backup first if you want to keep this data.</string>
     <string name="backup_reset_action">Erase all app data</string>
     <string name="backup_reset_dialog_title">Erase all app data?</string>
-    <string name="backup_reset_dialog_body">Type %1$s to confirm. This erases all profiles, groups, routing rules, settings, and diagnostics history, then restarts the app.</string>
+    <string name="backup_reset_dialog_body">Type %1$s to confirm. This erases all servers, groups, routing rules, settings, and diagnostics history, then restarts the app.</string>
     <string name="backup_reset_confirm_action">Erase and restart</string>
     <string name="backup_reset_cancel_action">Cancel</string>
     <string name="support_settings_title">Support settings link</string>
@@ -328,8 +328,8 @@
     <string name="settings_storage_failed">RIPDPI could not write settings to storage. Free some space and try again.</string>
     <string name="import_subscription_confirm_empty_body">This link does not contain a subscription URL.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d profile cannot be restored because its credentials were removed. Groups, routes, and settings can still be restored.</item>
-        <item quantity="other">%1$d profiles cannot be restored because credentials were removed. Groups, routes, and settings can still be restored.</item>
+        <item quantity="one">%1$d server cannot be restored because its credentials were removed. Groups, routes, and settings can still be restored.</item>
+        <item quantity="other">%1$d servers cannot be restored because credentials were removed. Groups, routes, and settings can still be restored.</item>
     </plurals>
     <string name="export_preview_title">Review export</string>
     <string name="export_preview_preparing">Preparing a local copy…</string>

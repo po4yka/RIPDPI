@@ -28,7 +28,7 @@
     <string name="block_signal_quic_breakage">Сбой QUIC</string>
     <string name="block_signal_tcp_retransmissions">Повторные передачи TCP</string>
     <string name="title_onboarding">Первоначальная настройка</string>
-    <string name="title_mode_editor">Редактор профиля</string>
+    <string name="title_mode_editor">Редактор пресета</string>
     <string name="title_dns_settings">Настройки DNS</string>
     <string name="title_advanced_settings">Расширенные настройки</string>
     <string name="title_biometric_prompt">Аутентификация</string>
@@ -327,6 +327,6 @@
     <string name="ui_rule_save_failed_body">Ваши изменения сохранены в форме. Попробуйте ещё раз.</string>
     <string name="ui_app_picker_no_matches">Подходящих приложений нет</string>
     <string name="ui_app_picker_clear_search">Очистить поиск</string>
-    <string name="ui_profile_catalog_retry">Загрузить профили снова</string>
+    <string name="ui_profile_catalog_retry">Загрузить серверы снова</string>
     <string name="scanner_camera_unavailable">Камера недоступна. Вы можете импортировать QR-код из изображения.</string>
 </resources>

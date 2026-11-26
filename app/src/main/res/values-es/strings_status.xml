@@ -96,7 +96,7 @@
     <string name="status_remediation_no_actionable_step_review">Revisa los detalles y la evidencia de la última auditoría.</string>
     <string name="status_remediation_no_hint_summary">El análisis de inicio no encontró una solución directa, pero la evidencia de capacidad guardada aún es demasiado escasa para recomendar una familia de relay estable.</string>
     <string name="status_remediation_owned_stack_step_verify_result">Verifica que la autoridad cargue allí antes de promover otros cambios de relay.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">Abre el Editor de perfil.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">Abre el Editor de ajuste predefinido.</string>
     <string name="status_remediation_review_step_rerun">Ejecuta otro análisis si aún necesitas una ruta verificada.</string>
     <string name="status_remediation_stale_title">Este resultado es obsoleto</string>
     <string name="status_connecting">Conectando</string>
@@ -105,7 +105,7 @@
     <string name="status_network_condition_captive_action">Abrir página de inicio de sesión</string>
     <string name="status_network_condition_whitelist_title">La red puede estar filtrando el tráfico</string>
     <string name="status_network_condition_whitelist_body">Los sitios extranjeros fallan mientras que los locales funcionan. Esta red podría permitir solo destinos aprobados.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">Prueba tu perfil de relay de lista blanca guardado.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">Prueba tu servidor de relay de lista blanca guardado.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">Sin conectividad</string>
     <string name="status_network_condition_no_connectivity_body">Esta red no tiene una ruta funcional. Comprueba tu conexión e inténtalo de nuevo.</string>
@@ -136,12 +136,12 @@
     <string name="status_mode_card_status_inactive">Inactivo</string>
     <string name="status_mode_vpn">Todo el dispositivo</string>
     <string name="status_quality_excellent">Excelente</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">Abre el Editor de perfil.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">Abre el Editor de ajuste predefinido.</string>
     <string name="status_remediation_command_line_step_retry">Vuelve a Inicio y ejecuta el Análisis completo de nuevo.</string>
     <string name="status_remediation_no_actionable_title">Revisar el último análisis</string>
     <string name="status_remediation_no_hint_title">Aún no hay una pista fiable de relay</string>
     <string name="status_remediation_owned_stack_summary">El análisis de Inicio encontró un resultado que solo funciona con pila propia. Abre Diagnóstico y lanza la autoridad a través de la ruta del navegador de RIPDPI.</string>
-    <string name="status_remediation_quic_relay_summary">El análisis de Inicio encontró capacidad guardada de relay QUIC/UDP. Abre el Editor de perfil y cambia a un preset de relay orientado a QUIC en lugar de otro reintento directo.</string>
+    <string name="status_remediation_quic_relay_summary">El análisis de Inicio encontró capacidad guardada de relay QUIC/UDP. Abre el Editor de ajuste predefinido y cambia a un preset de relay orientado a QUIC en lugar de otro reintento directo.</string>
     <string name="status_remediation_review_title">Revisar etapas fallidas</string>
     <string name="status_error_title">La línea segura necesita atención</string>
     <string name="qs_tile_subtitle_tap_connect">Toca para conectar</string>
@@ -170,7 +170,7 @@
     <string name="status_mode_card_remote_server_unknown">Servidor no configurado</string>
     <string name="status_mode_diagnostic_scan">Escaneo de diagnóstico</string>
     <string name="status_quality_good">Bueno</string>
-    <string name="status_remediation_browser_relay_summary">El análisis de inicio encontró un fallo en modo directo de tipo TLS/IP. Abre el Editor de perfil y cambia a un preajuste de relé con camuflaje de navegador.</string>
+    <string name="status_remediation_browser_relay_summary">El análisis de inicio encontró un fallo en modo directo de tipo TLS/IP. Abre el Editor de ajuste predefinido y cambia a un preajuste de relé con camuflaje de navegador.</string>
     <string name="status_remediation_command_line_title">El análisis completo está bloqueado</string>
     <string name="status_remediation_no_hint_step_open_diagnostics">Abre Diagnósticos.</string>
     <string name="status_remediation_open_diagnostics_action">Abrir diagnóstico</string>
@@ -213,8 +213,8 @@
     <string name="status_remediation_stale_step_rerun">Ejecuta un análisis nuevo en la red actual.</string>
     <string name="status_stat_mode">Modo</string>
     <string name="shortcut_diagnostics_short">Diagnóstico</string>
-    <string name="shortcut_open_config">Abrir perfiles</string>
-    <string name="shortcut_open_config_short">Perfiles</string>
+    <string name="shortcut_open_config">Abrir ajustes predefinidos y servidores</string>
+    <string name="shortcut_open_config_short">Servidores</string>
     <string name="shortcut_open_settings">Abrir ajustes</string>
     <string name="shortcut_open_settings_short">Ajustes</string>
     <string name="status_indicator_description">Estado: %1$s</string>
@@ -463,7 +463,7 @@
     <string name="pause_resuming">Reanudando conexión…</string>
     <string name="pause_cleanup_pending">La limpieza está incompleta. La pausa aún no está confirmada.</string>
     <string name="pause_deferred">La reanudación requiere atención</string>
-    <string name="pause_saved_settings">Se reanuda este modo con la configuración guardada actual. Las ediciones conservan la pausa; iniciar, detener, activar o eliminar un perfil la cancela.</string>
+    <string name="pause_saved_settings">Se reanuda este modo con la configuración guardada actual. Las ediciones conservan la pausa; iniciar, detener, activar o eliminar un servidor la cancela.</string>
     <string name="pause_remaining">Minutos restantes: %1$s</string>
     <string name="pause_resume_now">Reanudar ahora</string>
     <string name="pause_stop">Detener y cancelar reanudación</string>

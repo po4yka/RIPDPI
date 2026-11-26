@@ -79,7 +79,7 @@
     <string name="warp_setup_state_title">Состояние настройки</string>
     <string name="warp_zero_trust_org_body">Показывается, когда активный профиль принадлежит регистрации Zero Trust.</string>
     <string name="warp_zero_trust_org_title">Организация Zero Trust</string>
-    <string name="relay_editor_activation_failed">Не удалось активировать профиль. Проверьте данные и повторите попытку.</string>
+    <string name="relay_editor_activation_failed">Не удалось активировать сервер. Проверьте данные и повторите попытку.</string>
     <string name="awg_editor_title">Сервер AmneziaWG</string>
     <string name="awg_section_interface">Интерфейс</string>
     <string name="awg_section_peer">Пир</string>
@@ -131,10 +131,10 @@
     <string name="awg_cohort_replace_title">Заменить настройки обфускации?</string>
     <string name="awg_cohort_replace_body">Этот пресет заменит все настройки обфускации и удалит ключ защиты заголовка. Используйте его только при совпадении настроек сервера.</string>
     <string name="awg_cohort_replace_action">Заменить</string>
-    <string name="awg_delete_action">Удалить профиль</string>
-    <string name="awg_delete_title">Удалить этот профиль?</string>
-    <string name="awg_delete_body">Профиль и его ключи будут удалены с этого устройства.</string>
-    <string name="awg_delete_failed">Не удалось удалить профиль. Попробуйте снова.</string>
+    <string name="awg_delete_action">Удалить сервер</string>
+    <string name="awg_delete_title">Удалить этот сервер?</string>
+    <string name="awg_delete_body">Сервер и его ключи будут удалены с этого устройства.</string>
+    <string name="awg_delete_failed">Не удалось удалить сервер. Попробуйте снова.</string>
     <string name="relay_delete_in_use">Используется активным подключением</string>
     <string name="awg_cohort_picker_label">Пресет когорты</string>
     <string name="awg_cohort_custom">Свой</string>
@@ -148,7 +148,7 @@
     <string name="awg_connect_error">Не удалось подключиться. Проверьте данные сервера и попробуйте снова.</string>
     <string name="awg_field_name">Название</string>
     <string name="awg_save_action">Сохранить</string>
-    <string name="awg_save_error">Не удалось сохранить профиль. Повторите попытку.</string>
+    <string name="awg_save_error">Не удалось сохранить сервер. Повторите попытку.</string>
     <string name="awg_saved_hint">Сохранено.</string>
     <string name="awg_generate_key_action">Создать пару ключей</string>
     <string name="awg_key_generation_error">Не удалось создать пару ключей. Повторите попытку.</string>
@@ -206,7 +206,7 @@
     <string name="ssh_reveal_secret_action">Показать</string>
     <string name="ssh_save_action">Сохранить</string>
     <string name="outbound_group_fallback">Группа №%1$d</string>
-    <string name="outbound_profile_fallback">Профиль №%1$d</string>
+    <string name="outbound_profile_fallback">Сервер №%1$d</string>
     <string name="xray_capability_vpn_privacy_title">Приватность VPN</string>
     <string name="xray_capability_vpn_privacy_desc">Пропускает весь трафик устройства через защищённый туннель.</string>
     <string name="xray_capability_relay_title">Ретрансляция</string>
@@ -346,7 +346,7 @@
     <string name="subscription_status_last_refresh_format">Последнее обновление: %1$s</string>
     <string name="subscription_status_token_expiry_format">Срок токена: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Срок учётных данных: %1$s</string>
-    <string name="subscription_status_replacement_help">Сохранённые профили продолжат работать. Импортируйте новую ссылку подписки, чтобы возобновить обновления.</string>
+    <string name="subscription_status_replacement_help">Сохранённые серверы продолжат работать. Импортируйте новую ссылку подписки, чтобы возобновить обновления.</string>
     <string name="subscription_status_refresh_action">Обновить сейчас</string>
     <string name="subscription_status_active">Активна</string>
     <string name="subscription_status_expired">Истекла</string>
@@ -358,17 +358,17 @@
     <string name="subscription_status_delete_action">Удалить</string>
     <string name="subscription_status_delete_title">Удалить «%1$s»?</string>
     <string name="subscription_status_delete_title_unnamed">Удалить эту подписку?</string>
-    <string name="subscription_status_delete_body">Эта подписка и её профили будут удалены с этого устройства.</string>
+    <string name="subscription_status_delete_body">Эта подписка и её серверы будут удалены с этого устройства.</string>
     <string name="subscription_status_delete_failed">Не удалось удалить</string>
     <string name="subscription_status_url_format">Ссылка подписки: %1$s</string>
     <string name="subscription_status_token_format">Токен: %1$s</string>
     <string name="subscription_home_expiring_title">Подписка скоро истечёт</string>
     <string name="subscription_home_expired_title">Подписка истекла</string>
-    <string name="subscription_home_expired_body">%1$s больше не обновляется. Существующие профили сохранены.</string>
+    <string name="subscription_home_expired_body">%1$s больше не обновляется. Существующие серверы сохранены.</string>
     <string name="subscription_home_invalidated_title">Подписка недоступна</string>
-    <string name="subscription_home_invalidated_body">%1$s истекла или отозвана. Существующие профили сохранены.</string>
-    <string name="relay_editor_profile_not_found_title">Профиль не найден</string>
-    <string name="relay_editor_profile_not_found_body">Этот профиль удалён, или ссылка, которая его открыла, неверна. Вернитесь назад и выберите профиль из списка.</string>
+    <string name="subscription_home_invalidated_body">%1$s истекла или отозвана. Существующие серверы сохранены.</string>
+    <string name="relay_editor_profile_not_found_title">Сервер не найден</string>
+    <string name="relay_editor_profile_not_found_body">Этот сервер удалён, или ссылка, которая его открыла, неверна. Вернитесь назад и выберите сервер из списка.</string>
     <string name="relay_editor_section_credentials">Учётные данные</string>
     <string name="relay_editor_save_incomplete_hint">Чтобы сохранить, укажите сервер, порт и учётные данные и исправьте поля с ошибками.</string>
     <string name="relay_editor_range_helper">От %1$d до %2$d</string>
@@ -394,7 +394,7 @@
     <string name="subscription_add_continue">Продолжить</string>
     <string name="awg_conf_import_failed_title">Конфигурация не импортирована</string>
     <string name="awg_conf_import_failed_body">Текст не является корректным файлом .conf WireGuard или AmneziaWG либо использует параметры, которые RIPDPI не поддерживает.</string>
-    <string name="awg_conf_subscription_server_mismatch_body">Этот конфиг относится к другому серверу, а не к серверу этого профиля подписки. Используйте конфиг для того же сервера.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">Этот конфиг относится к другому серверу, а не к сохранённому серверу подписки. Используйте конфиг для того же сервера.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI не удалось прочитать файл. Он пустой, больше 64 КБ или не является текстовым.</string>
     <string name="awg_conf_extra_peers_title">Используется только первый пир</string>
     <string name="awg_conf_extra_peers_body">Пропущено дополнительных разделов [Peer]: %1$d. RIPDPI подключается только через первый пир.</string>
@@ -429,10 +429,10 @@
         <item quantity="other">%1$s истекает через %2$d дня. Обновите её или подготовьте новую ссылку.</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d назначенный профиль</item>
-        <item quantity="few">%1$d назначенных профиля</item>
-        <item quantity="many">%1$d назначенных профилей</item>
-        <item quantity="other">%1$d назначенных профиля</item>
+        <item quantity="one">%1$d назначенный сервер</item>
+        <item quantity="few">%1$d назначенных сервера</item>
+        <item quantity="many">%1$d назначенных серверов</item>
+        <item quantity="other">%1$d назначенных сервера</item>
     </plurals>
     <string name="xray_import_error_restore_failed">Не удалось загрузить текущее состояние провайдера Xray. Повторите попытку перед завершением.</string>
     <string name="xray_import_error_typed_unsupported">Этот транспорт или параметр безопасности Xray пока не поддерживается.</string>

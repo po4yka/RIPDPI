@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">Escolha sua interface</string>
     <string name="onboarding_persona_guided_body">Os controles do dia a dia ficam visíveis enquanto os detalhes técnicos permanecem recolhidos.</string>
-    <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, perfis e configurações de baixo nível.</string>
+    <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, predefinições e configurações de baixo nível.</string>
     <string name="onboarding_continue">Continuar</string>
     <string name="onboarding_setup_finish">Concluir</string>
     <string name="onboarding_local_first_title">Privado por design</string>
@@ -100,7 +100,7 @@
     <string name="clipboard_label_detection_diagnostics">Diagnóstico de detecção</string>
     <string name="clipboard_label_detection_report">Relatório de detecção</string>
     <string name="clipboard_label_detection_markdown_export">Exportação de detecção em Markdown</string>
-    <string name="clipboard_label_profile_link">Link de perfil do RIPDPI</string>
+    <string name="clipboard_label_profile_link">Link de servidor do RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Guia de configuração do RIPDPI</string>
     <string name="clipboard_label_log_entry">Entrada de registro</string>
     <string name="biometric_prompt_device_credential_title">Use o bloqueio de tela</string>

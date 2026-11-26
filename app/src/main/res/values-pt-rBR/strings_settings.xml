@@ -154,10 +154,10 @@
     <string name="settings_reset_to_default">Redefinir para o padrão</string>
     <string name="settings_clear_community_cache">Limpar cache da comunidade</string>
     <string name="settings_reset_title">Redefinir configurações</string>
-    <string name="settings_reset_body">Restaura todas as configurações para os valores padrão. Perfis, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
+    <string name="settings_reset_body">Restaura todas as configurações para os valores padrão. Servidores, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
     <string name="settings_reset_action">Redefinir</string>
     <string name="settings_reset_dialog_title">Redefinir configurações?</string>
-    <string name="settings_reset_dialog_body">Isso restaurará todas as configurações para os valores padrão e todas as personalizações serão perdidas. Perfis, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
+    <string name="settings_reset_dialog_body">Isso restaurará todas as configurações para os valores padrão e todas as personalizações serão perdidas. Servidores, grupos, regras de roteamento e histórico de diagnóstico são mantidos.</string>
     <string name="settings_reset_confirm">Redefinir</string>
     <string name="settings_language_title">Idioma</string>
     <string name="language_picker_sheet_title">Escolher idioma</string>
@@ -176,13 +176,13 @@
     <string name="import_error_unsupported">Link de importação não suportado.</string>
     <string name="import_error_missing_url">O link de importação não contém uma URL de assinatura.</string>
     <string name="import_error_bad_encoding">O link de importação está malformado.</string>
-    <string name="import_profile_confirm_title">Importar perfil</string>
+    <string name="import_profile_confirm_title">Importar servidor</string>
     <string name="import_profile_confirm_empty_title">Nada para importar</string>
-    <string name="import_profile_confirm_empty_body">Este link não contém um perfil de proxy utilizável.</string>
+    <string name="import_profile_confirm_empty_body">Este link não contém um servidor de proxy utilizável.</string>
     <string name="import_confirm_add_action">Adicionar</string>
-    <string name="import_profile_confirm_error">Não foi possível importar este perfil. Verifique se o link está completo e válido.</string>
+    <string name="import_profile_confirm_error">Não foi possível importar este servidor. Verifique se o link está completo e válido.</string>
     <string name="import_profile_confirm_tls_pin">Impressão digital do certificado TLS: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">Este perfil não verifica o certificado TLS do servidor.</string>
+    <string name="import_profile_confirm_tls_unverified">Este servidor não verifica o certificado TLS do servidor.</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Configuração importada</string>
     <string name="import_subscription_confirm_title">Adicionar assinatura</string>
@@ -226,7 +226,7 @@
     <string name="settings_domain_bypass_body">Manter domínios escolhidos fora do proxy (direto)</string>
     <string name="settings_routing_rules_body">Criar e ordenar regras de roteamento personalizadas</string>
     <string name="settings_split_tunnel_body">Escolha quais apps usam a VPN, app por app</string>
-    <string name="settings_backup_body">Exporte seus perfis, grupos, regras e configurações para um arquivo.</string>
+    <string name="settings_backup_body">Exporte seus servidores, grupos, regras e configurações para um arquivo.</string>
     <string name="backup_export_section">Exportar</string>
     <string name="backup_export_intro_title">O backup fica no seu dispositivo</string>
     <string name="backup_export_intro_body">O backup é gravado apenas no arquivo que você escolher. Nada é enviado.</string>
@@ -261,7 +261,7 @@
     <string name="backup_import_preview_title">Revisar backup</string>
     <string name="backup_import_preview_schema">Backup versão %1$d, criado pelo app %2$s</string>
     <string name="backup_import_shareable_title">Backup compartilhável</string>
-    <string name="backup_import_category_profiles">Perfis e grupos (perfis: %1$d, grupos: %2$d)</string>
+    <string name="backup_import_category_profiles">Servidores e grupos (servidores: %1$d, grupos: %2$d)</string>
     <string name="backup_import_category_routes">Regras de roteamento (%1$d)</string>
     <string name="backup_import_category_settings">Configurações (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">Categorias desmarcadas mantêm os valores atuais.</string>
@@ -274,10 +274,10 @@
     <string name="backup_share_reminder_cancel">Cancelar</string>
     <string name="backup_reset_section">Apagar dados do app</string>
     <string name="backup_reset_warning_title">Isto não pode ser desfeito</string>
-    <string name="backup_reset_warning_body">Apagar os dados remove todos os perfis, grupos, regras de roteamento, configurações e registros de diagnóstico e reinicia o app na configuração inicial. Exporte um backup antes se quiser manter esses dados.</string>
+    <string name="backup_reset_warning_body">Apagar os dados remove todos os servidores, grupos, regras de roteamento, configurações e registros de diagnóstico e reinicia o app na configuração inicial. Exporte um backup antes se quiser manter esses dados.</string>
     <string name="backup_reset_action">Apagar todos os dados do app</string>
     <string name="backup_reset_dialog_title">Apagar todos os dados do app?</string>
-    <string name="backup_reset_dialog_body">Digite %1$s para confirmar. Isso apaga todos os perfis, grupos, regras de roteamento, configurações e histórico de diagnóstico e reinicia o app.</string>
+    <string name="backup_reset_dialog_body">Digite %1$s para confirmar. Isso apaga todos os servidores, grupos, regras de roteamento, configurações e histórico de diagnóstico e reinicia o app.</string>
     <string name="backup_reset_confirm_action">Apagar e reiniciar</string>
     <string name="backup_reset_cancel_action">Cancelar</string>
     <string name="support_settings_title">Link das configurações de suporte</string>
@@ -321,8 +321,8 @@
     <string name="settings_storage_failed">O RIPDPI não conseguiu gravar as configurações no armazenamento. Libere espaço e tente novamente.</string>
     <string name="import_subscription_confirm_empty_body">Este link não contém uma URL de assinatura.</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d perfil não pode ser restaurado porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
-        <item quantity="other">%1$d perfis não podem ser restaurados porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
+        <item quantity="one">%1$d servidor não pode ser restaurado porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
+        <item quantity="other">%1$d servidores não podem ser restaurados porque as credenciais foram removidas. Grupos, rotas e configurações ainda podem ser restaurados.</item>
     </plurals>
     <string name="export_preview_title">Revisar exportação</string>
     <string name="export_preview_preparing">Preparando uma cópia local…</string>

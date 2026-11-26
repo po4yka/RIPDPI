@@ -6,6 +6,6 @@
     <string name="runtime_config_preview_dns">DNS</string>
     <string name="runtime_config_preview_strategy">Estratégia de contorno TCP</string>
     <string name="runtime_config_preview_route_unresolved">Determinado ao reconectar</string>
-    <string name="runtime_config_preview_note">Este é um resumo parcial das configurações salvas. Os perfis e as rotas são determinados ao reconectar. Outras alterações salvas também podem ser aplicadas. Os valores efetivos são confirmados após reconectar.</string>
+    <string name="runtime_config_preview_note">Este é um resumo parcial das configurações salvas. Os servidores e as rotas são determinados ao reconectar. Outras alterações salvas também podem ser aplicadas. Os valores efetivos são confirmados após reconectar.</string>
     <string name="runtime_config_preview_unavailable">Indisponível</string>
 </resources>

@@ -348,7 +348,7 @@ class RelayFieldsTest {
             }
         }
 
-        composeRule.onNodeWithText("Select both entry and exit profiles.").assertExists()
+        composeRule.onNodeWithText("Select both entry and exit servers.").assertExists()
     }
 
     @Test

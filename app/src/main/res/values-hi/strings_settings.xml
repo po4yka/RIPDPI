@@ -165,10 +165,10 @@
     <string name="settings_reset_to_default">डिफ़ॉल्ट पर रीसेट करें</string>
     <string name="settings_clear_community_cache">कम्युनिटी कैश साफ़ करें</string>
     <string name="settings_reset_title">सेटिंग्स रीसेट करें</string>
-    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें। प्रोफ़ाइल, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
+    <string name="settings_reset_body">सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित करें। सर्वर, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
     <string name="settings_reset_action">रीसेट करें</string>
     <string name="settings_reset_dialog_title">सेटिंग्स रीसेट करें?</string>
-    <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा और सभी अनुकूलन खो जाएँगे। प्रोफ़ाइल, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
+    <string name="settings_reset_dialog_body">यह सभी सेटिंग्स को उनके डिफ़ॉल्ट मानों पर पुनर्स्थापित कर देगा और सभी अनुकूलन खो जाएँगे। सर्वर, समूह, रूटिंग नियम और डायग्नोस्टिक्स इतिहास बने रहते हैं।</string>
     <string name="settings_reset_confirm">रीसेट करें</string>
     <string name="settings_language_title">भाषा</string>
     <string name="language_picker_sheet_title">भाषा चुनें</string>
@@ -187,13 +187,13 @@
     <string name="import_error_unsupported">असमर्थित आयात लिंक।</string>
     <string name="import_error_missing_url">आयात लिंक में सदस्यता URL मौजूद नहीं है।</string>
     <string name="import_error_bad_encoding">आयात लिंक विकृत है।</string>
-    <string name="import_profile_confirm_title">प्रोफ़ाइल आयात करें</string>
+    <string name="import_profile_confirm_title">सर्वर आयात करें</string>
     <string name="import_profile_confirm_empty_title">आयात करने के लिए कुछ नहीं</string>
-    <string name="import_profile_confirm_empty_body">इस लिंक में उपयोग योग्य प्रॉक्सी प्रोफ़ाइल नहीं है।</string>
+    <string name="import_profile_confirm_empty_body">इस लिंक में उपयोग योग्य प्रॉक्सी सर्वर नहीं है।</string>
     <string name="import_confirm_add_action">जोड़ें</string>
-    <string name="import_profile_confirm_error">यह प्रोफ़ाइल आयात नहीं की जा सकी। जाँचें कि लिंक पूर्ण और मान्य है।</string>
+    <string name="import_profile_confirm_error">यह सर्वर आयात नहीं किया जा सका। जाँचें कि लिंक पूर्ण और मान्य है।</string>
     <string name="import_profile_confirm_tls_pin">TLS प्रमाणपत्र का फ़िंगरप्रिंट: %1$s</string>
-    <string name="import_profile_confirm_tls_unverified">यह प्रोफ़ाइल सर्वर के TLS प्रमाणपत्र की पुष्टि नहीं करती।</string>
+    <string name="import_profile_confirm_tls_unverified">यह सर्वर TLS प्रमाणपत्र की पुष्टि नहीं करता।</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">आयात किया गया कॉन्फ़िगरेशन</string>
     <string name="import_subscription_confirm_title">सदस्यता जोड़ें</string>
@@ -236,7 +236,7 @@
     <string name="settings_domain_bypass_body">चुने गए डोमेन को प्रॉक्सी से बाहर रखें (सीधा)</string>
     <string name="settings_routing_rules_body">कस्टम रूटिंग नियम बनाएँ और क्रमबद्ध करें</string>
     <string name="settings_split_tunnel_body">चुनें कि कौन-से ऐप VPN का उपयोग करें, प्रति ऐप</string>
-    <string name="settings_backup_body">अपने प्रोफाइल, समूह, नियम और सेटिंग्स को किसी फ़ाइल में निर्यात करें।</string>
+    <string name="settings_backup_body">अपने सर्वर, समूह, नियम और सेटिंग्स को किसी फ़ाइल में निर्यात करें।</string>
     <string name="backup_export_section">निर्यात</string>
     <string name="backup_export_intro_title">बैकअप आपके डिवाइस पर ही रहता है</string>
     <string name="backup_export_intro_body">बैकअप केवल उसी फ़ाइल में लिखा जाता है जिसे आप चुनते हैं। कुछ भी अपलोड नहीं किया जाता।</string>
@@ -271,7 +271,7 @@
     <string name="backup_import_preview_title">बैकअप की समीक्षा करें</string>
     <string name="backup_import_preview_schema">बैकअप संस्करण %1$d, ऐप %2$s द्वारा बनाया गया</string>
     <string name="backup_import_shareable_title">साझा करने योग्य बैकअप</string>
-    <string name="backup_import_category_profiles">प्रोफ़ाइल और समूह (प्रोफ़ाइल: %1$d, समूह: %2$d)</string>
+    <string name="backup_import_category_profiles">सर्वर और समूह (सर्वर: %1$d, समूह: %2$d)</string>
     <string name="backup_import_category_routes">रूटिंग नियम (%1$d)</string>
     <string name="backup_import_category_settings">सेटिंग्स (%1$d)</string>
     <string name="backup_import_category_unchecked_hint">अनचयनित श्रेणियाँ अपने वर्तमान मान बनाए रखती हैं।</string>
@@ -284,10 +284,10 @@
     <string name="backup_share_reminder_cancel">रद्द करें</string>
     <string name="backup_reset_section">ऐप डेटा मिटाएँ</string>
     <string name="backup_reset_warning_title">इसे पूर्ववत नहीं किया जा सकता</string>
-    <string name="backup_reset_warning_body">मिटाने से हर प्रोफ़ाइल, समूह, रूटिंग नियम, सेटिंग और डायग्नोस्टिक्स रिकॉर्ड हट जाता है, फिर ऐप ऑनबोर्डिंग पर पुनः आरंभ होता है। यदि आप यह डेटा रखना चाहते हैं तो पहले बैकअप एक्सपोर्ट करें।</string>
+    <string name="backup_reset_warning_body">मिटाने से हर सर्वर, समूह, रूटिंग नियम, सेटिंग और डायग्नोस्टिक्स रिकॉर्ड हट जाता है, फिर ऐप ऑनबोर्डिंग पर पुनः आरंभ होता है। यदि आप यह डेटा रखना चाहते हैं तो पहले बैकअप एक्सपोर्ट करें।</string>
     <string name="backup_reset_action">सारा ऐप डेटा मिटाएँ</string>
     <string name="backup_reset_dialog_title">सारा ऐप डेटा मिटाएँ?</string>
-    <string name="backup_reset_dialog_body">पुष्टि के लिए %1$s टाइप करें। यह सभी प्रोफ़ाइल, समूह, रूटिंग नियम, सेटिंग्स और डायग्नोस्टिक्स इतिहास मिटा देता है, फिर ऐप को पुनः आरंभ करता है।</string>
+    <string name="backup_reset_dialog_body">पुष्टि के लिए %1$s टाइप करें। यह सभी सर्वर, समूह, रूटिंग नियम, सेटिंग्स और डायग्नोस्टिक्स इतिहास मिटा देता है, फिर ऐप को पुनः आरंभ करता है।</string>
     <string name="backup_reset_confirm_action">मिटाएँ और पुनः आरंभ करें</string>
     <string name="backup_reset_cancel_action">रद्द करें</string>
     <string name="support_settings_title">सपोर्ट सेटिंग लिंक</string>
@@ -320,8 +320,8 @@
     <string name="settings_storage_failed">RIPDPI सेटिंग्स को स्टोरेज में नहीं लिख सका। कुछ जगह खाली करें और फिर से कोशिश करें।</string>
     <string name="import_subscription_confirm_empty_body">इस लिंक में सदस्यता URL नहीं है।</string>
     <plurals name="backup_import_shareable_body">
-        <item quantity="one">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकती क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
-        <item quantity="other">%1$d प्रोफ़ाइल पुनर्स्थापित नहीं की जा सकतीं क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
+        <item quantity="one">%1$d सर्वर पुनर्स्थापित नहीं किया जा सकता क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
+        <item quantity="other">%1$d सर्वर पुनर्स्थापित नहीं किए जा सकते क्योंकि क्रेडेंशियल हटा दिए गए थे। समूह, रूट और सेटिंग्स फिर भी पुनर्स्थापित की जा सकती हैं।</item>
     </plurals>
     <string name="export_preview_title">निर्यात की समीक्षा करें</string>
     <string name="export_preview_preparing">स्थानीय प्रति तैयार हो रही है…</string>

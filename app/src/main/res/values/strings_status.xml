@@ -44,7 +44,7 @@
     <string name="status_network_condition_captive_action">Open sign-in page</string>
     <string name="status_network_condition_whitelist_title">Network may be filtering traffic</string>
     <string name="status_network_condition_whitelist_body">Foreign sites are failing while local ones work. This network may only allow approved destinations.</string>
-    <string name="status_network_condition_whitelist_relay_suggestion">Try your saved whitelist relay profile.</string>
+    <string name="status_network_condition_whitelist_relay_suggestion">Try your saved whitelist relay server.</string>
     <string name="status_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="status_network_condition_no_connectivity_title">No connectivity</string>
     <string name="status_network_condition_no_connectivity_body">This network has no working route. Check your connection and try again.</string>
@@ -109,13 +109,13 @@
     <string name="status_remediation_owned_stack_step_open_browser">Use the remediation action there to open the authority in RIPDPI Browser.</string>
     <string name="status_remediation_owned_stack_step_verify_result">Verify the authority loads there before promoting other relay changes.</string>
     <string name="status_remediation_browser_relay_title">Prefer a browser-camouflage relay</string>
-    <string name="status_remediation_browser_relay_summary">Home analysis found a TLS/IP-style direct-mode failure. Open Profile editor and switch to a browser-camouflage relay preset.</string>
-    <string name="status_remediation_browser_relay_step_open_mode_editor">Open Profile editor.</string>
+    <string name="status_remediation_browser_relay_summary">Home analysis found a TLS/IP-style direct-mode failure. Open Preset editor and switch to a browser-camouflage relay preset.</string>
+    <string name="status_remediation_browser_relay_step_open_mode_editor">Open Preset editor.</string>
     <string name="status_remediation_browser_relay_step_enable_relay">Enable the upstream relay path for your current mode.</string>
     <string name="status_remediation_browser_relay_step_choose_preset">Choose a browser-camouflage preset such as NaiveProxy or ShadowTLS, then rerun analysis.</string>
     <string name="status_remediation_quic_relay_title">Prefer a QUIC-heavy relay</string>
-    <string name="status_remediation_quic_relay_summary">Home analysis found saved QUIC/UDP relay capability. Open Profile editor and switch to a QUIC-heavy relay preset instead of another direct retry.</string>
-    <string name="status_remediation_quic_relay_step_open_mode_editor">Open Profile editor.</string>
+    <string name="status_remediation_quic_relay_summary">Home analysis found saved QUIC/UDP relay capability. Open Preset editor and switch to a QUIC-heavy relay preset instead of another direct retry.</string>
+    <string name="status_remediation_quic_relay_step_open_mode_editor">Open Preset editor.</string>
     <string name="status_remediation_quic_relay_step_enable_relay">Enable the upstream relay path for your current mode.</string>
     <string name="status_remediation_quic_relay_step_choose_preset">Choose a QUIC-heavy relay preset such as TUIC, Hysteria2, or MASQUE, then rerun analysis.</string>
     <string name="status_remediation_no_hint_title">No reliable relay hint yet</string>
@@ -213,8 +213,8 @@
     <string name="shortcut_diagnostics">Run diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
-    <string name="shortcut_open_config">Open profiles</string>
-    <string name="shortcut_open_config_short">Profiles</string>
+    <string name="shortcut_open_config">Open presets and servers</string>
+    <string name="shortcut_open_config_short">Servers</string>
     <string name="shortcut_open_settings">Open settings</string>
     <string name="shortcut_open_settings_short">Settings</string>
     <string name="qs_tile_label_connected">RIPDPI: Connected</string>
@@ -464,7 +464,7 @@
     <string name="pause_resuming">Resuming connection…</string>
     <string name="pause_cleanup_pending">Connection cleanup is incomplete. Pause is not yet confirmed.</string>
     <string name="pause_deferred">Resume needs attention</string>
-    <string name="pause_saved_settings">Resume uses this mode with your current saved settings. Saved edits keep the pause; Start, Stop, profile activation or deletion cancels it.</string>
+    <string name="pause_saved_settings">Resume uses this mode with your current saved settings. Saved edits keep the pause; Start, Stop, server activation or deletion cancels it.</string>
     <string name="pause_remaining">Minutes remaining: %1$s</string>
     <string name="pause_resume_now">Resume now</string>
     <string name="pause_stop">Stop and cancel resume</string>

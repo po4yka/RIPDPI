@@ -79,7 +79,7 @@
     <string name="warp_route_hosts_title">WARP-Routen-Hostliste</string>
     <string name="warp_scanner_parallelism_body">Maximale Anzahl gleichzeitig zulässiger Endpunkt-Probes.</string>
     <string name="warp_setup_state_body">Aktueller Anmeldungs-/Bereitstellungsstatus für das aktive WARP-Profil.</string>
-    <string name="relay_editor_activation_failed">Dieses Profil konnte nicht aktiviert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.</string>
+    <string name="relay_editor_activation_failed">Dieser Server konnte nicht aktiviert werden. Prüfen Sie die Angaben und versuchen Sie es erneut.</string>
     <!-- AmneziaWG profile editor -->
     <string name="awg_editor_title">AmneziaWG-Server</string>
     <string name="awg_section_interface">Schnittstelle</string>
@@ -132,10 +132,10 @@
     <string name="awg_cohort_replace_title">Verschleierungseinstellungen ersetzen?</string>
     <string name="awg_cohort_replace_body">Diese Vorlage ersetzt alle Verschleierungseinstellungen und entfernt den Schlüssel für den Header-Schutz. Verwenden Sie sie nur bei übereinstimmenden Servereinstellungen.</string>
     <string name="awg_cohort_replace_action">Ersetzen</string>
-    <string name="awg_delete_action">Profil löschen</string>
-    <string name="awg_delete_title">Dieses Profil löschen?</string>
-    <string name="awg_delete_body">Das Profil und seine Schlüssel werden von diesem Gerät entfernt.</string>
-    <string name="awg_delete_failed">Das Profil konnte nicht gelöscht werden. Versuchen Sie es erneut.</string>
+    <string name="awg_delete_action">Server löschen</string>
+    <string name="awg_delete_title">Diesen Server löschen?</string>
+    <string name="awg_delete_body">Der Server und seine Schlüssel werden von diesem Gerät entfernt.</string>
+    <string name="awg_delete_failed">Der Server konnte nicht gelöscht werden. Versuchen Sie es erneut.</string>
     <string name="relay_delete_in_use">Von der aktiven Verbindung verwendet</string>
     <string name="awg_cohort_picker_label">Kohorten-Vorlage</string>
     <string name="awg_cohort_custom">Benutzerdefiniert</string>
@@ -149,7 +149,7 @@
     <string name="awg_connect_error">Verbindung fehlgeschlagen. Prüfen Sie die Serverdaten und versuchen Sie es erneut.</string>
     <string name="awg_field_name">Name</string>
     <string name="awg_save_action">Speichern</string>
-    <string name="awg_save_error">Profil konnte nicht gespeichert werden. Versuche es erneut.</string>
+    <string name="awg_save_error">Server konnte nicht gespeichert werden. Versuche es erneut.</string>
     <string name="awg_saved_hint">Gespeichert.</string>
     <string name="awg_generate_key_action">Schlüsselpaar erzeugen</string>
     <string name="awg_key_generation_error">Schlüsselpaar konnte nicht erzeugt werden. Versuche es erneut.</string>
@@ -208,7 +208,7 @@
     <string name="ssh_reveal_secret_action">Anzeigen</string>
     <string name="ssh_save_action">Speichern</string>
     <string name="outbound_group_fallback">Gruppe #%1$d</string>
-    <string name="outbound_profile_fallback">Profil #%1$d</string>
+    <string name="outbound_profile_fallback">Server #%1$d</string>
     <string name="xray_capability_vpn_privacy_title">VPN-Datenschutz</string>
     <string name="xray_capability_vpn_privacy_desc">Leitet den gesamten Geräteverkehr durch den geschützten Tunnel.</string>
     <string name="xray_capability_relay_title">Relay</string>
@@ -347,7 +347,7 @@
     <string name="subscription_status_last_refresh_format">Letzte Aktualisierung: %1$s</string>
     <string name="subscription_status_token_expiry_format">Tokenablauf: %1$s</string>
     <string name="subscription_status_credential_expiry_format">Zugangsdatenablauf: %1$s</string>
-    <string name="subscription_status_replacement_help">Gespeicherte Profile bleiben nutzbar. Importieren Sie einen neuen Abonnementlink, um Aktualisierungen fortzusetzen.</string>
+    <string name="subscription_status_replacement_help">Gespeicherte Server bleiben nutzbar. Importieren Sie einen neuen Abonnementlink, um Aktualisierungen fortzusetzen.</string>
     <string name="subscription_status_refresh_action">Jetzt aktualisieren</string>
     <string name="subscription_status_active">Aktiv</string>
     <string name="subscription_status_expired">Abgelaufen</string>
@@ -359,17 +359,17 @@
     <string name="subscription_status_delete_action">Löschen</string>
     <string name="subscription_status_delete_title">„%1$s“ löschen?</string>
     <string name="subscription_status_delete_title_unnamed">Dieses Abonnement löschen?</string>
-    <string name="subscription_status_delete_body">Dieses Abonnement und seine Profile werden von diesem Gerät entfernt.</string>
+    <string name="subscription_status_delete_body">Dieses Abonnement und seine Server werden von diesem Gerät entfernt.</string>
     <string name="subscription_status_delete_failed">Löschen fehlgeschlagen</string>
     <string name="subscription_status_url_format">Abonnement-URL: %1$s</string>
     <string name="subscription_status_token_format">Token: %1$s</string>
     <string name="subscription_home_expiring_title">Abonnement läuft bald ab</string>
     <string name="subscription_home_expired_title">Abonnement abgelaufen</string>
-    <string name="subscription_home_expired_body">%1$s kann nicht mehr aktualisiert werden. Vorhandene Profile bleiben verfügbar.</string>
+    <string name="subscription_home_expired_body">%1$s kann nicht mehr aktualisiert werden. Vorhandene Server bleiben verfügbar.</string>
     <string name="subscription_home_invalidated_title">Abonnement nicht verfügbar</string>
-    <string name="subscription_home_invalidated_body">%1$s ist abgelaufen oder wurde widerrufen. Vorhandene Profile bleiben verfügbar.</string>
-    <string name="relay_editor_profile_not_found_title">Profil nicht gefunden</string>
-    <string name="relay_editor_profile_not_found_body">Dieses Profil wurde gelöscht oder der Link, der es geöffnet hat, ist falsch. Gehen Sie zurück und wählen Sie ein Profil aus der Liste.</string>
+    <string name="subscription_home_invalidated_body">%1$s ist abgelaufen oder wurde widerrufen. Vorhandene Server bleiben verfügbar.</string>
+    <string name="relay_editor_profile_not_found_title">Server nicht gefunden</string>
+    <string name="relay_editor_profile_not_found_body">Dieser Server wurde gelöscht oder der Link, der ihn geöffnet hat, ist falsch. Gehen Sie zurück und wählen Sie einen Server aus der Liste.</string>
     <string name="relay_editor_section_credentials">Anmeldedaten</string>
     <string name="relay_editor_save_incomplete_hint">Geben Sie zum Speichern Server, Port und Anmeldedaten ein und korrigieren Sie ungültige Felder.</string>
     <string name="relay_editor_range_helper">Von %1$d bis %2$d</string>
@@ -391,7 +391,7 @@
     <string name="subscription_add_continue">Weiter</string>
     <string name="awg_conf_import_failed_title">Konfiguration nicht importiert</string>
     <string name="awg_conf_import_failed_body">Der Text ist keine gültige WireGuard- oder AmneziaWG-.conf oder verwendet Optionen, die RIPDPI nicht unterstützt.</string>
-    <string name="awg_conf_subscription_server_mismatch_body">Diese Konfiguration gehört zu einem anderen Server als dieses Abonnementprofil. Verwende die Konfiguration für denselben Server.</string>
+    <string name="awg_conf_subscription_server_mismatch_body">Diese Konfiguration gehört zu einem anderen Server als dem gespeicherten Abonnementserver. Verwende die Konfiguration für denselben Server.</string>
     <string name="awg_conf_import_unreadable_body">RIPDPI konnte die Datei nicht lesen. Sie ist leer, größer als 64 KB oder keine Textdatei.</string>
     <string name="awg_conf_extra_peers_title">Nur der erste Peer wird verwendet</string>
     <string name="awg_conf_extra_peers_body">Ignorierte zusätzliche [Peer]-Abschnitte: %1$d. RIPDPI verbindet sich nur über den ersten Peer.</string>
@@ -422,8 +422,8 @@
         <item quantity="other">%1$s läuft in %2$d Tagen ab. Aktualisieren Sie es oder bereiten Sie einen neuen Link vor.</item>
     </plurals>
     <plurals name="subscription_status_profiles_format">
-        <item quantity="one">%1$d zugewiesenes Profil</item>
-        <item quantity="other">%1$d zugewiesene Profile</item>
+        <item quantity="one">%1$d zugewiesener Server</item>
+        <item quantity="other">%1$d zugewiesene Server</item>
     </plurals>
     <string name="xray_import_error_restore_failed">Der aktuelle Xray-Anbieterstatus konnte nicht geladen werden. Vor dem Abschließen erneut versuchen.</string>
     <string name="xray_import_error_typed_unsupported">Dieser Xray-Transport oder diese Sicherheitsoption wird noch nicht unterstützt.</string>

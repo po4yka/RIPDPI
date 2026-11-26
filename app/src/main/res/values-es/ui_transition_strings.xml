@@ -6,6 +6,6 @@
     <string name="runtime_config_preview_dns">DNS</string>
     <string name="runtime_config_preview_strategy">Estrategia de evasión TCP</string>
     <string name="runtime_config_preview_route_unresolved">Se determina al reconectar</string>
-    <string name="runtime_config_preview_note">Este es un resumen parcial de los ajustes guardados. Los perfiles y las rutas se determinan al reconectar. También pueden aplicarse otros cambios guardados. Los valores efectivos se confirman después de reconectar.</string>
+    <string name="runtime_config_preview_note">Este es un resumen parcial de los ajustes guardados. Los servidores y las rutas se determinan al reconectar. También pueden aplicarse otros cambios guardados. Los valores efectivos se confirman después de reconectar.</string>
     <string name="runtime_config_preview_unavailable">No disponible</string>
 </resources>

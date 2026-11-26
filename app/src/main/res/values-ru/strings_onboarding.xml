@@ -2,7 +2,7 @@
 <resources>
     <string name="onboarding_persona_title">Выберите интерфейс</string>
     <string name="onboarding_persona_guided_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
-    <string name="onboarding_persona_advanced_body">Показывать все диагностики, профили и низкоуровневые настройки.</string>
+    <string name="onboarding_persona_advanced_body">Показывать все диагностики, пресеты и низкоуровневые настройки.</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>
     <string name="onboarding_local_first_body">Всё работает на вашем устройстве.</string>
@@ -100,7 +100,7 @@
     <string name="clipboard_label_detection_diagnostics">Диагностика обнаружения</string>
     <string name="clipboard_label_detection_report">Отчёт об обнаружении</string>
     <string name="clipboard_label_detection_markdown_export">Экспорт обнаружения в Markdown</string>
-    <string name="clipboard_label_profile_link">Ссылка на профиль RIPDPI</string>
+    <string name="clipboard_label_profile_link">Ссылка на сервер RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Памятка по настройке RIPDPI</string>
     <string name="clipboard_label_log_entry">Запись журнала</string>
     <string name="biometric_prompt_device_credential_title">Используйте блокировку экрана</string>

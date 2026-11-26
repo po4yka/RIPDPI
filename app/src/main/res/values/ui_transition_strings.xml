@@ -6,6 +6,6 @@
     <string name="runtime_config_preview_dns">DNS</string>
     <string name="runtime_config_preview_strategy">TCP bypass strategy</string>
     <string name="runtime_config_preview_route_unresolved">Resolved when reconnecting</string>
-    <string name="runtime_config_preview_note">This is a partial summary of saved settings. Profiles and routes are resolved when reconnecting. Other saved changes may also apply. Effective values are confirmed after reconnecting.</string>
+    <string name="runtime_config_preview_note">This is a partial summary of saved settings. Servers and routes are resolved when reconnecting. Other saved changes may also apply. Effective values are confirmed after reconnecting.</string>
     <string name="runtime_config_preview_unavailable">Unavailable</string>
 </resources>

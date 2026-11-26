@@ -5,10 +5,10 @@
     <string name="migration_received">Replacement received; path not tested</string>
     <string name="migration_privacy">The receipt stays on this device until you share it. A test checks one path, not every app.</string>
     <string name="migration_url">HTTP(S) test URL</string>
-    <string name="migration_awg_help">For AmneziaWG, connect the imported replacement profile before testing.</string>
+    <string name="migration_awg_help">For AmneziaWG, connect the imported replacement server before testing.</string>
     <string name="migration_check_awg">Test AmneziaWG path %1$d</string>
     <string name="migration_check_relay">Test relay path %1$d</string>
-    <string name="migration_connect_awg">Connect the exact replacement AmneziaWG profile, then retry.</string>
+    <string name="migration_connect_awg">Connect the exact replacement AmneziaWG server, then retry.</string>
     <string name="migration_changed">The delivery, configuration or network changed. Run the test again.</string>
     <string name="migration_invalid">Enter a valid HTTP(S) URL and use a current migration target.</string>
     <string name="migration_failed">The path test did not succeed. No tested receipt was recorded.</string>
