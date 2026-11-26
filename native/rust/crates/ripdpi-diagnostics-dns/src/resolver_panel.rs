@@ -88,6 +88,8 @@ pub enum ResolverReachability {
     Reachable,
     Degraded,
     Blocked,
+    /// Every panel resolver failed on both transports: the local network or the probe is down, which is no evidence about any single resolver.
+    UniversalFailure,
 }
 
 #[derive(Debug, Clone)]
@@ -127,7 +129,8 @@ impl ResolverSurveyRunner {
     where
         F: Fn(&PublicResolver) -> (bool, bool, Option<u32>, Option<u32>),
     {
-        self.panel
+        let mut results: Vec<ResolverSurveyResult> = self
+            .panel
             .iter()
             .map(|resolver| {
                 let (udp_ok, doh_ok, lat_udp, lat_doh) = probe_fn(resolver);
@@ -140,7 +143,14 @@ impl ResolverSurveyRunner {
                     verdict: classify_resolver(udp_ok, doh_ok),
                 }
             })
-            .collect()
+            .collect();
+        // One failing resolver among working ones is blocking evidence; all of them failing is not.
+        if results.len() > 1 && results.iter().all(|r| r.verdict == ResolverReachability::Blocked) {
+            for result in &mut results {
+                result.verdict = ResolverReachability::UniversalFailure;
+            }
+        }
+        results
     }
 }
 
@@ -207,6 +217,26 @@ mod tests {
 
         for r in results.iter().filter(|r| r.resolver != "Cloudflare") {
             assert_eq!(r.verdict, ResolverReachability::Reachable, "{} should be Reachable", r.resolver);
+        }
+    }
+
+    #[test]
+    fn survey_where_every_resolver_fails_is_universal_failure_not_blocked() {
+        let runner = ResolverSurveyRunner::new(ResolverSurveyOptions::default());
+        let results = runner.survey(|_| (false, false, None, None));
+        assert!(results.len() > 1);
+        assert!(results.iter().all(|r| r.verdict == ResolverReachability::UniversalFailure));
+    }
+
+    #[test]
+    fn survey_with_one_working_resolver_keeps_per_resolver_blocked_verdicts() {
+        let runner = ResolverSurveyRunner::new(ResolverSurveyOptions::default());
+        let results =
+            runner.survey(|r| if r.name == "Google" { (true, true, None, None) } else { (false, false, None, None) });
+        for r in &results {
+            let expected =
+                if r.resolver == "Google" { ResolverReachability::Reachable } else { ResolverReachability::Blocked };
+            assert_eq!(r.verdict, expected, "{}", r.resolver);
         }
     }
 
