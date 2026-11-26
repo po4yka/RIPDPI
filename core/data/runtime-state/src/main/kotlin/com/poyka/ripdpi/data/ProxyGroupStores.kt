@@ -559,6 +559,19 @@ interface ProxyGroupRepository {
             group.copy(subscription = transform(subscription))
         }
 
+    suspend fun renameMember(
+        id: String,
+        name: String,
+    ): Boolean {
+        val groupIds = list().filter { group -> group.members.any { it.id == id } }.map { it.id }
+        return groupIds
+            .mapNotNull { groupId ->
+                updateGroup(groupId) { group ->
+                    group.copy(members = group.members.map { if (it.id == id) it.withIdentity(id, name) else it })
+                }
+            }.any { group -> group.members.any { it.id == id } }
+    }
+
     /** Removes the group identified by [id]. No-op when absent. */
     suspend fun delete(
         preparation: ProfileMutationPreparation,

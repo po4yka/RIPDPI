@@ -415,7 +415,8 @@ class ConnectionScreenTest {
                     duplicate = { duplicated += it },
                     delete = { deleted += it },
                 ),
-            vpnProfiles = persistentListOf(RelayProfileUiState("relay", "trojan", "Trojan", "", "")),
+            vpnProfiles =
+                persistentListOf(RelayProfileUiState("relay", "trojan", "Trojan", "", "", name = "Test VLESS")),
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         val row = composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("relay"))
@@ -429,6 +430,7 @@ class ConnectionScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", "duplicate")).performClick()
         openMenu()
         composeRule.onNodeWithTag(RipDpiTestTags.connectionServerAction("relay", "rename")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameField).assertTextContains("Test VLESS")
         composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameField).performTextReplacement("office")
         composeRule.onNodeWithTag(RipDpiTestTags.ServerRenameConfirm).performClick()
         openMenu()

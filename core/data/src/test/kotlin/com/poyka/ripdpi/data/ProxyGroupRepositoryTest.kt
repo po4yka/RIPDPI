@@ -56,6 +56,23 @@ class ProxyGroupRepositoryTest {
         }
 
     @Test
+    fun `renaming a member changes only its name and keeps it in the group`() =
+        runTest {
+            val repository = newRepository()
+
+            fun member(id: String) = ProxyProfile.Trojan(id, "Node $id", "g1", "$id.example.com", 443, "pw")
+            repository.add(group("g1").copy(members = listOf(member("m1"), member("m2"))))
+
+            assertTrue(repository.renameMember("m1", "Office"))
+            assertEquals(false, repository.renameMember("own-server", "Office"))
+
+            val members = repository.list().single().members
+            assertEquals(listOf("m1", "m2"), members.map(ProxyProfile::id))
+            assertEquals(listOf("Office", "Node m2"), members.map(ProxyProfile::displayName))
+            assertEquals(member("m1").copy(displayName = "Office"), members.first())
+        }
+
+    @Test
     fun `atomic subscription update preserves concurrent group fields`() =
         runTest {
             val repository = newRepository()

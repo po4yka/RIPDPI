@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.ExpectedRelayProfileState
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.RelayCatalogMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
@@ -51,6 +52,7 @@ internal class ServerListViewModel
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialRepository,
         private val awgRepository: AwgProfileRepository,
+        private val groups: ProxyGroupRepository,
         private val applied: AppliedRuntimeConfigurationSource,
         private val stringResolver: StringResolver,
     ) : ViewModel() {
@@ -71,11 +73,13 @@ internal class ServerListViewModel
             launchAction(onChanged) {
                 when (server) {
                     is ServerKey.Relay -> {
-                        relayCatalog.renameRelay(
-                            profileMutations.captureMutation(ProfileMutationOrigin.SavedEdit),
-                            server.id,
-                            trimmed,
-                        )
+                        if (!groups.renameMember(server.id, trimmed)) {
+                            relayCatalog.renameRelay(
+                                profileMutations.captureMutation(ProfileMutationOrigin.SavedEdit),
+                                server.id,
+                                trimmed,
+                            )
+                        }
                     }
 
                     is ServerKey.Awg -> {

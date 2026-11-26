@@ -62,6 +62,7 @@ internal fun RelayServerRow(
     ServerRow(
         server = ServerKey.Relay(profile.id),
         name = profile.selectorLabel,
+        renameFrom = profile.name,
         detail = profile.trustLabel,
         kindLabel = profile.kindLabel,
         onOpen = { actions.edit(profile.id) }.takeIf { relayKindHasEditor(profile.kind) },
@@ -123,6 +124,7 @@ private fun ServerRow(
     server: ServerKey,
     name: String,
     detail: String?,
+    renameFrom: String = name,
     kindLabel: String,
     onOpen: (() -> Unit)?,
     onShare: (() -> Unit)?,
@@ -173,7 +175,7 @@ private fun ServerRow(
     }
     if (renaming) {
         RenameServerDialog(
-            currentName = if (server is ServerKey.Awg) name else server.id,
+            currentName = renameFrom,
             onRename = { actions.rename(server, it) },
             onDismiss = { renaming = false },
         )
