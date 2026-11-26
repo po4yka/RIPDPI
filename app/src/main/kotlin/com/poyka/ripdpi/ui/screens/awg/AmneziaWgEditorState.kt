@@ -302,6 +302,18 @@ data class AmneziaWgEditorState(
     /** Whether the current draft can pass the runtime's local input checks. */
     fun isActivatable(): Boolean = activationError == null
 
+    fun blockingFields(): List<AwgEditorField> =
+        if (isActivatable()) {
+            emptyList()
+        } else {
+            AwgEditorField.entries.filter { field ->
+                (field in AwgRequiredFields && rawText(field).isBlank()) ||
+                    hasFieldError(field) ||
+                    conflictingField(field) != null ||
+                    field == runtimeInputField()
+            }
+        }
+
     /**
      * `true` when the obfuscation knobs are mutually consistent and fit the
      * configured MTU. A junk packet sized above the tunnel MTU (or per-message
@@ -514,6 +526,15 @@ private fun AwgProfileForm.applyV3Field(
             this
         }
     }
+
+private val AwgRequiredFields =
+    setOf(
+        AwgEditorField.SERVER,
+        AwgEditorField.SERVER_PORT,
+        AwgEditorField.INTERFACE_PRIVATE_KEY,
+        AwgEditorField.ADDRESS,
+        AwgEditorField.PEER_PUBLIC_KEY,
+    )
 
 internal fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
     mapOf(

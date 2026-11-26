@@ -174,16 +174,16 @@ internal fun AmneziaWgProfileScreen(
         onSave = onConnect,
         modifier = modifier,
         // The connect hint sits at the top; it also reports a failed attempt.
-        hintRes =
+        hint =
             when {
-                connectFailed -> R.string.awg_connect_error
-                uiState.saveFailed -> R.string.awg_save_error
-                uiState.keyGenerationFailed -> R.string.awg_key_generation_error
-                uiState.deleteFailed -> R.string.awg_delete_failed
-                uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
-                uiState.saved -> R.string.awg_saved_hint
-                uiState.canActivate -> R.string.awg_connect_ready_hint
-                else -> R.string.awg_connect_incomplete_hint
+                connectFailed -> stringResource(R.string.awg_connect_error)
+                uiState.saveFailed -> stringResource(R.string.awg_save_error)
+                uiState.keyGenerationFailed -> stringResource(R.string.awg_key_generation_error)
+                uiState.deleteFailed -> stringResource(R.string.awg_delete_failed)
+                uiState.subscriptionServerChanged -> stringResource(R.string.awg_conf_subscription_server_mismatch_body)
+                uiState.saved -> stringResource(R.string.awg_saved_hint)
+                uiState.canActivate -> stringResource(R.string.awg_connect_ready_hint)
+                else -> connectBlockedHint(uiState.editor)
             },
         hintIsError =
             connectFailed || uiState.saveFailed || uiState.keyGenerationFailed || uiState.deleteFailed ||
@@ -301,22 +301,19 @@ private fun AdvancedConnectionSection(
     RipDpiCard {
         PlainField(
             AwgEditorField.DNS,
-            R.string.awg_field_dns,
             editor,
             onFieldChanged,
-            placeholder = stringResource(R.string.awg_dns_placeholder),
+            helperText = stringResource(R.string.awg_example_helper, stringResource(R.string.awg_dns_example)),
         )
         PlainField(
             AwgEditorField.MTU,
-            R.string.awg_field_mtu,
             editor,
             onFieldChanged,
             placeholder = AwgActivationRequest.DEFAULT_MTU.toString(),
         )
-        PlainField(AwgEditorField.PEER_ENDPOINT, R.string.awg_field_peer_endpoint, editor, onFieldChanged)
+        PlainField(AwgEditorField.PEER_ENDPOINT, editor, onFieldChanged)
         PlainField(
             AwgEditorField.ALLOWED_IPS,
-            R.string.awg_field_allowed_ips,
             editor,
             onFieldChanged,
             placeholder = stringResource(R.string.awg_allowed_ips_placeholder),
@@ -340,10 +337,8 @@ private fun AdvancedConnectionSection(
         )
         PlainField(
             AwgEditorField.PERSISTENT_KEEPALIVE,
-            R.string.awg_field_persistent_keepalive,
             editor,
             onFieldChanged,
-            placeholder = stringResource(R.string.awg_keepalive_placeholder),
             helperText = stringResource(R.string.awg_keepalive_helper),
         )
     }
@@ -394,7 +389,6 @@ private fun CarrierSection(
         if (editor.form.carrier == AwgActivationRequest.CARRIER_WS) {
             PlainField(
                 AwgEditorField.CARRIER_WS_URL,
-                R.string.awg_field_carrier_ws_url,
                 editor,
                 onFieldChanged,
             )
@@ -445,19 +439,17 @@ private fun InterfaceSection(
             )
         }
         uiState.generatedPublicKey?.let { AwgPublicKeyField(it) }
-        PlainField(AwgEditorField.SERVER, R.string.awg_field_server, editor, onFieldChanged)
+        PlainField(AwgEditorField.SERVER, editor, onFieldChanged)
         PlainField(
             AwgEditorField.SERVER_PORT,
-            R.string.awg_field_server_port,
             editor,
             onFieldChanged,
         )
         PlainField(
             AwgEditorField.ADDRESS,
-            R.string.awg_field_address,
             editor,
             onFieldChanged,
-            placeholder = stringResource(R.string.awg_address_placeholder),
+            helperText = stringResource(R.string.awg_example_helper, stringResource(R.string.awg_address_example)),
         )
     }
 }
@@ -495,7 +487,7 @@ private fun PeerSection(
     val editor = uiState.editor
     RipDpiCard {
         RipDpiPanelHeader(title = stringResource(R.string.awg_section_peer))
-        PlainField(AwgEditorField.PEER_PUBLIC_KEY, R.string.awg_field_peer_public_key, editor, onFieldChanged)
+        PlainField(AwgEditorField.PEER_PUBLIC_KEY, editor, onFieldChanged)
     }
 }
 
@@ -556,29 +548,28 @@ private fun ObfuscationFields(
 ) {
     val obfuscationFields =
         listOf(
-            AwgEditorField.JC to R.string.awg_field_jc,
-            AwgEditorField.JMIN to R.string.awg_field_jmin,
-            AwgEditorField.JMAX to R.string.awg_field_jmax,
-            AwgEditorField.S1 to R.string.awg_field_s1,
-            AwgEditorField.S2 to R.string.awg_field_s2,
-            AwgEditorField.S3 to R.string.awg_field_s3,
-            AwgEditorField.S4 to R.string.awg_field_s4,
-            AwgEditorField.H1 to R.string.awg_field_h1,
-            AwgEditorField.H2 to R.string.awg_field_h2,
-            AwgEditorField.H3 to R.string.awg_field_h3,
-            AwgEditorField.H4 to R.string.awg_field_h4,
-            AwgEditorField.I1 to R.string.awg_field_i1,
-            AwgEditorField.I2 to R.string.awg_field_i2,
-            AwgEditorField.I3 to R.string.awg_field_i3,
-            AwgEditorField.I4 to R.string.awg_field_i4,
-            AwgEditorField.I5 to R.string.awg_field_i5,
+            AwgEditorField.JC,
+            AwgEditorField.JMIN,
+            AwgEditorField.JMAX,
+            AwgEditorField.S1,
+            AwgEditorField.S2,
+            AwgEditorField.S3,
+            AwgEditorField.S4,
+            AwgEditorField.H1,
+            AwgEditorField.H2,
+            AwgEditorField.H3,
+            AwgEditorField.H4,
+            AwgEditorField.I1,
+            AwgEditorField.I2,
+            AwgEditorField.I3,
+            AwgEditorField.I4,
+            AwgEditorField.I5,
         )
     val spacing = RipDpiThemeTokens.spacing
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        obfuscationFields.forEach { (field, labelRes) ->
+        obfuscationFields.forEach { field ->
             PlainField(
                 field = field,
-                labelRes = labelRes,
                 editor = editor,
                 onFieldChanged = onFieldChanged,
                 enabled = !editor.obfuscationLocked,
@@ -590,7 +581,6 @@ private fun ObfuscationFields(
 @Composable
 internal fun PlainField(
     field: AwgEditorField,
-    labelRes: Int,
     editor: AmneziaWgEditorState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
     placeholder: String? = null,
@@ -603,7 +593,7 @@ internal fun PlainField(
     val value = editor.rawText(field)
     val valueField =
         RelayValueField(
-            label = stringResource(labelRes),
+            label = stringResource(awgFieldLabel(field)),
             placeholder = placeholder,
             helperText = if (managed) stringResource(R.string.awg_field_from_subscription) else helperText,
             errorText =
@@ -689,10 +679,53 @@ private val AwgNumberFields =
         AwgEditorField.S4,
     )
 
-/** Labels of the fields another field can conflict with. */
-private fun awgFieldLabel(field: AwgEditorField): Int =
+@Composable
+private fun connectBlockedHint(editor: AmneziaWgEditorState): String {
+    val labels = editor.blockingFields().map { stringResource(awgFieldLabel(it)) }
+    return if (labels.isEmpty()) {
+        stringResource(R.string.awg_connect_incomplete_hint)
+    } else {
+        stringResource(R.string.awg_connect_blocked_hint, labels.joinToString())
+    }
+}
+
+internal fun awgFieldLabel(field: AwgEditorField): Int =
     when (field) {
+        AwgEditorField.SERVER -> R.string.awg_field_server
+        AwgEditorField.SERVER_PORT -> R.string.awg_field_server_port
+        AwgEditorField.INTERFACE_PRIVATE_KEY -> R.string.awg_field_private_key
+        AwgEditorField.ADDRESS -> R.string.awg_field_address
+        AwgEditorField.DNS -> R.string.awg_field_dns
+        AwgEditorField.MTU -> R.string.awg_field_mtu
+        AwgEditorField.PEER_PUBLIC_KEY -> R.string.awg_field_peer_public_key
+        AwgEditorField.PEER_ENDPOINT -> R.string.awg_field_peer_endpoint
+        AwgEditorField.ALLOWED_IPS -> R.string.awg_field_allowed_ips
+        AwgEditorField.PRESHARED_KEY -> R.string.awg_field_preshared_key
+        AwgEditorField.PERSISTENT_KEEPALIVE -> R.string.awg_field_persistent_keepalive
+        AwgEditorField.CARRIER_WS_URL -> R.string.awg_field_carrier_ws_url
+        AwgEditorField.JC -> R.string.awg_field_jc
         AwgEditorField.JMIN -> R.string.awg_field_jmin
         AwgEditorField.JMAX -> R.string.awg_field_jmax
-        else -> R.string.awg_field_mtu
+        AwgEditorField.S1 -> R.string.awg_field_s1
+        AwgEditorField.S2 -> R.string.awg_field_s2
+        AwgEditorField.S3 -> R.string.awg_field_s3
+        AwgEditorField.S4 -> R.string.awg_field_s4
+        AwgEditorField.H1 -> R.string.awg_field_h1
+        AwgEditorField.H2 -> R.string.awg_field_h2
+        AwgEditorField.H3 -> R.string.awg_field_h3
+        AwgEditorField.H4 -> R.string.awg_field_h4
+        AwgEditorField.I1 -> R.string.awg_field_i1
+        AwgEditorField.I2 -> R.string.awg_field_i2
+        AwgEditorField.I3 -> R.string.awg_field_i3
+        AwgEditorField.I4 -> R.string.awg_field_i4
+        AwgEditorField.I5 -> R.string.awg_field_i5
+        AwgEditorField.HEADER_PROTECTION_KEY -> R.string.awg_field_header_protection_key
+        AwgEditorField.CONTENT_PADDING_ADDITION -> R.string.awg_field_content_padding_addition
+        AwgEditorField.REKEY_AFTER_TIME -> R.string.awg_field_rekey_after_time
+        AwgEditorField.REKEY_TIMEOUT -> R.string.awg_field_rekey_timeout
+        AwgEditorField.REJECT_AFTER_TIME -> R.string.awg_field_reject_after_time
+        AwgEditorField.KEEPALIVE_TIMEOUT -> R.string.awg_field_keepalive_timeout
+        AwgEditorField.MAX_HANDSHAKE_ATTEMPTS -> R.string.awg_field_max_handshake_attempts
+        AwgEditorField.RANDOM_TRAILERS -> R.string.awg_field_random_trailers
+        AwgEditorField.DISABLE_COOKIES -> R.string.awg_field_disable_cookies
     }

@@ -43,19 +43,16 @@ internal fun AwgV3Fields(
             testTag = RipDpiTestTags.awgField(AwgEditorField.HEADER_PROTECTION_KEY.name),
         )
         listOf(
-            AwgEditorField.CONTENT_PADDING_ADDITION to R.string.awg_field_content_padding_addition,
-            AwgEditorField.REKEY_AFTER_TIME to R.string.awg_field_rekey_after_time,
-            AwgEditorField.REKEY_TIMEOUT to R.string.awg_field_rekey_timeout,
-            AwgEditorField.REJECT_AFTER_TIME to R.string.awg_field_reject_after_time,
-            AwgEditorField.KEEPALIVE_TIMEOUT to R.string.awg_field_keepalive_timeout,
-            AwgEditorField.MAX_HANDSHAKE_ATTEMPTS to R.string.awg_field_max_handshake_attempts,
-        ).forEach { (field, label) ->
-            PlainField(field, label, editor, onFieldChanged, enabled = !editor.obfuscationLocked)
+            AwgEditorField.CONTENT_PADDING_ADDITION,
+            AwgEditorField.REKEY_AFTER_TIME,
+            AwgEditorField.REKEY_TIMEOUT,
+            AwgEditorField.REJECT_AFTER_TIME,
+            AwgEditorField.KEEPALIVE_TIMEOUT,
+            AwgEditorField.MAX_HANDSHAKE_ATTEMPTS,
+        ).forEach { field ->
+            PlainField(field, editor, onFieldChanged, enabled = !editor.obfuscationLocked)
         }
-        listOf(
-            AwgEditorField.RANDOM_TRAILERS to R.string.awg_field_random_trailers,
-            AwgEditorField.DISABLE_COOKIES to R.string.awg_field_disable_cookies,
-        ).forEach { (field, label) ->
+        listOf(AwgEditorField.RANDOM_TRAILERS, AwgEditorField.DISABLE_COOKIES).forEach { field ->
             RipDpiSwitch(
                 checked =
                     if (field ==
@@ -66,7 +63,7 @@ internal fun AwgV3Fields(
                         editor.form.v3.disableCookies
                     },
                 onCheckedChange = { onFieldChanged(field, it.toString()) },
-                label = stringResource(label),
+                label = stringResource(awgFieldLabel(field)),
                 enabled = !editor.obfuscationLocked && !editor.isManaged(field),
                 testTag = RipDpiTestTags.awgField(field.name),
             )

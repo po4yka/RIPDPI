@@ -47,7 +47,7 @@ internal fun RelayEditorScaffold(
     onBack: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
-    @StringRes hintRes: Int? = R.string.relay_editor_save_incomplete_hint.takeUnless { status.complete },
+    hint: String? = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { status.complete },
     hintIsError: Boolean = false,
     banner: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
@@ -80,7 +80,7 @@ internal fun RelayEditorScaffold(
             RipDpiCard { RipDpiPanelHeader(title = stringResource(errorRes)) }
         }
         // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
-        RelayEditorHint(hintRes?.let { stringResource(it) }, hintIsError)
+        RelayEditorHint(hint, hintIsError)
         content()
     }
 }

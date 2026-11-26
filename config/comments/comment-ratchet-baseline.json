@@ -1,5 +1,5 @@
 {
- "total": 45586,
+ "total": 45584,
  "files": {
   ".claude/scripts/subagent-stop-audit-log.sh": 20,
   ".github/scripts/check-jni-symbols.sh": 24,
@@ -266,7 +266,7 @@
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgConfImport.kt": 25,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgEditorActivation.kt": 15,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgEditorState.kt": 82,
-  "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgProfileScreen.kt": 30,
+  "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgProfileScreen.kt": 29,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AmneziaWgProfileViewModel.kt": 111,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AwgCohortCatalogProvider.kt": 6,
   "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/awg/AwgConfFileImport.kt": 8,

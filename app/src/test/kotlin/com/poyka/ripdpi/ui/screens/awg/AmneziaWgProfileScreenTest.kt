@@ -455,7 +455,8 @@ class AmneziaWgProfileScreenTest {
 
         listOf(
             app.getString(R.string.relay_editor_range_helper, 1, 65_535),
-            "10.8.0.2/32",
+            app.getString(R.string.awg_example_helper, "10.8.0.2/32"),
+            app.getString(R.string.awg_example_helper, "1.1.1.1, 1.0.0.1"),
             "0.0.0.0/0, ::/0",
             app.getString(R.string.awg_keepalive_helper),
         ).forEach { text ->
@@ -471,14 +472,32 @@ class AmneziaWgProfileScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
             .assertIsNotEnabled()
+        val app = RuntimeEnvironment.getApplication()
+        val identityLabels =
+            listOf(
+                R.string.awg_field_server,
+                R.string.awg_field_server_port,
+                R.string.awg_field_private_key,
+                R.string.awg_field_address,
+                R.string.awg_field_peer_public_key,
+            ).joinToString { app.getString(it) }
+        composeRule.onNodeWithText(app.getString(R.string.awg_connect_blocked_hint, identityLabels)).assertExists()
 
         composeRule.runOnUiThread {
             viewModel.onFieldChanged(AwgEditorField.SERVER, "vpn.example.com")
-            viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820")
+            viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "base64base64base64base64base64base64base64base64==")
             viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, AwgPrivateTestKey)
             viewModel.onFieldChanged(AwgEditorField.PEER_PUBLIC_KEY, AwgPeerTestKey)
             viewModel.onFieldChanged(AwgEditorField.ADDRESS, "10.8.0.2/32")
         }
+
+        composeRule
+            .onNodeWithText(
+                app.getString(R.string.awg_connect_blocked_hint, app.getString(R.string.awg_field_server_port)),
+            ).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
+
+        composeRule.runOnUiThread { viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820") }
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.AwgConnectAction)

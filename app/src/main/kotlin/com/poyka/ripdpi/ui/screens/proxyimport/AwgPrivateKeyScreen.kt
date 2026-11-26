@@ -113,13 +113,13 @@ internal fun AwgPrivateKeyScreen(
         onBack = onBack,
         onSave = onConnect,
         modifier = modifier,
-        hintRes =
+        hint =
             when {
                 connectFailed -> R.string.awg_connect_error
                 uiState.deleteFailed -> R.string.awg_delete_failed
                 uiState.subscriptionServerChanged -> R.string.awg_conf_subscription_server_mismatch_body
                 else -> null
-            },
+            }?.let { stringResource(it) },
         hintIsError = true,
     ) {
         if (uiState.loadingProfile) return@RelayEditorScaffold

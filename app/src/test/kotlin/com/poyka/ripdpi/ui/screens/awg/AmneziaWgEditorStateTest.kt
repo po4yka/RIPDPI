@@ -323,6 +323,29 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
+    fun `blocking fields name the empty required fields and the invalid ones`() {
+        assertEquals(
+            listOf(
+                AwgEditorField.SERVER,
+                AwgEditorField.SERVER_PORT,
+                AwgEditorField.INTERFACE_PRIVATE_KEY,
+                AwgEditorField.ADDRESS,
+                AwgEditorField.PEER_PUBLIC_KEY,
+            ),
+            AmneziaWgEditorState.initial().blockingFields(),
+        )
+        assertEquals(
+            listOf(AwgEditorField.SERVER_PORT),
+            activatableAwgEditor().updateField(AwgEditorField.SERVER_PORT, "70000").blockingFields(),
+        )
+        assertEquals(
+            listOf(AwgEditorField.DNS),
+            activatableAwgEditor().updateField(AwgEditorField.DNS, "vpn.example.com").blockingFields(),
+        )
+        assertEquals(emptyList<AwgEditorField>(), activatableAwgEditor().blockingFields())
+    }
+
+    @Test
     fun `invalid MTU is highlighted even when it is smaller than the padding`() {
         val editor = activatableAwgEditor().updateField(AwgEditorField.S1, "12").updateField(AwgEditorField.MTU, "1")
 
