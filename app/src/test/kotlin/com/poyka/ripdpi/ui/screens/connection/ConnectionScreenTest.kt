@@ -383,6 +383,26 @@ class ConnectionScreenTest {
     }
 
     @Test
+    fun `servers list with only AmneziaWG servers shows them without an empty message`() {
+        setConfigScreen(
+            initialPath = ConnectionPath.Relay,
+            awgServers =
+                persistentListOf(
+                    com.poyka.ripdpi.ui.screens.profiles
+                        .AwgProfileItem("awg-own", "Own", needsPrivateKey = false),
+                ),
+        )
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.connectionAwgServerRow("awg-own"),
+            ).performScrollTo()
+            .assertIsDisplayed()
+        val empty = RuntimeEnvironment.getApplication().getString(R.string.profile_utility_empty)
+        composeRule.onNodeWithText(empty).assertDoesNotExist()
+    }
+
+    @Test
     fun `long press on a server opens rename duplicate share and delete`() {
         val renamed = mutableListOf<Pair<ServerKey, String>>()
         val duplicated = mutableListOf<ServerKey>()
