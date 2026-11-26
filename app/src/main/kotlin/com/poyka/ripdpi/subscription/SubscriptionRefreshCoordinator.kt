@@ -699,10 +699,6 @@ class SubscriptionRefreshCoordinator private constructor(
             profileTitle = profileTitleOf(response.header(ProfileTitleHeader)),
         )
 
-    private fun SingBoxParseResult.Success?.orEmptyAwgCount(): Int = this?.amneziaWgProfiles?.size ?: 0
-
-    private fun Int?.orZero(): Int = this ?: 0
-
     private companion object {
         const val HttpSuccessStart = 200
         const val HttpSuccessEnd = 299
@@ -746,3 +742,7 @@ internal fun profileTitleOf(header: String?): String {
     val bounded = clean.take(MaxProfileTitleLength)
     return if (bounded.lastOrNull()?.isHighSurrogate() == true) bounded.dropLast(1) else bounded
 }
+
+private fun SingBoxParseResult.Success?.orEmptyAwgCount(): Int = this?.amneziaWgProfiles?.size ?: 0
+
+private fun Int?.orZero(): Int = this ?: 0

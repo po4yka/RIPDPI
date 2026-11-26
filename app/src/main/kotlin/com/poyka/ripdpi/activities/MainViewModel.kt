@@ -278,7 +278,7 @@ class MainViewModel
 
         val retryStartupRecovery: () -> Unit = lifecycleOwner::retryStartupRecovery
 
-        fun onStartRequested() {
+        val onStartRequested: () -> Unit = {
             val state = uiState.value
             if (resolvePrimaryConnectionAction(state.connectionState, state.appStatus) ==
                 MainPrimaryConnectionAction.START_CONFIGURED_MODE

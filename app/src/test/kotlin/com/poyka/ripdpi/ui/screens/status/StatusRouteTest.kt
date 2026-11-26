@@ -87,7 +87,6 @@ class StatusRouteTest {
                     onOpenOwnedStackBrowser = {},
                     onOpenLocalBypassConfig = {},
                     onOpenVpnConfig = {},
-                    onOpenVpnPermissionDialog = {},
                     viewModel = viewModel,
                     pauseViewModel = createPauseViewModel(),
                 )

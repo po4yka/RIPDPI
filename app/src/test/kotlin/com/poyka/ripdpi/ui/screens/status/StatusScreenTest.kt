@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -240,7 +241,7 @@ class StatusScreenTest {
             .assertIsDisplayed()
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule.onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsExpanded).assertIsDisplayed()
         composeRule.onAllNodesWithTag(RipDpiTestTags.StatusModesDiagnosticsCollapsed).assertCountEquals(0)
         StatusMode.entries.forEach { mode ->
@@ -249,9 +250,9 @@ class StatusScreenTest {
                 .assertCountEquals(1)
         }
         composeRule.onNodeWithTag(RipDpiTestTags.statusModeCard(StatusMode.Diagnostic.name)).performScrollTo()
-        val bypassTop = cardTop(StatusMode.LocalDpiBypass)
-        val vpnTop = cardTop(StatusMode.RemoteVpn)
-        val diagnosticTop = cardTop(StatusMode.Diagnostic)
+        val bypassTop = composeRule.cardTop(StatusMode.LocalDpiBypass)
+        val vpnTop = composeRule.cardTop(StatusMode.RemoteVpn)
+        val diagnosticTop = composeRule.cardTop(StatusMode.Diagnostic)
         assertTrue(vpnTop > bypassTop)
         assertTrue(diagnosticTop > vpnTop)
         assertEquals(1, primaryConnectionToggles)
@@ -282,15 +283,15 @@ class StatusScreenTest {
             }
         }
 
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.LocalDpiBypass.name))
             .assertCountEquals(0)
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.RemoteVpn.name))
             .assertCountEquals(0)
-        clickHomeNode(RipDpiTestTags.statusModeConfigureAction(StatusMode.LocalDpiBypass.name))
-        clickHomeNode(RipDpiTestTags.statusModeCardBody(StatusMode.RemoteVpn.name))
+        composeRule.clickHomeNode(RipDpiTestTags.statusModeConfigureAction(StatusMode.LocalDpiBypass.name))
+        composeRule.clickHomeNode(RipDpiTestTags.statusModeCardBody(StatusMode.RemoteVpn.name))
 
         assertTrue(bypassOpened)
         assertTrue(vpnOpened)
@@ -397,7 +398,7 @@ class StatusScreenTest {
             }
         }
 
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.Diagnostic.name))
             .performScrollTo()
@@ -480,6 +481,14 @@ class StatusScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsVerificationOpenDiagnosticsAction).performClick()
         assertTrue(openedDiagnostics)
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35])
+class StatusScreenDiagnosticsActionsTest {
+    @get:Rule
+    val composeRule = createComposeRule()
 
     @Test
     fun `pcap toggle hidden when root mode disabled`() {
@@ -511,7 +520,7 @@ class StatusScreenTest {
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
@@ -548,7 +557,7 @@ class StatusScreenTest {
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .performScrollTo()
@@ -591,7 +600,7 @@ class StatusScreenTest {
         composeRule
             .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
-        expandModesAndDiagnostics()
+        composeRule.expandModesAndDiagnostics()
         composeRule
             .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .performScrollTo()
@@ -648,67 +657,65 @@ class StatusScreenTest {
 
         assertEquals("https://example.org:443/", openedBrowserTarget)
     }
+}
 
-    private fun cardTop(mode: StatusMode): Float =
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.statusModeCard(mode.name))
-            .fetchSemanticsNode()
-            .boundsInRoot
-            .top
+private fun ComposeContentTestRule.cardTop(mode: StatusMode): Float =
+    onNodeWithTag(RipDpiTestTags.statusModeCard(mode.name))
+        .fetchSemanticsNode()
+        .boundsInRoot
+        .top
 
-    private fun clickHomeNode(tag: String) {
-        composeRule.onNodeWithTag(tag).performScrollTo().performClick()
-    }
+private fun ComposeContentTestRule.clickHomeNode(tag: String) {
+    onNodeWithTag(tag).performScrollTo().performClick()
+}
 
-    private fun expandModesAndDiagnostics() {
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader)
-            .performScrollTo()
-            .performClick()
-        composeRule.waitForIdle()
-    }
+private fun ComposeContentTestRule.expandModesAndDiagnostics() {
+    onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader)
+        .performScrollTo()
+        .performClick()
+    waitForIdle()
+}
 
-    private fun modeCards(activeMode: StatusMode? = null) =
-        persistentListOf(
-            card(StatusMode.LocalDpiBypass, activeMode = activeMode),
-            card(StatusMode.RemoteVpn, activeMode = activeMode),
-            card(StatusMode.Diagnostic, activeMode = activeMode),
-        )
+private fun modeCards(activeMode: StatusMode? = null) =
+    persistentListOf(
+        card(StatusMode.LocalDpiBypass, activeMode = activeMode),
+        card(StatusMode.RemoteVpn, activeMode = activeMode),
+        card(StatusMode.Diagnostic, activeMode = activeMode),
+    )
 
-    private fun card(
-        mode: StatusMode,
-        activeMode: StatusMode?,
-    ): StatusModeCardUiState {
-        val active = mode == activeMode
-        return StatusModeCardUiState(
-            mode = mode,
-            title =
-                when (mode) {
-                    StatusMode.LocalDpiBypass -> "Local bypass"
-                    StatusMode.RemoteVpn -> "VPN"
-                    StatusMode.Diagnostic -> "Network Diagnostic"
-                },
-            primaryLabel =
-                when (mode) {
-                    StatusMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
-                    StatusMode.RemoteVpn -> "relay.example"
-                    StatusMode.Diagnostic -> "No analysis yet"
-                },
-            statusLine = if (active) "Connected 00:01:00" else "Inactive",
-            primaryActionLabel =
-                when {
-                    mode == StatusMode.Diagnostic -> "Run Scan"
-                    active -> "Disable"
-                    else -> "Enable"
-                },
-            configureLabel =
-                if (mode == StatusMode.Diagnostic) {
-                    "Open Diagnostics"
-                } else {
-                    "Configure"
-                },
-            primaryActionEnabled = true,
-            isActive = active,
-        )
-    }
+private fun card(
+    mode: StatusMode,
+    activeMode: StatusMode?,
+): StatusModeCardUiState {
+    val active = mode == activeMode
+    return StatusModeCardUiState(
+        mode = mode,
+        title =
+            when (mode) {
+                StatusMode.LocalDpiBypass -> "Local bypass"
+                StatusMode.RemoteVpn -> "VPN"
+                StatusMode.Diagnostic -> "Network Diagnostic"
+            },
+        primaryLabel =
+            when (mode) {
+                StatusMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                StatusMode.RemoteVpn -> "relay.example"
+                StatusMode.Diagnostic -> "No analysis yet"
+            },
+        statusLine = if (active) "Connected 00:01:00" else "Inactive",
+        primaryActionLabel =
+            when {
+                mode == StatusMode.Diagnostic -> "Run Scan"
+                active -> "Disable"
+                else -> "Enable"
+            },
+        configureLabel =
+            if (mode == StatusMode.Diagnostic) {
+                "Open Diagnostics"
+            } else {
+                "Configure"
+            },
+        primaryActionEnabled = true,
+        isActive = active,
+    )
 }

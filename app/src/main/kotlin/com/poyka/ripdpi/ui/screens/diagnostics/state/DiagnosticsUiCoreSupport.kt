@@ -98,8 +98,11 @@ internal class DiagnosticsUiCoreSupport
     constructor(
         internal val formatter: DiagnosticsUiFormatter,
         internal val strings: StringResolver,
-        internal val serverNames: ServerNames = ServerNames.None,
-    )
+        internal val serverNames: ServerNames,
+    ) {
+        constructor(formatter: DiagnosticsUiFormatter, strings: StringResolver) :
+            this(formatter, strings, ServerNames.None)
+    }
 
 internal data class DiagnosticsCompletionUiPresentation(
     val completionLabel: String,

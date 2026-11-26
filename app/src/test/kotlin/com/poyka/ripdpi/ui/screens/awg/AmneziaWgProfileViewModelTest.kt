@@ -254,7 +254,7 @@ class AmneziaWgProfileViewModelTest {
     fun `the biometric reveal gate flips the private-key visibility`() {
         val viewModel = fixture.viewModel()
 
-        viewModel.onPrivateKeyRevealAuthorized()
+        viewModel.onSecretRevealAuthorized(AwgSecret.PRIVATE_KEY)
 
         assertTrue(viewModel.uiState.value.privateKeyRevealed)
     }
@@ -263,7 +263,7 @@ class AmneziaWgProfileViewModelTest {
     fun `the biometric reveal gate flips the preshared-key visibility`() {
         val viewModel = fixture.viewModel()
 
-        viewModel.onPresharedKeyRevealAuthorized()
+        viewModel.onSecretRevealAuthorized(AwgSecret.PRESHARED_KEY)
 
         assertTrue(viewModel.uiState.value.presharedKeyRevealed)
     }
@@ -302,11 +302,11 @@ class AmneziaWgProfileViewModelTest {
         vm.onCohortSelected("rtk_south")
         assertEquals(before, vm.uiState.value.editor)
         assertEquals("rtk_south", vm.uiState.value.pendingCohortId)
-        vm.onCohortReplacementCancelled()
+        vm.onCohortReplacementResolved(confirmed = false)
         assertNull(vm.uiState.value.pendingCohortId)
         assertEquals(before, vm.uiState.value.editor)
         vm.onCohortSelected("rtk_south")
-        vm.onCohortReplacementConfirmed()
+        vm.onCohortReplacementResolved(confirmed = true)
         val replaced = vm.uiState.value.editor
         assertNull(vm.uiState.value.pendingCohortId)
         assertFalse(replaced.form.v3.isSet)
@@ -350,11 +350,11 @@ class AmneziaWgProfileViewModelTest {
                     .request.obfuscation.v3,
             )
             assertTrue(fixture.dao.allProfiles().none { it.requestJson.contains(key) })
-            vm.onHeaderProtectionKeyRevealAuthorized()
+            vm.onSecretRevealAuthorized(AwgSecret.HEADER_PROTECTION_KEY)
             assertTrue(vm.uiState.value.headerProtectionKeyRevealed)
             vm.onSecretsRelocked()
             assertFalse(vm.uiState.value.headerProtectionKeyRevealed)
-            vm.onHeaderProtectionKeyRevealAuthorized()
+            vm.onSecretRevealAuthorized(AwgSecret.HEADER_PROTECTION_KEY)
             vm.onConfPasted(
                 "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
                     "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820",

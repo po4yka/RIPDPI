@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.journeys.tagExists
 import com.poyka.ripdpi.ui.journeys.waitForTag
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.BackupTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 /** Settings rows that open the routing and maintenance screens. */
@@ -142,13 +143,13 @@ internal class RememberedNetworksPage(
 internal class BackupRestorePage(
     rule: JourneyRule,
 ) : JourneyPage<BackupRestorePage>(rule, RipDpiTestTags.screen(Route.BackupRestore)) {
-    val exportButton = RipDpiTestTags.BackupExportButton
-    val variantShare = RipDpiTestTags.BackupVariantShare
-    val snackbar = RipDpiTestTags.BackupExportSnackbar
-    val importButton = RipDpiTestTags.BackupImportButton
-    val importPreview = RipDpiTestTags.BackupImportPreviewSheet
-    val importRoutes = RipDpiTestTags.BackupImportToggleRoutes
-    val importConfirm = RipDpiTestTags.BackupImportConfirm
+    val exportButton = BackupTestTags.BackupExportButton
+    val variantShare = BackupTestTags.BackupVariantShare
+    val snackbar = BackupTestTags.BackupExportSnackbar
+    val importButton = BackupTestTags.BackupImportButton
+    val importPreview = BackupTestTags.BackupImportPreviewSheet
+    val importRoutes = BackupTestTags.BackupImportToggleRoutes
+    val importConfirm = BackupTestTags.BackupImportConfirm
 
     /**
      * Waits until the node with [tag] or one of its descendants shows [text]. The import preview is

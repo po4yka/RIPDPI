@@ -13,22 +13,23 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.history.HistorySection
 import com.poyka.ripdpi.ui.screens.logs.LogSeverity
 import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
+import com.poyka.ripdpi.ui.testing.LogsTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 internal class LogsPage(
     rule: JourneyRule,
-) : JourneyPage<LogsPage>(rule, RipDpiTestTags.LogsScreen) {
-    val filters = RipDpiTestTags.LogsFilters
-    val filtersSheet = RipDpiTestTags.LogsFiltersSheet
-    val sheetDone = RipDpiTestTags.LogsSheetDone
-    val actions = RipDpiTestTags.LogsActions
-    val save = RipDpiTestTags.LogsSave
-    val clear = RipDpiTestTags.LogsClear
-    val clearConfirm = RipDpiTestTags.LogsClearConfirm
-    val stream = RipDpiTestTags.LogsStream
-    val emptyState = RipDpiTestTags.LogsEmptyState
-    val autoScroll = RipDpiTestTags.LogsAutoScroll
-    val activeSessionOnly = RipDpiTestTags.LogsActiveSessionOnly
+) : JourneyPage<LogsPage>(rule, LogsTestTags.LogsScreen) {
+    val filters = LogsTestTags.LogsFilters
+    val filtersSheet = LogsTestTags.LogsFiltersSheet
+    val sheetDone = LogsTestTags.LogsSheetDone
+    val actions = LogsTestTags.LogsActions
+    val save = LogsTestTags.LogsSave
+    val clear = LogsTestTags.LogsClear
+    val clearConfirm = LogsTestTags.LogsClearConfirm
+    val stream = LogsTestTags.LogsStream
+    val emptyState = LogsTestTags.LogsEmptyState
+    val autoScroll = LogsTestTags.LogsAutoScroll
+    val activeSessionOnly = LogsTestTags.LogsActiveSessionOnly
 
     fun subsystemFilter(subsystem: LogSubsystem): String = RipDpiTestTags.logsSubsystemFilter(subsystem)
 

@@ -25,7 +25,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.WarpTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -53,14 +53,14 @@ internal fun WarpProfileSetupRows(
         onClick = { confirmation = WarpSetupOperation.Registration },
         enabled = enabled && !state.busy,
         showDivider = true,
-        testTag = RipDpiTestTags.WarpCreateProfile,
+        testTag = WarpTestTags.WarpCreateProfile,
     )
     SettingsRow(
         title = stringResource(R.string.warp_import_profile),
         onClick = { confirmation = WarpSetupOperation.Import },
         enabled = enabled && !state.busy,
         showDivider = true,
-        testTag = RipDpiTestTags.WarpImportProfile,
+        testTag = WarpTestTags.WarpImportProfile,
     )
     if (state.busy) WarpSetupProgress(state, onCancelSetup)
     WarpSetupResult(state)
@@ -80,7 +80,7 @@ private fun WarpProfileSetupConfirmation(
         confirmAction =
             RipDpiDialogAction(
                 label = stringResource(if (registering) R.string.warp_register_action else R.string.warp_choose_file),
-                testTag = RipDpiTestTags.WarpSetupConfirm,
+                testTag = WarpTestTags.WarpSetupConfirm,
                 onClick = onConfirm,
             ),
         visuals =
@@ -90,7 +90,7 @@ private fun WarpProfileSetupConfirmation(
                         if (registering) R.string.warp_registration_consequence else R.string.warp_import_consequence,
                     ),
             ),
-        dialogTestTag = RipDpiTestTags.WarpSetupConfirmation,
+        dialogTestTag = WarpTestTags.WarpSetupConfirmation,
     )
 }
 
@@ -106,7 +106,7 @@ private fun WarpSetupResult(state: WarpEnrollmentUiState) {
     resultResource?.let { message ->
         val failed = state.failure != null
         val colors = RipDpiThemeTokens.colors
-        val resultTag = if (failed) RipDpiTestTags.WarpSetupError else RipDpiTestTags.WarpSetupStatus
+        val resultTag = if (failed) WarpTestTags.WarpSetupError else WarpTestTags.WarpSetupStatus
         Text(
             text = stringResource(message),
             style = RipDpiThemeTokens.type.body,
@@ -157,7 +157,7 @@ private fun WarpSetupProgress(
                 style = RipDpiThemeTokens.type.body,
                 modifier =
                     Modifier
-                        .ripDpiTestTag(RipDpiTestTags.WarpSetupStatus)
+                        .ripDpiTestTag(WarpTestTags.WarpSetupStatus)
                         .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
@@ -166,7 +166,7 @@ private fun WarpSetupProgress(
             onClick = onCancelSetup,
             variant = RipDpiButtonVariant.Ghost,
             enabled = !state.cancellationRequested,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.WarpSetupCancel),
+            modifier = Modifier.ripDpiTestTag(WarpTestTags.WarpSetupCancel),
         )
     }
 }

@@ -9,7 +9,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.WarpTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test
@@ -42,17 +42,17 @@ class WarpProfileSetupRowsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupStatus).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpCreateProfile).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupConfirmation).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupStatus).assertDoesNotExist()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupStatus).assertDoesNotExist()
+        composeRule.onNodeWithTag(WarpTestTags.WarpCreateProfile).performClick()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupConfirmation).assertExists()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupStatus).assertDoesNotExist()
         composeRule.onNodeWithText("Cancel").performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupConfirmation).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupStatus).assertDoesNotExist()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupConfirmation).assertDoesNotExist()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupStatus).assertDoesNotExist()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpCreateProfile).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupConfirm).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupConfirmation).assertDoesNotExist()
+        composeRule.onNodeWithTag(WarpTestTags.WarpCreateProfile).performClick()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupConfirm).performClick()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupConfirmation).assertDoesNotExist()
         composeRule.onNodeWithText("Profile saved").assertExists()
     }
 
@@ -76,9 +76,9 @@ class WarpProfileSetupRowsTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpCreateProfile).assertIsNotEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpImportProfile).assertIsNotEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.WarpSetupCancel).assertIsNotEnabled()
+        composeRule.onNodeWithTag(WarpTestTags.WarpCreateProfile).assertIsNotEnabled()
+        composeRule.onNodeWithTag(WarpTestTags.WarpImportProfile).assertIsNotEnabled()
+        composeRule.onNodeWithTag(WarpTestTags.WarpSetupCancel).assertIsNotEnabled()
         composeRule
             .onNodeWithText("Waiting for the request to finish. The registration may already exist at Cloudflare.")
             .assertExists()

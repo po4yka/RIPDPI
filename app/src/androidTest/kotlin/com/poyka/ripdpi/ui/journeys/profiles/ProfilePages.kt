@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.journeys.tagStartingWith
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 private const val ProfileRowPrefix = "connection-relay-profile-row-"
@@ -138,7 +139,7 @@ internal class SshEditorPage(
 internal class AmneziaWgEditorPage(
     rule: JourneyRule,
 ) : JourneyPage<AmneziaWgEditorPage>(rule, RipDpiTestTags.screen(Route.AmneziaWgProfile())) {
-    val connect = RipDpiTestTags.AwgConnectAction
+    val connect = AwgTestTags.AwgConnectAction
 
     fun field(field: AwgEditorField): String = RipDpiTestTags.awgField(field.name)
 

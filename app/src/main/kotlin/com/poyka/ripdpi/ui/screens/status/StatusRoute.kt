@@ -19,7 +19,6 @@ fun StatusRoute(
     onOpenOwnedStackBrowser: (String) -> Unit,
     onOpenLocalBypassConfig: () -> Unit,
     onOpenVpnConfig: () -> Unit,
-    onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
     onAddServer: (() -> Unit)? = null,
     pauseViewModel: com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel =
@@ -63,7 +62,7 @@ fun StatusRoute(
         onOpenModeEditor = onOpenModeEditor,
         onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         onRepairPermission = { kind -> viewModel.onRepairPermissionRequested(kind, resumeLocalNetworkAction = true) },
-        onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+        onOpenVpnPermissionDialog = remember(viewModel) { viewModel::onOpenVpnPermissionRequested },
         onAddServer = onAddServer,
         onTogglePcapRecording = remember(viewModel) { viewModel::onToggleHomePcapRecording },
         onDismissBatteryBanner = remember(viewModel) { viewModel::onDismissBatteryBanner },

@@ -59,6 +59,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.testing.BackupTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -415,7 +416,7 @@ internal fun BackupRestoreEffectHandler(
                     snackbarHostState.showRipDpiSnackbar(
                         message = restoredMessage,
                         tone = RipDpiSnackbarTone.Info,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                        testTag = BackupTestTags.BackupExportSnackbar,
                     )
                 }
                 onRestart()
@@ -425,7 +426,7 @@ internal fun BackupRestoreEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = String.format(unsupportedVersionTemplate, effect.found, effect.supported),
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
 
@@ -433,7 +434,7 @@ internal fun BackupRestoreEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = if (effect == BackupArchiveTooLarge) tooLargeMessage else malformedMessage,
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
 
@@ -441,7 +442,7 @@ internal fun BackupRestoreEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = decryptionFailedMessage,
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
 
@@ -449,7 +450,7 @@ internal fun BackupRestoreEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = nothingSelectedMessage,
                     tone = RipDpiSnackbarTone.Warning,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
         }
@@ -473,7 +474,7 @@ private fun BackupResetEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = failedMessage,
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
         }
@@ -498,7 +499,7 @@ private fun BackupResetConfirmationDialog(
     com.poyka.ripdpi.ui.components.feedback.RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.backup_reset_dialog_title),
-        dialogTestTag = RipDpiTestTags.BackupResetDialog,
+        dialogTestTag = BackupTestTags.BackupResetDialog,
         visuals =
             com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals(
                 message =
@@ -514,7 +515,7 @@ private fun BackupResetConfirmationDialog(
                     label = stringResource(R.string.backup_reset_confirm_action),
                     destructive = true,
                     onClick = onConfirm,
-                    testTag = RipDpiTestTags.BackupResetConfirm,
+                    testTag = BackupTestTags.BackupResetConfirm,
                 )
             } else {
                 null
@@ -531,7 +532,7 @@ private fun BackupResetConfirmationDialog(
             decoration =
                 com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration(
                     placeholder = com.poyka.ripdpi.backup.ResetConfirmationToken,
-                    testTag = RipDpiTestTags.BackupResetConfirmationField,
+                    testTag = BackupTestTags.BackupResetConfirmationField,
                 ),
             behavior =
                 com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior(
@@ -630,7 +631,7 @@ private fun BackupShareEffectHandler(
                     snackbarHostState.showRipDpiSnackbar(
                         message = shareUnavailableMessage,
                         tone = RipDpiSnackbarTone.Error,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                        testTag = BackupTestTags.BackupExportSnackbar,
                     )
                 }
             }
@@ -640,7 +641,7 @@ private fun BackupShareEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = if (effect == BackupArchiveTooLarge) tooLargeMessage else failedMessage,
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
         }
@@ -655,7 +656,7 @@ private fun BackupShareReminderDialog(
     com.poyka.ripdpi.ui.components.feedback.RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.backup_share_reminder_title),
-        dialogTestTag = RipDpiTestTags.BackupShareReminderDialog,
+        dialogTestTag = BackupTestTags.BackupShareReminderDialog,
         visuals =
             com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals(
                 message = stringResource(R.string.backup_share_reminder_body),
@@ -697,20 +698,20 @@ private fun BackupExportEffectHandler(
                             message = message,
                             tone = RipDpiSnackbarTone.Info,
                             actionLabel = shareActionLabel,
-                            testTag = RipDpiTestTags.BackupExportSnackbar,
+                            testTag = BackupTestTags.BackupExportSnackbar,
                         )
                     if (result == SnackbarResult.ActionPerformed && !onShare()) {
                         snackbarHostState.showRipDpiSnackbar(
                             message = shareUnavailableMessage,
                             tone = RipDpiSnackbarTone.Error,
-                            testTag = RipDpiTestTags.BackupExportSnackbar,
+                            testTag = BackupTestTags.BackupExportSnackbar,
                         )
                     }
                 } else {
                     snackbarHostState.showRipDpiSnackbar(
                         message = message,
                         tone = RipDpiSnackbarTone.Info,
-                        testTag = RipDpiTestTags.BackupExportSnackbar,
+                        testTag = BackupTestTags.BackupExportSnackbar,
                     )
                 }
             }
@@ -719,7 +720,7 @@ private fun BackupExportEffectHandler(
                 snackbarHostState.showRipDpiSnackbar(
                     message = if (effect == BackupArchiveTooLarge) tooLargeMessage else failedMessage,
                     tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                    testTag = BackupTestTags.BackupExportSnackbar,
                 )
             }
 
@@ -756,7 +757,7 @@ private fun BackupExportCard(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.BackupExportButton),
+                            .ripDpiTestTag(BackupTestTags.BackupExportButton),
                     loading = state.exporting,
                     enabled = !state.exporting && !state.exportDisabledByPolicy,
                     leadingIcon = RipDpiIcons.Share,
@@ -769,7 +770,7 @@ private fun BackupExportCard(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.BackupShareButton),
+                            .ripDpiTestTag(BackupTestTags.BackupShareButton),
                     variant = RipDpiButtonVariant.Outline,
                     loading = state.sharing,
                     enabled = !state.sharing && !state.exportDisabledByPolicy,
@@ -806,7 +807,7 @@ private fun BackupResetCard(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.BackupResetButton),
+                            .ripDpiTestTag(BackupTestTags.BackupResetButton),
                     variant = RipDpiButtonVariant.Destructive,
                     loading = state.resetting,
                     enabled = !state.resetting,
@@ -837,7 +838,7 @@ private fun BackupImportCard(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.BackupImportButton),
+                            .ripDpiTestTag(BackupTestTags.BackupImportButton),
                     variant = RipDpiButtonVariant.Outline,
                     loading = state.importing,
                     enabled = !state.importing && !state.restoring,
@@ -942,7 +943,7 @@ private fun BackupImportPreviewSheet(
                 summary.appVersion,
             ),
         icon = RipDpiIcons.Logs,
-        testTag = RipDpiTestTags.BackupImportPreviewSheet,
+        testTag = BackupTestTags.BackupImportPreviewSheet,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             // SHARE backups cannot restore profiles: surface that honestly.
@@ -977,7 +978,7 @@ private fun BackupImportPreviewSheet(
                     ),
                 helperText = stringResource(R.string.backup_import_category_unchecked_hint),
                 enabled = !restoring && summary.canRestoreProfilesAndGroups,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleProfiles),
+                modifier = Modifier.ripDpiTestTag(BackupTestTags.BackupImportToggleProfiles),
             )
             // Routes category.
             RipDpiSwitch(
@@ -985,7 +986,7 @@ private fun BackupImportPreviewSheet(
                 onCheckedChange = onRoutesToggle,
                 label = stringResource(R.string.backup_import_category_routes, summary.ruleCount),
                 enabled = !restoring && summary.ruleCount > 0,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleRoutes),
+                modifier = Modifier.ripDpiTestTag(BackupTestTags.BackupImportToggleRoutes),
             )
             // Settings category.
             RipDpiSwitch(
@@ -993,7 +994,7 @@ private fun BackupImportPreviewSheet(
                 onCheckedChange = onSettingsToggle,
                 label = stringResource(R.string.backup_import_category_settings, summary.settingCount),
                 enabled = !restoring && summary.settingCount > 0,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.BackupImportToggleSettings),
+                modifier = Modifier.ripDpiTestTag(BackupTestTags.BackupImportToggleSettings),
             )
             RipDpiButton(
                 text = stringResource(R.string.backup_import_confirm_action),
@@ -1001,7 +1002,7 @@ private fun BackupImportPreviewSheet(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.BackupImportConfirm),
+                        .ripDpiTestTag(BackupTestTags.BackupImportConfirm),
                 variant = RipDpiButtonVariant.Destructive,
                 loading = restoring,
                 enabled = !restoring && selection.any,
@@ -1022,7 +1023,7 @@ internal fun BackupVariantPickerSheet(
         title = stringResource(R.string.backup_variant_picker_title),
         message = stringResource(R.string.backup_variant_picker_body),
         icon = RipDpiIcons.Share,
-        testTag = RipDpiTestTags.BackupVariantSheet,
+        testTag = BackupTestTags.BackupVariantSheet,
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
             // SHARE is the safe default: presented first, primary button.
@@ -1032,7 +1033,7 @@ internal fun BackupVariantPickerSheet(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.BackupVariantShare),
+                        .ripDpiTestTag(BackupTestTags.BackupVariantShare),
                 variant = RipDpiButtonVariant.Primary,
                 leadingIcon = RipDpiIcons.Share,
             )
@@ -1053,7 +1054,7 @@ internal fun BackupVariantPickerSheet(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.BackupVariantFull),
+                        .ripDpiTestTag(BackupTestTags.BackupVariantFull),
                 variant = RipDpiButtonVariant.Destructive,
                 leadingIcon = RipDpiIcons.Lock,
             )

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.ui.screens.settings.ActivationWindowDimension
 import com.poyka.ripdpi.ui.screens.settings.AdvancedOptionSetting
 import com.poyka.ripdpi.ui.screens.settings.AdvancedTextSetting
 import com.poyka.ripdpi.ui.screens.settings.AdvancedToggleSetting
+import com.poyka.ripdpi.ui.testing.LogsTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 private const val ProfileRowPrefix = "connection-relay-profile-row-"
@@ -141,7 +142,7 @@ internal class SettingsPage(
 
 internal class LogsEntryPage(
     rule: JourneyRule,
-) : JourneyPage<LogsEntryPage>(rule, RipDpiTestTags.LogsScreen)
+) : JourneyPage<LogsEntryPage>(rule, LogsTestTags.LogsScreen)
 
 internal class AppCustomizationPage(
     rule: JourneyRule,

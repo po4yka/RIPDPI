@@ -149,7 +149,6 @@ private fun NavGraphBuilder.addHomeRoute(
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
             onOpenLocalBypassConfig = { navController.navigateConnectionSubRoute(Route.ConnectionDirect) },
             onOpenVpnConfig = { navController.navigateConnectionSubRoute(Route.ConnectionRelay) },
-            onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
             pauseViewModel = pauseViewModel,
         )

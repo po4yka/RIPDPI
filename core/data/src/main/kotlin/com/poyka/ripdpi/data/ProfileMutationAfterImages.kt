@@ -88,9 +88,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is AwgDeleteIntent -> {
-                if (rows.selection.awg() == intent.profileId) rows.selection.setAwg(null)
-                rows.awgCredentials.clear(intent.profileId)
-                rows.awgProfiles.getProfile(intent.profileId)?.let(rows.awgProfiles::deleteProfile)
+                rows.deleteAwg(intent)
             }
 
             is RelayUpsertIntent -> {
@@ -103,7 +101,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is RelayRenameIntent -> {
-                renameRelay(intent)
+                rows.renameRelay(intent)
             }
 
             is WarpUpsertIntent -> {
@@ -111,10 +109,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is WarpDeleteIntent -> {
-                if (intent.clearActive) clearWarp()
-                rows.warpEndpoints.clearProfile(intent.profileId)
-                rows.warpCredentials.clear(intent.profileId)
-                rows.warpProfiles.remove(intent.profileId)
+                rows.deleteWarp(intent)
             }
 
             is WarpDeactivateIntent -> {
@@ -126,7 +121,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is XrayProviderSelectIntent -> {
-                selectXray(intent)
+                rows.selectXray(intent)
             }
 
             is MeasuredUtilitySelectionIntent -> {
@@ -134,7 +129,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is StandaloneAwgSelectIntent -> {
-                selectStandaloneAwg(intent)
+                rows.selectStandaloneAwg(intent)
             }
 
             is StandaloneAwgCompensateIntent -> {
@@ -146,7 +141,7 @@ internal class ProfileMutationRowWriter(
             }
 
             is SelectorSelectIntent -> {
-                selectSelector(intent)
+                rows.selectSelector(intent)
             }
 
             is SubscriptionRefreshIntent -> {
@@ -159,24 +154,11 @@ internal class ProfileMutationRowWriter(
         }
     }
 
-    private fun renameRelay(intent: RelayRenameIntent) {
-        val profile = rows.relayProfiles.load(intent.profileId) ?: return
-        rows.relayCredentials.load(intent.profileId)?.let {
-            rows.relayCredentials.save(it.copy(profileId = intent.newProfileId))
-        }
-        rows.relayProfiles.save(profile.copy(id = intent.newProfileId))
-        rows.relayCredentials.clear(intent.profileId)
-        rows.relayProfiles.clear(intent.profileId)
-        if (rows.settings.snapshot().relayProfileId == intent.profileId) {
-            rows.settings.update { relayProfileId = intent.newProfileId }
-        }
-    }
-
     private fun deactivateWarp(intent: WarpDeactivateIntent) {
         if (rows.warpProfiles.activeProfileId() == intent.profileId ||
             rows.settings.snapshot().warpProfileId == intent.profileId
         ) {
-            clearWarp()
+            rows.clearWarp()
         }
     }
 
@@ -227,24 +209,6 @@ internal class ProfileMutationRowWriter(
             }
     }
 
-    private fun selectXray(intent: XrayProviderSelectIntent) {
-        intent.records?.let {
-            rows.xrayMetadata.save(it.metadata)
-            rows.xraySecrets.save(it.secret)
-        }
-        rows.selection.setActiveGroup(null)
-        rows.selection.setXray(intent.selection)
-        rows.settings.update { setRipdpiMode(intent.modeAfterImage) }
-    }
-
-    private fun selectStandaloneAwg(intent: StandaloneAwgSelectIntent) {
-        rows.warpProfiles.setActiveProfileId(null)
-        rows.settings.update { setWarpEnabled(false) }
-        rows.selection.setActiveGroup(null)
-        rows.selection.setAwg(intent.profileId)
-        rows.selection.setXray(XrayProviderSelectionRecord())
-    }
-
     private fun compensateStandaloneAwg(intent: StandaloneAwgCompensateIntent) {
         if (matchesOwner(intent.authority, intent.commandId) &&
             rows.selection.awg() == intent.expectedProfileId
@@ -263,18 +227,6 @@ internal class ProfileMutationRowWriter(
         ) {
             rows.selection.setAwg(null)
         }
-    }
-
-    private fun selectSelector(intent: SelectorSelectIntent) {
-        rows.warpProfiles.setActiveProfileId(null)
-        rows.settings.update {
-            setRipdpiMode(intent.mode)
-            setWarpEnabled(false)
-        }
-        rows.selection.setXray(XrayProviderSelectionRecord())
-        rows.selection.setAwg(null)
-        rows.selection.setChoice(intent.groupId, intent.memberId, true)
-        rows.selection.setActiveGroup(intent.groupId)
     }
 
     fun applyOwned(
@@ -362,11 +314,6 @@ internal class ProfileMutationRowWriter(
                 rows.settings.update { setWarpAccountKind(accountKind) }
             }
         }
-    }
-
-    private fun clearWarp() {
-        rows.warpProfiles.setActiveProfileId(null)
-        rows.settings.update { clearWarpAfterImage() }
     }
 
     private fun replacePrivate(intent: PrivateBackupReplaceIntent) {
@@ -654,4 +601,65 @@ internal data class StandaloneAwgClearIntent(
     val expectedProfileId: String,
 ) : ProfileMutationIntent {
     override val family = ProfileMutationFamily.Awg
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.renameRelay(intent: RelayRenameIntent) {
+    val profile = relayProfiles.load(intent.profileId) ?: return
+    relayCredentials.load(intent.profileId)?.let {
+        relayCredentials.save(it.copy(profileId = intent.newProfileId))
+    }
+    relayProfiles.save(profile.copy(id = intent.newProfileId))
+    relayCredentials.clear(intent.profileId)
+    relayProfiles.clear(intent.profileId)
+    if (settings.snapshot().relayProfileId == intent.profileId) {
+        settings.update { relayProfileId = intent.newProfileId }
+    }
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.selectXray(intent: XrayProviderSelectIntent) {
+    intent.records?.let {
+        xrayMetadata.save(it.metadata)
+        xraySecrets.save(it.secret)
+    }
+    selection.setActiveGroup(null)
+    selection.setXray(intent.selection)
+    settings.update { setRipdpiMode(intent.modeAfterImage) }
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.selectStandaloneAwg(intent: StandaloneAwgSelectIntent) {
+    warpProfiles.setActiveProfileId(null)
+    settings.update { setWarpEnabled(false) }
+    selection.setActiveGroup(null)
+    selection.setAwg(intent.profileId)
+    selection.setXray(XrayProviderSelectionRecord())
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.selectSelector(intent: SelectorSelectIntent) {
+    warpProfiles.setActiveProfileId(null)
+    settings.update {
+        setRipdpiMode(intent.mode)
+        setWarpEnabled(false)
+    }
+    selection.setXray(XrayProviderSelectionRecord())
+    selection.setAwg(null)
+    selection.setChoice(intent.groupId, intent.memberId, true)
+    selection.setActiveGroup(intent.groupId)
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.clearWarp() {
+    warpProfiles.setActiveProfileId(null)
+    settings.update { clearWarpAfterImage() }
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.deleteAwg(intent: AwgDeleteIntent) {
+    if (selection.awg() == intent.profileId) selection.setAwg(null)
+    awgCredentials.clear(intent.profileId)
+    awgProfiles.getProfile(intent.profileId)?.let(awgProfiles::deleteProfile)
+}
+
+private fun com.poyka.ripdpi.data.persistence.ProfileRows.deleteWarp(intent: WarpDeleteIntent) {
+    if (intent.clearActive) clearWarp()
+    warpEndpoints.clearProfile(intent.profileId)
+    warpCredentials.clear(intent.profileId)
+    warpProfiles.remove(intent.profileId)
 }

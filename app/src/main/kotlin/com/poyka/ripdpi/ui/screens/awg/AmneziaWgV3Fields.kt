@@ -63,7 +63,7 @@ internal fun AwgV3Fields(
                         editor.form.v3.disableCookies
                     },
                 onCheckedChange = { onFieldChanged(field, it.toString()) },
-                label = stringResource(awgFieldLabel(field)),
+                label = stringResource(field.label),
                 enabled = !editor.obfuscationLocked && !editor.isManaged(field),
                 testTag = RipDpiTestTags.awgField(field.name),
             )

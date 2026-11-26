@@ -39,6 +39,7 @@ import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.coroutines.flow.Flow
@@ -131,9 +132,7 @@ class AmneziaWgProfileScreenTest {
             }
         }
         composeRule.runOnIdle {
-            viewModel.onPrivateKeyRevealAuthorized()
-            viewModel.onPresharedKeyRevealAuthorized()
-            viewModel.onHeaderProtectionKeyRevealAuthorized()
+            AwgSecret.entries.forEach(viewModel::onSecretRevealAuthorized)
         }
 
         composeRule.runOnIdle { owner.moveTo(Lifecycle.State.CREATED) }
@@ -280,7 +279,7 @@ class AmneziaWgProfileScreenTest {
         }
         composeRule.runOnIdle { assertNull(registry.launchedIntent) }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performClick()
+        composeRule.onNodeWithTag(AwgTestTags.AwgConnectAction).performClick()
 
         composeRule.runOnIdle {
             assertEquals("test.awg.vpn.consent", registry.launchedIntent?.action)
@@ -470,7 +469,7 @@ class AmneziaWgProfileScreenTest {
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
+            .onNodeWithTag(AwgTestTags.AwgConnectAction)
             .assertIsNotEnabled()
         val app = RuntimeEnvironment.getApplication()
         val identityLabels =
@@ -495,12 +494,12 @@ class AmneziaWgProfileScreenTest {
             .onNodeWithText(
                 app.getString(R.string.awg_connect_blocked_hint, app.getString(R.string.awg_field_server_port)),
             ).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
+        composeRule.onNodeWithTag(AwgTestTags.AwgConnectAction).assertIsNotEnabled()
 
         composeRule.runOnUiThread { viewModel.onFieldChanged(AwgEditorField.SERVER_PORT, "51820") }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
+            .onNodeWithTag(AwgTestTags.AwgConnectAction)
             .assertIsEnabled()
     }
 
@@ -540,13 +539,10 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onCohortSelected = viewModel::onCohortSelected,
         onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = {},
-        onRevealPrivateKey = viewModel::onPrivateKeyRevealAuthorized,
-        onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,
+        onRevealSecret = viewModel::onSecretRevealAuthorized,
         onConnect = viewModel::onConnect,
         onSave = viewModel::onSave,
-        onRevealHeaderProtectionKey = viewModel::onHeaderProtectionKeyRevealAuthorized,
-        onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
-        onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
+        onResolveCohortReplacement = viewModel::onCohortReplacementResolved,
         onDelete = viewModel::onDelete,
     )
 }

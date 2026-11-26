@@ -57,6 +57,7 @@ import com.poyka.ripdpi.proxyimport.ImportLaunchRoute
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.security.SecretRevealPinViewModel
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -288,19 +289,19 @@ class AwgV3EditorAcceptanceTest {
             AwgEditorField.KEEPALIVE_TIMEOUT to "5-15",
             AwgEditorField.MAX_HANDSHAKE_ATTEMPTS to "15-20",
         ).forEach { (editorField, value) -> field(editorField).assertTextContains(value) }
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsEnabled()
+        compose.onNodeWithTag(AwgTestTags.AwgConnectAction).assertIsEnabled()
     }
 
     private fun verifyInvalidDraftAndPreset() {
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo().performClick().performTextReplacement("not-a-key")
         compose.onNodeWithText(text(R.string.field_error_invalid)).assertExists()
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
+        compose.onNodeWithTag(AwgTestTags.AwgConnectAction).assertIsNotEnabled()
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo()
         capture("hp-key-error")
         field(AwgEditorField.HEADER_PROTECTION_KEY).performTextReplacement(key(3))
         field(AwgEditorField.S4).performScrollTo().performClick().performTextReplacement("11")
         compose.onNodeWithText(text(R.string.awg_hp_prefix_min, "S4", 12)).assertExists()
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
+        compose.onNodeWithTag(AwgTestTags.AwgConnectAction).assertIsNotEnabled()
         field(AwgEditorField.S4).performScrollTo()
         capture("hp-prefix-error")
         field(AwgEditorField.S4).performTextReplacement("24")
@@ -316,7 +317,7 @@ class AwgV3EditorAcceptanceTest {
         capture("preset-cancel-retains-invalid-draft")
         selectPreset()
         compose.onNodeWithText(text(R.string.awg_cohort_replace_action)).performClick()
-        compose.onNodeWithTag(RipDpiTestTags.AwgCohortPicker).performScrollTo().assertTextContains("rtk_south")
+        compose.onNodeWithTag(AwgTestTags.AwgCohortPicker).performScrollTo().assertTextContains("rtk_south")
         capture("preset-replaced-collapsed")
         compose.onNodeWithText(text(R.string.awg_obfuscation_show_values)).performClick()
         field(AwgEditorField.REKEY_TIMEOUT)
@@ -332,7 +333,7 @@ class AwgV3EditorAcceptanceTest {
     }
 
     private fun selectPreset() {
-        compose.onNodeWithTag(RipDpiTestTags.AwgCohortPicker).performScrollTo().performClick()
+        compose.onNodeWithTag(AwgTestTags.AwgCohortPicker).performScrollTo().performClick()
         compose.onNodeWithText("rtk_south").performScrollTo().performClick()
     }
 

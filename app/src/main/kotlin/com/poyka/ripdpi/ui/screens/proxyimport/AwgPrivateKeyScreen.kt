@@ -31,10 +31,12 @@ import com.poyka.ripdpi.ui.screens.awg.AwgActivationStatus
 import com.poyka.ripdpi.ui.screens.awg.AwgConfImportFailure
 import com.poyka.ripdpi.ui.screens.awg.AwgDeleteProfileAction
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
+import com.poyka.ripdpi.ui.screens.awg.AwgSecret
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
 import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 
@@ -79,7 +81,7 @@ fun AwgPrivateKeyRoute(
         onBack = onBack,
         onKeyChanged = { viewModel.onFieldChanged(AwgEditorField.INTERFACE_PRIVATE_KEY, it) },
         onPasteConf = viewModel::onPasteConf,
-        onRevealKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin),
+        onRevealKey = rememberSecretRevealGate({ viewModel.onSecretRevealAuthorized(AwgSecret.PRIVATE_KEY) }, appPin),
         onConnect = viewModel::onConnect,
         onDelete = viewModel::onDelete,
         modifier = modifier,
@@ -99,7 +101,7 @@ internal fun AwgPrivateKeyScreen(
 ) {
     val connectFailed = uiState.activationStatus == AwgActivationStatus.Failed
     RelayEditorScaffold(
-        actionTag = RipDpiTestTags.AwgConnectAction,
+        actionTag = AwgTestTags.AwgConnectAction,
         route = Route.AmneziaWgProfile(),
         title = stringResource(R.string.awg_editor_title),
         saveLabel = stringResource(R.string.awg_connect_action),
@@ -157,7 +159,7 @@ internal fun AwgPrivateKeyScreen(
                             R.string.awg_conf_import_failed_body
                         },
                     ),
-                testTag = RipDpiTestTags.AwgConfImportFailed,
+                testTag = AwgTestTags.AwgConfImportFailed,
             )
         }
         if (uiState.deletable) AwgDeleteProfileAction(uiState, onDelete)

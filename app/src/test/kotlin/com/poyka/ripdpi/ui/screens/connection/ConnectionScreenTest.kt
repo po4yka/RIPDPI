@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -56,7 +57,7 @@ class ConnectionScreenTest {
     fun `mode section switcher changes selected summary without changing stored mode`() {
         val selectedModes = mutableListOf<Mode>()
 
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
         )
@@ -84,7 +85,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `mode section tabs expose tab semantics`() {
-        setConfigScreen(initialPath = ConnectionPath.Direct)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey))
@@ -98,7 +99,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `connection card exposes visible group labels without duplicate descriptions`() {
-        setConfigScreen(initialPath = ConnectionPath.Direct)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Direct)
 
         // One label per control group: no card heading and no extra label above the section tabs.
         composeRule.onNodeWithText("Connection settings").assertDoesNotExist()
@@ -114,7 +115,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `mode chips expose radio button semantics`() {
-        setConfigScreen(initialPath = ConnectionPath.Direct)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionScope(Mode.VPN.name))
@@ -129,7 +130,7 @@ class ConnectionScreenTest {
     @Test
     fun `traffic endpoint choice invokes mode callback without changing section`() {
         val selectedModes = mutableListOf<Mode>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
         )
@@ -150,7 +151,7 @@ class ConnectionScreenTest {
     @Test
     fun `traffic endpoint choice can return from proxy to vpn without changing section`() {
         val selectedModes = mutableListOf<Mode>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
             activeMode = Mode.Proxy,
@@ -171,7 +172,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `local bypass section renders listen dns and desync rows`() {
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             uiPersona = "advanced",
             activeMode = Mode.Proxy,
@@ -188,7 +189,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `vpn mode hides the internal proxy listen address`() {
-        setConfigScreen(initialPath = ConnectionPath.Direct, activeMode = Mode.VPN)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Direct, activeMode = Mode.VPN)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectListenAddress).assertDoesNotExist()
@@ -196,7 +197,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `direct section offers the strategy test without an edit shortcut`() {
-        setConfigScreen(initialPath = ConnectionPath.Direct)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionEditCurrentButton).assertDoesNotExist()
@@ -207,7 +208,7 @@ class ConnectionScreenTest {
     fun `local bypass desync and dns rows expose actions`() {
         var strategyClicks = 0
         var dnsClicks = 0
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             onOpenLocalBypassEditor = { strategyClicks += 1 },
             onOpenDnsSettings = { dnsClicks += 1 },
@@ -233,7 +234,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `local bypass action rows expose accessibility labels`() {
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Direct,
             uiPersona = "advanced",
         )
@@ -248,7 +249,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `dns action exposes its current value to accessibility services`() {
-        setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
@@ -262,7 +263,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `vpn section with the relay off shows one relay setup row and dns`() {
-        setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
@@ -281,7 +282,7 @@ class ConnectionScreenTest {
     @Test
     fun `vpn add profile menu opens every dedicated editor`() {
         val opened = mutableListOf<Route>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             profileActions = ConnectionProfileActions(create = { opened += it }),
         )
@@ -310,7 +311,7 @@ class ConnectionScreenTest {
     @Test
     fun `add server menu offers every relay kind that has an editor`() {
         val created = mutableListOf<String>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             profileActions = ConnectionProfileActions(createRelay = { created += it }),
         )
@@ -345,7 +346,7 @@ class ConnectionScreenTest {
     fun `saved AmneziaWG servers share the servers list, open their editor and check their server`() {
         val opened = mutableListOf<Pair<String, Boolean>>()
         val checked = mutableListOf<String>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             profileActions =
                 ConnectionProfileActions(
@@ -384,7 +385,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `servers list with only AmneziaWG servers shows them without an empty message`() {
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             awgServers =
                 persistentListOf(
@@ -407,7 +408,7 @@ class ConnectionScreenTest {
         val renamed = mutableListOf<Pair<ServerKey, String>>()
         val duplicated = mutableListOf<ServerKey>()
         val deleted = mutableListOf<ServerKey>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             profileActions =
                 ConnectionProfileActions(
@@ -444,11 +445,19 @@ class ConnectionScreenTest {
             assertEquals(listOf(relay), deleted)
         }
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35])
+class ConnectionScreenRelayTest {
+    @get:Rule
+    val composeRule = createComposeRule()
 
     @Test
     fun `relay section opens the saved profile picker`() {
         var pickerClicks = 0
-        setConfigScreen(initialPath = ConnectionPath.Relay, onOpenProfileUtility = { pickerClicks += 1 })
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Relay, onOpenProfileUtility = { pickerClicks += 1 })
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.SettingsProfileUtility)
@@ -494,7 +503,7 @@ class ConnectionScreenTest {
     @Test
     fun `relay off row opens profile choices and dns row invokes its callback`() {
         var dnsClicks = 0
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             onOpenDnsSettings = { dnsClicks += 1 },
             uiPersona = "advanced",
@@ -548,7 +557,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `vpn route initial section starts on vpn summary`() {
-        setConfigScreen(initialPath = ConnectionPath.Relay)
+        composeRule.setConfigScreen(initialPath = ConnectionPath.Relay)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
@@ -562,7 +571,7 @@ class ConnectionScreenTest {
         var pasteClicks = 0
         var scanClicks = 0
         val profileShareClicks = mutableListOf<String>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             onPasteServerLink = { pasteClicks += 1 },
             onScanServer = { scanClicks += 1 },
@@ -615,7 +624,7 @@ class ConnectionScreenTest {
     fun `unknown relay can be selected without offering unsupported editing`() {
         val selected = mutableListOf<String>()
         val edited = mutableListOf<String>()
-        setConfigScreen(
+        composeRule.setConfigScreen(
             initialPath = ConnectionPath.Relay,
             vpnProfiles = persistentListOf(RelayProfileUiState("unknown-imported", "unknown", "Unknown", "", "")),
             profileActions = ConnectionProfileActions(select = { selected += it }, edit = { edited += it }),
@@ -778,83 +787,83 @@ class ConnectionScreenTest {
             .assertIsEnabled()
         composeRule.onNodeWithText("Apps Script is unavailable in VPN mode").assertDoesNotExist()
     }
+}
 
-    private fun setConfigScreen(
-        initialPath: ConnectionPath,
-        onModeSelected: (Mode) -> Unit = {},
-        onOpenLocalBypassEditor: () -> Unit = {},
-        onOpenDnsSettings: () -> Unit = {},
-        onOpenProfileUtility: () -> Unit = {},
-        onRetestStrategies: () -> Unit = {},
-        onPasteServerLink: () -> Unit = {},
-        onScanServer: () -> Unit = {},
-        profileActions: ConnectionProfileActions = ConnectionProfileActions(),
-        uiPersona: String = "simple",
-        vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
-        activeMode: Mode = Mode.VPN,
-        runningMode: Mode? = null,
-        awgServers: ImmutableList<com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem> = persistentListOf(),
-    ) {
-        composeRule.setContent {
-            RipDpiTheme {
-                ConnectionScreen(
-                    uiState =
-                        configUiState(
-                            uiPersona = uiPersona,
-                            vpnProfiles = vpnProfiles,
-                            activeMode = activeMode,
-                            runningMode = runningMode,
-                        ).copy(awgServers = awgServers),
-                    onModeSelected = onModeSelected,
-                    onPresetSelected = {},
-                    onOpenConfigEditor = { path ->
-                        when (path) {
-                            ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
+private fun ComposeContentTestRule.setConfigScreen(
+    initialPath: ConnectionPath,
+    onModeSelected: (Mode) -> Unit = {},
+    onOpenLocalBypassEditor: () -> Unit = {},
+    onOpenDnsSettings: () -> Unit = {},
+    onOpenProfileUtility: () -> Unit = {},
+    onRetestStrategies: () -> Unit = {},
+    onPasteServerLink: () -> Unit = {},
+    onScanServer: () -> Unit = {},
+    profileActions: ConnectionProfileActions = ConnectionProfileActions(),
+    uiPersona: String = "simple",
+    vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    activeMode: Mode = Mode.VPN,
+    runningMode: Mode? = null,
+    awgServers: ImmutableList<com.poyka.ripdpi.ui.screens.profiles.AwgProfileItem> = persistentListOf(),
+) {
+    setContent {
+        RipDpiTheme {
+            ConnectionScreen(
+                uiState =
+                    configUiState(
+                        uiPersona = uiPersona,
+                        vpnProfiles = vpnProfiles,
+                        activeMode = activeMode,
+                        runningMode = runningMode,
+                    ).copy(awgServers = awgServers),
+                onModeSelected = onModeSelected,
+                onPresetSelected = {},
+                onOpenConfigEditor = { path ->
+                    when (path) {
+                        ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
 
-                            ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
+                        ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
 
-                            ConnectionEditorTarget.ProfileUtility -> onOpenProfileUtility()
+                        ConnectionEditorTarget.ProfileUtility -> onOpenProfileUtility()
 
-                            ConnectionEditorTarget.SubscriptionStatus,
-                            ConnectionEditorTarget.SubscriptionFailover,
-                            -> Unit
-                        }
-                    },
-                    onRetestStrategies = onRetestStrategies,
-                    onPasteServerLink = onPasteServerLink,
-                    profileActions = profileActions.copy(scanServer = onScanServer),
-                    initialPath = initialPath,
-                )
-            }
+                        ConnectionEditorTarget.SubscriptionStatus,
+                        ConnectionEditorTarget.SubscriptionFailover,
+                        -> Unit
+                    }
+                },
+                onRetestStrategies = onRetestStrategies,
+                onPasteServerLink = onPasteServerLink,
+                profileActions = profileActions.copy(scanServer = onScanServer),
+                initialPath = initialPath,
+            )
         }
     }
-
-    private fun configUiState(
-        uiPersona: String = "simple",
-        vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
-        activeMode: Mode = Mode.VPN,
-        runningMode: Mode? = null,
-    ): ConnectionUiState {
-        val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = activeMode)
-        return ConnectionUiState(
-            activeMode = activeMode,
-            runningMode = runningMode,
-            uiPersona = uiPersona,
-            presets = buildConfigPresets(draft),
-            draft = draft,
-            vpnProfiles = vpnProfiles,
-        )
-    }
-
-    private fun SemanticsNodeInteraction.assertContentDescription(expected: String) {
-        assert(
-            SemanticsMatcher.expectValue(
-                SemanticsProperties.ContentDescription,
-                listOf(expected),
-            ),
-        )
-    }
-
-    private fun SemanticsNodeInteraction.assertHasRole(expected: Role): SemanticsNodeInteraction =
-        assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, expected))
 }
+
+private fun configUiState(
+    uiPersona: String = "simple",
+    vpnProfiles: ImmutableList<RelayProfileUiState> = persistentListOf(),
+    activeMode: Mode = Mode.VPN,
+    runningMode: Mode? = null,
+): ConnectionUiState {
+    val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = activeMode)
+    return ConnectionUiState(
+        activeMode = activeMode,
+        runningMode = runningMode,
+        uiPersona = uiPersona,
+        presets = buildConfigPresets(draft),
+        draft = draft,
+        vpnProfiles = vpnProfiles,
+    )
+}
+
+private fun SemanticsNodeInteraction.assertContentDescription(expected: String) {
+    assert(
+        SemanticsMatcher.expectValue(
+            SemanticsProperties.ContentDescription,
+            listOf(expected),
+        ),
+    )
+}
+
+private fun SemanticsNodeInteraction.assertHasRole(expected: Role): SemanticsNodeInteraction =
+    assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, expected))

@@ -123,6 +123,7 @@ class ConnectionViewModelSnapshotTest {
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
             strategyLanesSource = strategyLanesSource(diagnosticsHistory),
+            pathMemory = ConnectionPathMemory(),
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(),

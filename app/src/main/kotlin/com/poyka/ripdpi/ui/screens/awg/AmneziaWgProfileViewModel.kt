@@ -181,15 +181,6 @@ class AmneziaWgProfileViewModel
         }
 
         /**
-         * Replaces the editor, recomputes the derived [AmneziaWgProfileUiState.canActivate],
-         * and clears a stale [AwgActivationStatus.Failed] (the user is changing input, so the
-         * previous failure no longer describes the current form).
-         */
-        private inline fun mutateEditor(crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState) {
-            _uiState.update { if (it.loadingProfile) it else it.withEditor(transform(it.editor)) }
-        }
-
-        /**
          * Applies a user edit of [field] to [raw]. Edits to an obfuscation field while a
          * cohort preset is locked are ignored (the preset owns those values).
          */
@@ -197,7 +188,7 @@ class AmneziaWgProfileViewModel
             field: AwgEditorField,
             raw: String,
         ) {
-            mutateEditor { it.updateField(field, raw) }
+            _uiState.mutateEditor { it.updateField(field, raw) }
         }
 
         fun onNameChanged(name: String) {
@@ -235,7 +226,7 @@ class AmneziaWgProfileViewModel
          */
         fun onCohortSelected(cohortId: String) {
             if (cohortId == AwgProfileForm.CUSTOM_COHORT_ID) {
-                mutateEditor { it.selectCustom() }
+                _uiState.mutateEditor { it.selectCustom() }
                 return
             }
             val preset = catalog.find(cohortId) ?: return
@@ -250,15 +241,14 @@ class AmneziaWgProfileViewModel
             }
         }
 
-        fun onCohortReplacementConfirmed() {
+        /** Applies the pending cohort when [confirmed], otherwise keeps the current v3 edits. */
+        fun onCohortReplacementResolved(confirmed: Boolean) {
             _uiState.update { state ->
-                val preset = state.pendingCohortId?.let(catalog::find) ?: return@update state
+                val preset =
+                    state.pendingCohortId?.takeIf { confirmed }?.let(catalog::find)
+                        ?: return@update state.copy(pendingCohortId = null)
                 state.withEditor(state.editor.selectCohort(preset)).copy(headerProtectionKeyRevealed = false)
             }
-        }
-
-        fun onCohortReplacementCancelled() {
-            _uiState.update { it.copy(pendingCohortId = null) }
         }
 
         /**
@@ -266,7 +256,7 @@ class AmneziaWgProfileViewModel
          * ([AwgActivationRequest.CARRIER_UDP] or [AwgActivationRequest.CARRIER_WS]).
          */
         fun onCarrierSelected(carrier: String) {
-            mutateEditor { it.selectCarrier(carrier) }
+            _uiState.mutateEditor { it.selectCarrier(carrier) }
         }
 
         /**
@@ -497,30 +487,29 @@ class AmneziaWgProfileViewModel
             if (state.editor !== editor || state.pendingCohortId != null) return null
             // An editor opened for a saved row never saves a new, unlinked row.
             check(requestedProfileId == null || savedProfileId != null) { "Saved AmneziaWG profile is not loaded" }
-            if (subscriptionServer.isChangedBy(editor)) {
+            return if (subscriptionServer.isChangedBy(editor)) {
                 _uiState.update { it.copy(subscriptionServerChanged = true) }
-                return null
+                null
+            } else {
+                val draft = editor.toActivationRequest(profileId = "")
+                draft.requireRuntimeReady()
+                val stableId =
+                    profileRepository.save(profileName(state.name, editor), draft, existingId = savedProfileId)
+                savedProfileId = stableId
+                _uiState.update { it.copy(deletable = !editor.subscriptionOwned) }
+                draft.copy(profileId = stableId)
             }
-            val draft = editor.toActivationRequest(profileId = "")
-            draft.requireRuntimeReady()
-            val stableId = profileRepository.save(profileName(state.name, editor), draft, existingId = savedProfileId)
-            savedProfileId = stableId
-            _uiState.update { it.copy(deletable = !editor.subscriptionOwned) }
-            return draft.copy(profileId = stableId)
         }
 
-        /** Reveals the private-key field after the biometric gate authorizes it. */
-        fun onPrivateKeyRevealAuthorized() {
-            _uiState.update { it.copy(privateKeyRevealed = true) }
-        }
-
-        /** Reveals the preshared-key field after the biometric gate authorizes it. */
-        fun onPresharedKeyRevealAuthorized() {
-            _uiState.update { it.copy(presharedKeyRevealed = true) }
-        }
-
-        fun onHeaderProtectionKeyRevealAuthorized() {
-            _uiState.update { it.copy(headerProtectionKeyRevealed = true) }
+        /** Reveals [secret] after the biometric gate authorizes it. */
+        fun onSecretRevealAuthorized(secret: AwgSecret) {
+            _uiState.update {
+                when (secret) {
+                    AwgSecret.PRIVATE_KEY -> it.copy(privateKeyRevealed = true)
+                    AwgSecret.PRESHARED_KEY -> it.copy(presharedKeyRevealed = true)
+                    AwgSecret.HEADER_PROTECTION_KEY -> it.copy(headerProtectionKeyRevealed = true)
+                }
+            }
         }
 
         /** Re-hides all secret fields when the screen is left. */
@@ -530,6 +519,19 @@ class AmneziaWgProfileViewModel
             }
         }
     }
+
+enum class AwgSecret { PRIVATE_KEY, PRESHARED_KEY, HEADER_PROTECTION_KEY }
+
+/**
+ * Replaces the editor, recomputes the derived [AmneziaWgProfileUiState.canActivate],
+ * and clears a stale [AwgActivationStatus.Failed] (the user is changing input, so the
+ * previous failure no longer describes the current form).
+ */
+private inline fun MutableStateFlow<AmneziaWgProfileUiState>.mutateEditor(
+    crossinline transform: (AmneziaWgEditorState) -> AmneziaWgEditorState,
+) {
+    update { if (it.loadingProfile) it else it.withEditor(transform(it.editor)) }
+}
 
 private fun profileName(
     name: String,

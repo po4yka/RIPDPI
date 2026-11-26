@@ -76,6 +76,7 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.testing.LogsTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -141,7 +142,7 @@ internal fun LogsScreen(
             scrollBehavior = topBarScrollBehavior,
             modifier =
                 modifier
-                    .ripDpiTestTag(RipDpiTestTags.LogsScreen)
+                    .ripDpiTestTag(LogsTestTags.LogsScreen)
                     .fillMaxSize()
                     .ripDpiScreenBackground(),
             snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
@@ -236,7 +237,7 @@ private fun LogsContent(
                 decoration =
                     RipDpiTextFieldDecoration(
                         label = stringResource(R.string.logs_search_placeholder),
-                        testTag = RipDpiTestTags.LogsSearch,
+                        testTag = LogsTestTags.LogsSearch,
                     ),
                 behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
                 trailingContent =
@@ -288,7 +289,7 @@ private fun LogsToolbar(
             contentDescription = stringResource(R.string.logs_filters_section),
             onClick = onShowFilters,
             modifier =
-                Modifier.ripDpiTestTag(RipDpiTestTags.LogsFilters).semantics {
+                Modifier.ripDpiTestTag(LogsTestTags.LogsFilters).semantics {
                     stateDescription = filterSummary
                 },
         )
@@ -337,7 +338,7 @@ private fun LogsStreamSection(
             LogsEmptyState(
                 hasBufferedLogs = uiState.logs.isNotEmpty(),
                 searchActive = searchActive,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsEmptyState),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(LogsTestTags.LogsEmptyState),
             )
         } else {
             LogsStreamCard(
@@ -383,7 +384,7 @@ private fun LogsFiltersSection(
                 checked = uiState.isAutoScroll,
                 onCheckedChange = onAutoScrollChanged,
                 showDivider = true,
-                testTag = RipDpiTestTags.LogsAutoScroll,
+                testTag = LogsTestTags.LogsAutoScroll,
             )
             SettingsRow(
                 title = stringResource(R.string.logs_active_session_title),
@@ -391,7 +392,7 @@ private fun LogsFiltersSection(
                 checked = uiState.showActiveSessionOnly,
                 onCheckedChange = onActiveSessionOnlyChanged,
                 showDivider = true,
-                testTag = RipDpiTestTags.LogsActiveSessionOnly,
+                testTag = LogsTestTags.LogsActiveSessionOnly,
             )
             Text(
                 text = stringResource(R.string.logs_filters_helper),
@@ -484,11 +485,11 @@ private fun LogsTopBarActions(
         icon = RipDpiIcons.Archive,
         contentDescription = stringResource(R.string.save_logs),
         onClick = onSaveLogs,
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsSave),
+        modifier = Modifier.ripDpiTestTag(LogsTestTags.LogsSave),
     )
     RipDpiOverflowMenu(
         contentDescription = stringResource(R.string.logs_actions_title),
-        testTag = RipDpiTestTags.LogsActions,
+        testTag = LogsTestTags.LogsActions,
         items =
             persistentListOf(
                 RipDpiOverflowMenuItem(
@@ -499,7 +500,7 @@ private fun LogsTopBarActions(
                     label = stringResource(R.string.logs_clear),
                     onClick = onRequestClear,
                     enabled = uiState.logs.isNotEmpty(),
-                    testTag = RipDpiTestTags.LogsClear,
+                    testTag = LogsTestTags.LogsClear,
                 ),
             ),
     )
@@ -523,12 +524,12 @@ private fun LogsSheets(
         RipDpiBottomSheet(
             onDismissRequest = onDismissFilters,
             title = stringResource(R.string.logs_filters_section),
-            testTag = RipDpiTestTags.LogsFiltersSheet,
+            testTag = LogsTestTags.LogsFiltersSheet,
             primaryAction =
                 RipDpiSheetAction(
                     label = stringResource(R.string.app_picker_done),
                     onClick = onDismissFilters,
-                    testTag = RipDpiTestTags.LogsSheetDone,
+                    testTag = LogsTestTags.LogsSheetDone,
                     wrapLabel = true,
                 ),
         ) {
@@ -556,7 +557,7 @@ private fun LogsSheets(
         RipDpiDialog(
             onDismissRequest = onDismissClearConfirm,
             title = stringResource(R.string.logs_clear_confirm_title),
-            dialogTestTag = RipDpiTestTags.LogsClearDialog,
+            dialogTestTag = LogsTestTags.LogsClearDialog,
             dismissAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.config_cancel),
@@ -569,7 +570,7 @@ private fun LogsSheets(
                         onDismissClearConfirm()
                         onClearLogs()
                     },
-                    testTag = RipDpiTestTags.LogsClearConfirm,
+                    testTag = LogsTestTags.LogsClearConfirm,
                     destructive = true,
                 ),
         ) {
@@ -596,7 +597,7 @@ internal fun LogsStreamCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
+        modifier = modifier.ripDpiTestTag(LogsTestTags.LogsStream),
         paddingValues =
             PaddingValues(
                 horizontal = layout.cardPadding,

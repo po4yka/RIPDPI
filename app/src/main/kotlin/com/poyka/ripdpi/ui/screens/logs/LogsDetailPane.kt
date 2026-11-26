@@ -12,7 +12,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDetailPaneEmptyState
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.LogsTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
@@ -28,7 +28,7 @@ internal fun LogsDetailPane(
         if (entry == null) {
             RipDpiDetailPaneEmptyState(
                 body = stringResource(R.string.history_detail_placeholder),
-                testTag = RipDpiTestTags.LogsDetailPlaceholder,
+                testTag = LogsTestTags.LogsDetailPlaceholder,
             )
             return@Column
         }
@@ -36,7 +36,7 @@ internal fun LogsDetailPane(
         Column(
             modifier =
                 Modifier
-                    .ripDpiTestTag(RipDpiTestTags.LogsDetailPane)
+                    .ripDpiTestTag(LogsTestTags.LogsDetailPane)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = padding),

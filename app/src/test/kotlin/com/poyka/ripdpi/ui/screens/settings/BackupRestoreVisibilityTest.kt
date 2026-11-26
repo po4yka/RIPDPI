@@ -10,7 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.backup.BackupRestoreUiState
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.BackupTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -44,7 +44,7 @@ class BackupRestoreVisibilityTest {
             }
         }
         composeRule.onNode(hasScrollAction()).performScrollToKey("backup_reset_action")
-        composeRule.onNodeWithTag(RipDpiTestTags.BackupResetButton).performScrollTo().performClick()
+        composeRule.onNodeWithTag(BackupTestTags.BackupResetButton).performScrollTo().performClick()
         assertEquals(1, resets)
     }
 
@@ -68,8 +68,8 @@ class BackupRestoreVisibilityTest {
         }
         composeRule.onNodeWithText("FULL restores app settings; network memories remain.").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToKey("backup_import_action")
-        composeRule.onNodeWithTag(RipDpiTestTags.BackupImportButton).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.BackupResetButton).assertDoesNotExist()
+        composeRule.onNodeWithTag(BackupTestTags.BackupImportButton).performScrollTo().performClick()
+        composeRule.onNodeWithTag(BackupTestTags.BackupResetButton).assertDoesNotExist()
         assertEquals(1, imports)
     }
 }

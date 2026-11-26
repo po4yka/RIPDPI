@@ -40,6 +40,7 @@ class ConnectionViewModel
         importDependencies: ConnectionImportDependencies,
         private val stringResolver: StringResolver,
         strategyLanesSource: ConnectionStrategyLanesSource,
+        private val pathMemory: ConnectionPathMemory,
     ) : ViewModel() {
         private val appSettingsRepository = dependencies.appSettingsRepository
         private val relayArtifacts = dependencies.relayArtifacts
@@ -372,9 +373,9 @@ class ConnectionViewModel
         }
 
         internal var browsingRelay: Boolean
-            get() = dependencies.pathMemory.browsingRelay
+            get() = pathMemory.browsingRelay
             set(value) {
-                dependencies.pathMemory.browsingRelay = value
+                pathMemory.browsingRelay = value
             }
 
         /** The active Xray and AmneziaWG selections live outside settings, so another screen can change them. */

@@ -54,6 +54,7 @@ import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayUrlField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayValueField
 import com.poyka.ripdpi.ui.screens.relayeditor.fieldErrorText
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -110,9 +111,12 @@ fun AmneziaWgProfileRoute(
     LifecycleEventEffect(viewModel.profileDeleted) { onBack() }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
-    val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
-    val revealPresharedKey = rememberSecretRevealGate(viewModel::onPresharedKeyRevealAuthorized, appPin)
-    val revealHeaderProtectionKey = rememberSecretRevealGate(viewModel::onHeaderProtectionKeyRevealAuthorized, appPin)
+    val revealPrivateKey =
+        rememberSecretRevealGate({ viewModel.onSecretRevealAuthorized(AwgSecret.PRIVATE_KEY) }, appPin)
+    val revealPresharedKey =
+        rememberSecretRevealGate({ viewModel.onSecretRevealAuthorized(AwgSecret.PRESHARED_KEY) }, appPin)
+    val revealHeaderProtectionKey =
+        rememberSecretRevealGate({ viewModel.onSecretRevealAuthorized(AwgSecret.HEADER_PROTECTION_KEY) }, appPin)
     AmneziaWgProfileScreen(
         uiState = uiState,
         onBack = onBack,
@@ -120,13 +124,16 @@ fun AmneziaWgProfileRoute(
         onNameChanged = viewModel::onNameChanged,
         onGenerateKeyPair = viewModel::onGenerateKeyPair,
         onCohortSelected = viewModel::onCohortSelected,
-        onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
-        onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
+        onResolveCohortReplacement = viewModel::onCohortReplacementResolved,
         onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = viewModel::onPasteConf,
-        onRevealPrivateKey = onRequestPrivateKeyReveal ?: revealPrivateKey,
-        onRevealPresharedKey = onRequestPresharedKeyReveal ?: revealPresharedKey,
-        onRevealHeaderProtectionKey = revealHeaderProtectionKey,
+        onRevealSecret = { secret ->
+            when (secret) {
+                AwgSecret.PRIVATE_KEY -> (onRequestPrivateKeyReveal ?: revealPrivateKey)()
+                AwgSecret.PRESHARED_KEY -> (onRequestPresharedKeyReveal ?: revealPresharedKey)()
+                AwgSecret.HEADER_PROTECTION_KEY -> revealHeaderProtectionKey()
+            }
+        },
         onConnect = viewModel::onConnect,
         onSave = viewModel::onSave,
         onDelete = viewModel::onDelete,
@@ -144,22 +151,19 @@ internal fun AmneziaWgProfileScreen(
     onCohortSelected: (String) -> Unit,
     onCarrierSelected: (String) -> Unit,
     onPasteConf: () -> Unit,
-    onRevealPrivateKey: () -> Unit,
-    onRevealPresharedKey: () -> Unit,
+    onRevealSecret: (AwgSecret) -> Unit,
     onConnect: () -> Unit,
     onSave: () -> Unit,
-    onRevealHeaderProtectionKey: () -> Unit,
-    onConfirmCohortReplacement: () -> Unit,
-    onCancelCohortReplacement: () -> Unit,
+    onResolveCohortReplacement: (confirmed: Boolean) -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     if (uiState.pendingCohortId != null) {
-        AwgCohortReplacementDialog(onConfirmCohortReplacement, onCancelCohortReplacement)
+        AwgCohortReplacementDialog({ onResolveCohortReplacement(true) }, { onResolveCohortReplacement(false) })
     }
     val connectFailed = uiState.activationStatus == AwgActivationStatus.Failed
     RelayEditorScaffold(
-        actionTag = RipDpiTestTags.AwgConnectAction,
+        actionTag = AwgTestTags.AwgConnectAction,
         route = Route.AmneziaWgProfile(),
         title = stringResource(R.string.awg_editor_title),
         saveLabel = stringResource(R.string.awg_connect_action),
@@ -200,20 +204,22 @@ internal fun AmneziaWgProfileScreen(
             leadingIcon = RipDpiIcons.Paste,
         )
         AwgConfImportFeedback(uiState)
-        InterfaceSection(uiState, onFieldChanged, onNameChanged, onGenerateKeyPair, onRevealPrivateKey)
+        InterfaceSection(uiState, onFieldChanged, onNameChanged, onGenerateKeyPair) {
+            onRevealSecret(AwgSecret.PRIVATE_KEY)
+        }
         PeerSection(uiState, onFieldChanged)
         AwgAdvancedSection(
             uiState = uiState,
             onFieldChanged = onFieldChanged,
             onCohortSelected = onCohortSelected,
             onCarrierSelected = onCarrierSelected,
-            onRevealPresharedKey = onRevealPresharedKey,
-            onRevealHeaderProtectionKey = onRevealHeaderProtectionKey,
+            onRevealPresharedKey = { onRevealSecret(AwgSecret.PRESHARED_KEY) },
+            onRevealHeaderProtectionKey = { onRevealSecret(AwgSecret.HEADER_PROTECTION_KEY) },
         )
         RipDpiButton(
             text = stringResource(R.string.awg_save_action),
             onClick = onSave,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgSaveAction),
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(AwgTestTags.AwgSaveAction),
             variant = RipDpiButtonVariant.Secondary,
             enabled =
                 uiState.canActivate && !uiState.deleting &&
@@ -250,7 +256,7 @@ private fun AwgConfImportFeedback(uiState: AmneziaWgProfileUiState) {
                         stringResource(R.string.awg_conf_subscription_server_mismatch_body)
                     }
                 },
-            testTag = RipDpiTestTags.AwgConfImportFailed,
+            testTag = AwgTestTags.AwgConfImportFailed,
         )
     }
     if (uiState.ignoredPeerCount > 0) {
@@ -384,7 +390,7 @@ private fun CarrierSection(
             selectedValue = editor.form.carrier,
             onValueSelected = onCarrierSelected,
             label = stringResource(R.string.awg_carrier_picker_label),
-            testTag = RipDpiTestTags.AwgCarrierPicker,
+            testTag = AwgTestTags.AwgCarrierPicker,
         )
         if (editor.form.carrier == AwgActivationRequest.CARRIER_WS) {
             PlainField(
@@ -414,7 +420,7 @@ private fun InterfaceSection(
             decoration =
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.awg_field_name),
-                    testTag = RipDpiTestTags.AwgNameField,
+                    testTag = AwgTestTags.AwgNameField,
                 ),
         )
         RelaySecretField(
@@ -434,7 +440,7 @@ private fun InterfaceSection(
             RipDpiButton(
                 text = stringResource(R.string.awg_generate_key_action),
                 onClick = onGenerateKeyPair,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgGenerateKeyAction),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(AwgTestTags.AwgGenerateKeyAction),
                 variant = RipDpiButtonVariant.Secondary,
             )
         }
@@ -463,7 +469,7 @@ private fun AwgPublicKeyField(publicKey: String) {
         value = publicKey,
         onValueChange = {},
         modifier = Modifier.fillMaxWidth(),
-        decoration = RipDpiTextFieldDecoration(label = label, testTag = RipDpiTestTags.AwgPublicKeyField),
+        decoration = RipDpiTextFieldDecoration(label = label, testTag = AwgTestTags.AwgPublicKeyField),
         behavior = RipDpiTextFieldBehavior(readOnly = true),
         trailingContent = {
             RipDpiIconButton(
@@ -473,7 +479,7 @@ private fun AwgPublicKeyField(publicKey: String) {
                     clipboard?.setPrimaryClip(ClipData.newPlainText(label, publicKey))
                     Toast.makeText(context, R.string.copied_to_clipboard, Toast.LENGTH_SHORT).show()
                 },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AwgCopyPublicKeyAction),
+                modifier = Modifier.ripDpiTestTag(AwgTestTags.AwgCopyPublicKeyAction),
             )
         },
     )
@@ -521,7 +527,7 @@ private fun ObfuscationSection(
             readOnly = editor.subscriptionOwned,
             helperText = stringResource(R.string.awg_field_from_subscription).takeIf { editor.subscriptionOwned },
             label = stringResource(R.string.awg_cohort_picker_label),
-            testTag = RipDpiTestTags.AwgCohortPicker,
+            testTag = AwgTestTags.AwgCohortPicker,
         )
         if (editor.obfuscationLocked) {
             RipDpiButton(
@@ -593,13 +599,13 @@ internal fun PlainField(
     val value = editor.rawText(field)
     val valueField =
         RelayValueField(
-            label = stringResource(awgFieldLabel(field)),
+            label = stringResource(field.label),
             placeholder = placeholder,
             helperText = if (managed) stringResource(R.string.awg_field_from_subscription) else helperText,
             errorText =
                 when {
                     conflict != null -> {
-                        stringResource(R.string.config_error_conflicts_with, stringResource(awgFieldLabel(conflict)))
+                        stringResource(R.string.config_error_conflicts_with, stringResource(conflict.label))
                     }
 
                     editor.hasHeaderProtectionPrefixError(field) -> {
@@ -681,51 +687,10 @@ private val AwgNumberFields =
 
 @Composable
 private fun connectBlockedHint(editor: AmneziaWgEditorState): String {
-    val labels = editor.blockingFields().map { stringResource(awgFieldLabel(it)) }
+    val labels = editor.blockingFields().map { stringResource(it.label) }
     return if (labels.isEmpty()) {
         stringResource(R.string.awg_connect_incomplete_hint)
     } else {
         stringResource(R.string.awg_connect_blocked_hint, labels.joinToString())
     }
 }
-
-internal fun awgFieldLabel(field: AwgEditorField): Int =
-    when (field) {
-        AwgEditorField.SERVER -> R.string.awg_field_server
-        AwgEditorField.SERVER_PORT -> R.string.awg_field_server_port
-        AwgEditorField.INTERFACE_PRIVATE_KEY -> R.string.awg_field_private_key
-        AwgEditorField.ADDRESS -> R.string.awg_field_address
-        AwgEditorField.DNS -> R.string.awg_field_dns
-        AwgEditorField.MTU -> R.string.awg_field_mtu
-        AwgEditorField.PEER_PUBLIC_KEY -> R.string.awg_field_peer_public_key
-        AwgEditorField.PEER_ENDPOINT -> R.string.awg_field_peer_endpoint
-        AwgEditorField.ALLOWED_IPS -> R.string.awg_field_allowed_ips
-        AwgEditorField.PRESHARED_KEY -> R.string.awg_field_preshared_key
-        AwgEditorField.PERSISTENT_KEEPALIVE -> R.string.awg_field_persistent_keepalive
-        AwgEditorField.CARRIER_WS_URL -> R.string.awg_field_carrier_ws_url
-        AwgEditorField.JC -> R.string.awg_field_jc
-        AwgEditorField.JMIN -> R.string.awg_field_jmin
-        AwgEditorField.JMAX -> R.string.awg_field_jmax
-        AwgEditorField.S1 -> R.string.awg_field_s1
-        AwgEditorField.S2 -> R.string.awg_field_s2
-        AwgEditorField.S3 -> R.string.awg_field_s3
-        AwgEditorField.S4 -> R.string.awg_field_s4
-        AwgEditorField.H1 -> R.string.awg_field_h1
-        AwgEditorField.H2 -> R.string.awg_field_h2
-        AwgEditorField.H3 -> R.string.awg_field_h3
-        AwgEditorField.H4 -> R.string.awg_field_h4
-        AwgEditorField.I1 -> R.string.awg_field_i1
-        AwgEditorField.I2 -> R.string.awg_field_i2
-        AwgEditorField.I3 -> R.string.awg_field_i3
-        AwgEditorField.I4 -> R.string.awg_field_i4
-        AwgEditorField.I5 -> R.string.awg_field_i5
-        AwgEditorField.HEADER_PROTECTION_KEY -> R.string.awg_field_header_protection_key
-        AwgEditorField.CONTENT_PADDING_ADDITION -> R.string.awg_field_content_padding_addition
-        AwgEditorField.REKEY_AFTER_TIME -> R.string.awg_field_rekey_after_time
-        AwgEditorField.REKEY_TIMEOUT -> R.string.awg_field_rekey_timeout
-        AwgEditorField.REJECT_AFTER_TIME -> R.string.awg_field_reject_after_time
-        AwgEditorField.KEEPALIVE_TIMEOUT -> R.string.awg_field_keepalive_timeout
-        AwgEditorField.MAX_HANDSHAKE_ATTEMPTS -> R.string.awg_field_max_handshake_attempts
-        AwgEditorField.RANDOM_TRAILERS -> R.string.awg_field_random_trailers
-        AwgEditorField.DISABLE_COOKIES -> R.string.awg_field_disable_cookies
-    }

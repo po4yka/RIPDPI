@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.awg
 
+import androidx.annotation.StringRes
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.awg.AwgActivationInputException
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
@@ -26,53 +28,54 @@ import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 enum class AwgEditorField(
     val isObfuscation: Boolean,
     val isV3: Boolean = false,
+    @param:StringRes val label: Int,
 ) {
     // Identity / standard WireGuard fields — always editable.
-    SERVER(isObfuscation = false),
-    SERVER_PORT(isObfuscation = false),
-    INTERFACE_PRIVATE_KEY(isObfuscation = false),
-    ADDRESS(isObfuscation = false),
-    DNS(isObfuscation = false),
-    MTU(isObfuscation = false),
-    PEER_PUBLIC_KEY(isObfuscation = false),
-    PEER_ENDPOINT(isObfuscation = false),
-    ALLOWED_IPS(isObfuscation = false),
-    PRESHARED_KEY(isObfuscation = false),
-    PERSISTENT_KEEPALIVE(isObfuscation = false),
+    SERVER(isObfuscation = false, label = R.string.awg_field_server),
+    SERVER_PORT(isObfuscation = false, label = R.string.awg_field_server_port),
+    INTERFACE_PRIVATE_KEY(isObfuscation = false, label = R.string.awg_field_private_key),
+    ADDRESS(isObfuscation = false, label = R.string.awg_field_address),
+    DNS(isObfuscation = false, label = R.string.awg_field_dns),
+    MTU(isObfuscation = false, label = R.string.awg_field_mtu),
+    PEER_PUBLIC_KEY(isObfuscation = false, label = R.string.awg_field_peer_public_key),
+    PEER_ENDPOINT(isObfuscation = false, label = R.string.awg_field_peer_endpoint),
+    ALLOWED_IPS(isObfuscation = false, label = R.string.awg_field_allowed_ips),
+    PRESHARED_KEY(isObfuscation = false, label = R.string.awg_field_preshared_key),
+    PERSISTENT_KEEPALIVE(isObfuscation = false, label = R.string.awg_field_persistent_keepalive),
 
     // WG-over-WebSocket carrier URL -- a first-class AwgProfileForm column,
     // only consulted (and required by [AmneziaWgEditorState.isActivatable])
     // when [AwgProfileForm.carrier] is [AwgActivationRequest.CARRIER_WS].
     // Carrier selection itself is a picker, not a text field -- see
     // [AmneziaWgEditorState.selectCarrier].
-    CARRIER_WS_URL(isObfuscation = false),
+    CARRIER_WS_URL(isObfuscation = false, label = R.string.awg_field_carrier_ws_url),
 
     // Obfuscation fields — locked when a cohort preset is selected.
-    JC(isObfuscation = true),
-    JMIN(isObfuscation = true),
-    JMAX(isObfuscation = true),
-    S1(isObfuscation = true),
-    S2(isObfuscation = true),
-    S3(isObfuscation = true),
-    S4(isObfuscation = true),
-    H1(isObfuscation = true),
-    H2(isObfuscation = true),
-    H3(isObfuscation = true),
-    H4(isObfuscation = true),
-    I1(isObfuscation = true),
-    I2(isObfuscation = true),
-    I3(isObfuscation = true),
-    I4(isObfuscation = true),
-    I5(isObfuscation = true),
-    HEADER_PROTECTION_KEY(isObfuscation = true, isV3 = true),
-    CONTENT_PADDING_ADDITION(isObfuscation = true, isV3 = true),
-    REKEY_AFTER_TIME(isObfuscation = true, isV3 = true),
-    REKEY_TIMEOUT(isObfuscation = true, isV3 = true),
-    REJECT_AFTER_TIME(isObfuscation = true, isV3 = true),
-    KEEPALIVE_TIMEOUT(isObfuscation = true, isV3 = true),
-    MAX_HANDSHAKE_ATTEMPTS(isObfuscation = true, isV3 = true),
-    RANDOM_TRAILERS(isObfuscation = true, isV3 = true),
-    DISABLE_COOKIES(isObfuscation = true, isV3 = true),
+    JC(isObfuscation = true, label = R.string.awg_field_jc),
+    JMIN(isObfuscation = true, label = R.string.awg_field_jmin),
+    JMAX(isObfuscation = true, label = R.string.awg_field_jmax),
+    S1(isObfuscation = true, label = R.string.awg_field_s1),
+    S2(isObfuscation = true, label = R.string.awg_field_s2),
+    S3(isObfuscation = true, label = R.string.awg_field_s3),
+    S4(isObfuscation = true, label = R.string.awg_field_s4),
+    H1(isObfuscation = true, label = R.string.awg_field_h1),
+    H2(isObfuscation = true, label = R.string.awg_field_h2),
+    H3(isObfuscation = true, label = R.string.awg_field_h3),
+    H4(isObfuscation = true, label = R.string.awg_field_h4),
+    I1(isObfuscation = true, label = R.string.awg_field_i1),
+    I2(isObfuscation = true, label = R.string.awg_field_i2),
+    I3(isObfuscation = true, label = R.string.awg_field_i3),
+    I4(isObfuscation = true, label = R.string.awg_field_i4),
+    I5(isObfuscation = true, label = R.string.awg_field_i5),
+    HEADER_PROTECTION_KEY(isObfuscation = true, isV3 = true, label = R.string.awg_field_header_protection_key),
+    CONTENT_PADDING_ADDITION(isObfuscation = true, isV3 = true, label = R.string.awg_field_content_padding_addition),
+    REKEY_AFTER_TIME(isObfuscation = true, isV3 = true, label = R.string.awg_field_rekey_after_time),
+    REKEY_TIMEOUT(isObfuscation = true, isV3 = true, label = R.string.awg_field_rekey_timeout),
+    REJECT_AFTER_TIME(isObfuscation = true, isV3 = true, label = R.string.awg_field_reject_after_time),
+    KEEPALIVE_TIMEOUT(isObfuscation = true, isV3 = true, label = R.string.awg_field_keepalive_timeout),
+    MAX_HANDSHAKE_ATTEMPTS(isObfuscation = true, isV3 = true, label = R.string.awg_field_max_handshake_attempts),
+    RANDOM_TRAILERS(isObfuscation = true, isV3 = true, label = R.string.awg_field_random_trailers),
+    DISABLE_COOKIES(isObfuscation = true, isV3 = true, label = R.string.awg_field_disable_cookies),
     ;
 
     /**

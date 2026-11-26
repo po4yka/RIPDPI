@@ -130,13 +130,7 @@ fun ConnectionRoute(
             }
         },
         onOpenConfigEditor = { path ->
-            when (path) {
-                ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
-                ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
-                ConnectionEditorTarget.SubscriptionStatus -> onOpenRoute(Route.SubscriptionStatus)
-                ConnectionEditorTarget.SubscriptionFailover -> onOpenRoute(Route.SubscriptionFailover)
-                ConnectionEditorTarget.ProfileUtility -> onOpenRoute(Route.ProfileUtility)
-            }
+            openConfigEditor(path, onOpenLocalBypassEditor, onOpenDnsSettings, onOpenRoute)
         },
         onRetestStrategies = remember(viewModel) { viewModel.laneActions::toggleTest },
         onApplyLane = remember(viewModel) { viewModel.laneActions::apply },
@@ -166,6 +160,21 @@ fun ConnectionRoute(
         initialPath = initialPath ?: if (viewModel.browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct,
         onBrowsingRelayChange = { viewModel.browsingRelay = it },
     )
+}
+
+private fun openConfigEditor(
+    path: ConnectionEditorTarget,
+    onOpenLocalBypassEditor: () -> Unit,
+    onOpenDnsSettings: () -> Unit,
+    onOpenRoute: (Route) -> Unit,
+) {
+    when (path) {
+        ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
+        ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
+        ConnectionEditorTarget.SubscriptionStatus -> onOpenRoute(Route.SubscriptionStatus)
+        ConnectionEditorTarget.SubscriptionFailover -> onOpenRoute(Route.SubscriptionFailover)
+        ConnectionEditorTarget.ProfileUtility -> onOpenRoute(Route.ProfileUtility)
+    }
 }
 
 private fun openRelayProfileEditor(

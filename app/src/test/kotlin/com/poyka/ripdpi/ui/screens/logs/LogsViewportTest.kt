@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.testing.LogsTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -129,13 +130,13 @@ class LogsViewportTest {
         }
         val shortHeight =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.LogsStream)
+                .onNodeWithTag(LogsTestTags.LogsStream)
                 .fetchSemanticsNode()
                 .boundsInRoot.height
         composeRule.runOnIdle { height.value = 600.dp }
         val tallHeight =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.LogsStream)
+                .onNodeWithTag(LogsTestTags.LogsStream)
                 .fetchSemanticsNode()
                 .boundsInRoot.height
 
@@ -213,10 +214,10 @@ class LogsViewportTest {
                 }
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsAutoScroll).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsFilters).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsAutoScroll).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsActiveSessionOnly).performScrollTo().performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsAutoScroll).assertDoesNotExist()
+        composeRule.onNodeWithTag(LogsTestTags.LogsFilters).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsAutoScroll).performScrollTo().performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsActiveSessionOnly).performScrollTo().performClick()
         val egressSubsystems = listOf(LogSubsystem.Relay, LogSubsystem.Warp, LogSubsystem.AmneziaWg)
         egressSubsystems.forEach { subsystem ->
             composeRule.onNodeWithTag(RipDpiTestTags.logsSubsystemFilter(subsystem)).performScrollTo().performClick()
@@ -229,8 +230,8 @@ class LogsViewportTest {
             assertEquals(egressSubsystems, selectedSubsystems)
             assertEquals(LogSeverity.Error, selectedSeverity)
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsSheetDone).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsFiltersSheet).assertDoesNotExist()
+        composeRule.onNodeWithTag(LogsTestTags.LogsSheetDone).performScrollTo().performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsFiltersSheet).assertDoesNotExist()
     }
 
     @Test
@@ -248,13 +249,13 @@ class LogsViewportTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsSave).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsActions).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsSave).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsActions).performClick()
         composeRule.onNodeWithText("Share support bundle").performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsActions).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsClear).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsActions).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsClear).performClick()
         composeRule.runOnIdle { assertEquals(0, clearCount) }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsClearConfirm).performClick()
+        composeRule.onNodeWithTag(LogsTestTags.LogsClearConfirm).performClick()
 
         composeRule.runOnIdle {
             assertEquals(1, saveCount)
@@ -282,12 +283,12 @@ class LogsViewportTest {
                 TestLogsScreen(LogsUiState(logs = persistentListOf(entry), filteredLogs = persistentListOf(entry)))
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsDetailPlaceholder).assertExists()
+        composeRule.onNodeWithTag(LogsTestTags.LogsDetailPlaceholder).assertExists()
 
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsDetailPane).assertExists()
+        composeRule.onNodeWithTag(LogsTestTags.LogsDetailPane).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).assertIsSelected()
     }
 
@@ -311,7 +312,7 @@ class LogsViewportTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsSearch).performTextInput("proxy")
+        composeRule.onNodeWithTag(LogsTestTags.LogsSearch).performTextInput("proxy")
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry("e1")).assertExists()

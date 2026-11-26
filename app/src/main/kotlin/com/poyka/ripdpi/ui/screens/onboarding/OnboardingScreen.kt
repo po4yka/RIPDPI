@@ -112,14 +112,7 @@ fun OnboardingRoute(
     viewModel: OnboardingViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
 ) {
-    val clipboardImportState by clipboardImportViewModel.uiState.collectAsStateWithLifecycle()
-    ClipboardImportNavigation(clipboardImportViewModel, onImport)
-    ClipboardImportErrorBanner(
-        unknownContentScheme = clipboardImportState.unknownContentScheme,
-        clipboardEmpty = clipboardImportState.clipboardEmpty,
-        onDismiss = clipboardImportViewModel::dismissError,
-        onLinkEntered = clipboardImportViewModel::onLinkEntered,
-    )
+    OnboardingClipboardImport(clipboardImportViewModel, onImport)
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val notificationsPermissionLauncher =
@@ -193,6 +186,21 @@ fun OnboardingRoute(
                 onScanServer = { onOpenRoute(Route.QrScanner) },
                 onOpenRoute = onOpenRoute,
             ),
+    )
+}
+
+@Composable
+private fun OnboardingClipboardImport(
+    clipboardImportViewModel: ClipboardImportViewModel,
+    onImport: (ImportPayload) -> Unit,
+) {
+    val clipboardImportState by clipboardImportViewModel.uiState.collectAsStateWithLifecycle()
+    ClipboardImportNavigation(clipboardImportViewModel, onImport)
+    ClipboardImportErrorBanner(
+        unknownContentScheme = clipboardImportState.unknownContentScheme,
+        clipboardEmpty = clipboardImportState.clipboardEmpty,
+        onDismiss = clipboardImportViewModel::dismissError,
+        onLinkEntered = clipboardImportViewModel::onLinkEntered,
     )
 }
 
@@ -867,63 +875,72 @@ private fun OnboardingSetupPageScene(
                     },
             )
 
-            when (pageModel.kind) {
-                SetupPageKind.Welcome -> {
-                    OnboardingLanguageAction()
-                }
+            OnboardingSetupPageContent(pageModel.kind, uiState, actions)
+        }
+    }
+}
 
-                SetupPageKind.DnsSelection -> {
-                    OnboardingDnsSelectionContent(
-                        selectedDnsProviderId = uiState.selectedDnsProviderId,
-                        onDnsSelected = actions.onDnsSelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+@Composable
+private fun OnboardingSetupPageContent(
+    kind: SetupPageKind,
+    uiState: OnboardingUiState,
+    actions: OnboardingScreenActions,
+) {
+    when (kind) {
+        SetupPageKind.Welcome -> {
+            OnboardingLanguageAction()
+        }
 
-                SetupPageKind.BackgroundGuidance -> {
-                    OnboardingBackgroundGuidanceContent(
-                        mode = uiState.selectedMode,
-                        onOpenBatterySettings = actions.onOpenBatterySettings,
-                        onOpenVpnSettings = actions.onOpenVpnSettings,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+        SetupPageKind.DnsSelection -> {
+            OnboardingDnsSelectionContent(
+                selectedDnsProviderId = uiState.selectedDnsProviderId,
+                onDnsSelected = actions.onDnsSelected,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-                SetupPageKind.Completion -> {
-                    OnboardingCompletionContent(uiState = uiState, modifier = Modifier.fillMaxWidth())
-                }
+        SetupPageKind.BackgroundGuidance -> {
+            OnboardingBackgroundGuidanceContent(
+                mode = uiState.selectedMode,
+                onOpenBatterySettings = actions.onOpenBatterySettings,
+                onOpenVpnSettings = actions.onOpenVpnSettings,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-                SetupPageKind.PersonaSelection -> {
-                    OnboardingPersonaSelectionContent(
-                        selectedPersona = uiState.selectedPersona,
-                        onPersonaSelected = actions.onPersonaSelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+        SetupPageKind.Completion -> {
+            OnboardingCompletionContent(uiState = uiState, modifier = Modifier.fillMaxWidth())
+        }
 
-                SetupPageKind.ModeSelection -> {
-                    OnboardingModeSelectionContent(
-                        selectedMode = uiState.selectedMode,
-                        onModeSelected = actions.onModeSelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+        SetupPageKind.PersonaSelection -> {
+            OnboardingPersonaSelectionContent(
+                selectedPersona = uiState.selectedPersona,
+                onPersonaSelected = actions.onPersonaSelected,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-                SetupPageKind.OwnServer -> {
-                    ServerAddActions(actions.onPasteServerLink, actions.onScanServer, actions.onOpenRoute)
-                }
+        SetupPageKind.ModeSelection -> {
+            OnboardingModeSelectionContent(
+                selectedMode = uiState.selectedMode,
+                onModeSelected = actions.onModeSelected,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
-                SetupPageKind.ConnectionTest -> {
-                    OnboardingModeValidationContent(
-                        uiState = uiState,
-                        onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
-                        onChangeDns = actions.onChangeDns,
-                        // Finish without testing shows the completion step, which completes onboarding.
-                        onFinish = actions.onShowCompletion,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+        SetupPageKind.OwnServer -> {
+            ServerAddActions(actions.onPasteServerLink, actions.onScanServer, actions.onOpenRoute)
+        }
+
+        SetupPageKind.ConnectionTest -> {
+            OnboardingModeValidationContent(
+                uiState = uiState,
+                onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
+                onChangeDns = actions.onChangeDns,
+                // Finish without testing shows the completion step, which completes onboarding.
+                onFinish = actions.onShowCompletion,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }

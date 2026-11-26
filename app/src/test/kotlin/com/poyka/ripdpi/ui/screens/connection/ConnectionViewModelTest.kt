@@ -1107,6 +1107,7 @@ class ConnectionViewModelProviderModeTest {
         return ConnectionViewModel(
             savedStateHandle = SavedStateHandle(),
             strategyLanesSource = strategyLanesSource(),
+            pathMemory = ConnectionPathMemory(),
             dependencies =
                 ConnectionViewModelDependencies(
                     reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
@@ -2107,6 +2108,7 @@ private fun createConfigViewModel(
     ConnectionViewModel(
         savedStateHandle = savedStateHandle,
         strategyLanesSource = strategyLanesSource(),
+        pathMemory = ConnectionPathMemory(),
         dependencies =
             ConnectionViewModelDependencies(
                 reconnectCoordinator = reconnectCoordinator,

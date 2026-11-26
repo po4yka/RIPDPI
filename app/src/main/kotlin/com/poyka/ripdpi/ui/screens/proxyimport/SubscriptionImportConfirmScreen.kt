@@ -90,32 +90,7 @@ internal fun SubscriptionImportConfirmScreen(
         navigationContentDescription = stringResource(R.string.navigation_back),
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SubscriptionImportConfirm())),
     ) {
-        if (uiState.bootstrap) {
-            WarningBanner(
-                title = stringResource(R.string.import_subscription_bootstrap_title),
-                message = stringResource(R.string.import_subscription_bootstrap_body),
-                tone = WarningBannerTone.Info,
-            )
-        }
-        if (uiState.importFailed) {
-            WarningBanner(
-                title = stringResource(R.string.strategy_config_import_failed_title),
-                message = subscriptionFailureText(uiState.rejection, uiState.refreshFailure, uiState.httpStatus),
-                tone = WarningBannerTone.Error,
-            )
-        }
-        if (uiState.skipped.isNotEmpty()) {
-            WarningBanner(
-                title =
-                    pluralStringResource(
-                        R.plurals.import_entries_skipped,
-                        uiState.skipped.size,
-                        uiState.skipped.size,
-                    ),
-                message = skippedEntriesText(uiState.skipped),
-                tone = WarningBannerTone.Warning,
-            )
-        }
+        SubscriptionImportBanners(uiState)
         // Same empty state as profile import: nothing to add, so no card and no disabled Add.
         if (uiState.url.isBlank() && !uiState.localBundle) {
             RipDpiCard {
@@ -173,3 +148,33 @@ internal fun SubscriptionImportConfirmScreen(
 
 private fun subscriptionDisplayName(uiState: SubscriptionImportConfirmUiState): String =
     uiState.name.ifBlank { uiState.fetchedTitle }.ifBlank { subscriptionHost(uiState.url).ifEmpty { uiState.url } }
+
+@Composable
+private fun SubscriptionImportBanners(uiState: SubscriptionImportConfirmUiState) {
+    if (uiState.bootstrap) {
+        WarningBanner(
+            title = stringResource(R.string.import_subscription_bootstrap_title),
+            message = stringResource(R.string.import_subscription_bootstrap_body),
+            tone = WarningBannerTone.Info,
+        )
+    }
+    if (uiState.importFailed) {
+        WarningBanner(
+            title = stringResource(R.string.strategy_config_import_failed_title),
+            message = subscriptionFailureText(uiState.rejection, uiState.refreshFailure, uiState.httpStatus),
+            tone = WarningBannerTone.Error,
+        )
+    }
+    if (uiState.skipped.isNotEmpty()) {
+        WarningBanner(
+            title =
+                pluralStringResource(
+                    R.plurals.import_entries_skipped,
+                    uiState.skipped.size,
+                    uiState.skipped.size,
+                ),
+            message = skippedEntriesText(uiState.skipped),
+            tone = WarningBannerTone.Warning,
+        )
+    }
+}

@@ -80,36 +80,6 @@ class MainActivityContentTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    @Composable
-    private fun rememberPauseViewModelForTest(): StatusPauseViewModel {
-        val store = remember { ViewModelStore() }
-        val pauseViewModel =
-            remember {
-                pauseVmCreations += 1
-                val authority =
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority()
-                val state =
-                    com.poyka.ripdpi.data
-                        .DefaultServiceStateStore()
-                val controller =
-                    com.poyka.ripdpi.services.TimedPauseController(
-                        RuntimeEnvironment.getApplication(),
-                        authority,
-                        com.poyka.ripdpi.data
-                            .TestBackupMutationCoordinator(),
-                        state,
-                        com.poyka.ripdpi.services
-                            .LiveVpnLockdownReader(),
-                        com.poyka.ripdpi.services
-                            .ServiceIntentArbiter(authority),
-                    )
-                StatusPauseViewModel(controller, authority, state).also { store.put("pause", it) }
-            }
-        DisposableEffect(store) { onDispose { store.clear() } }
-        return pauseViewModel
-    }
-
     @Test
     fun `composition initializes the view model once`() {
         val permissionStatusProvider = FakePermissionStatusProvider()
@@ -122,7 +92,7 @@ class MainActivityContentTest {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 hasSavedServerFactory = { null },
-                pauseViewModelFactory = { rememberPauseViewModelForTest() },
+                pauseViewModelFactory = { rememberPauseViewModelForTest { pauseVmCreations += 1 } },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -159,7 +129,7 @@ class MainActivityContentTest {
                 hasSavedServerFactory = { null },
                 pauseViewModelFactory = {
                     SideEffect { rootCompositions.incrementAndGet() }
-                    rememberPauseViewModelForTest()
+                    rememberPauseViewModelForTest { pauseVmCreations += 1 }
                 },
                 exportPreview = remember { createExportPreviewForTest() },
                 viewModel = viewModel,
@@ -213,7 +183,7 @@ class MainActivityContentTest {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 hasSavedServerFactory = { null },
-                pauseViewModelFactory = { rememberPauseViewModelForTest() },
+                pauseViewModelFactory = { rememberPauseViewModelForTest { pauseVmCreations += 1 } },
                 exportPreview =
                     androidx.compose.runtime.remember {
                         createExportPreviewForTest()
@@ -248,7 +218,7 @@ class MainActivityContentTest {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 hasSavedServerFactory = { null },
-                pauseViewModelFactory = { rememberPauseViewModelForTest() },
+                pauseViewModelFactory = { rememberPauseViewModelForTest { pauseVmCreations += 1 } },
                 exportPreview =
                     androidx.compose.runtime.remember {
                         createExportPreviewForTest()
@@ -288,7 +258,7 @@ class MainActivityContentTest {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 hasSavedServerFactory = { null },
-                pauseViewModelFactory = { rememberPauseViewModelForTest() },
+                pauseViewModelFactory = { rememberPauseViewModelForTest { pauseVmCreations += 1 } },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -337,7 +307,7 @@ class MainActivityContentTest {
             MainActivityContent(
                 startupState = viewModel.startupState.collectAsStateWithLifecycle().value,
                 hasSavedServerFactory = { null },
-                pauseViewModelFactory = { rememberPauseViewModelForTest() },
+                pauseViewModelFactory = { rememberPauseViewModelForTest { pauseVmCreations += 1 } },
                 exportPreview = androidx.compose.runtime.remember { createExportPreviewForTest() },
                 viewModel = viewModel,
                 controller = controller,
@@ -382,6 +352,18 @@ class MainActivityContentTest {
         assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
         assertFalse(controller.state.value.startConfiguredModeRequested)
     }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35])
+@OptIn(ExperimentalCoroutinesApi::class)
+class MainActivityContentHostTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
 
     @Test
     fun `vpn explanation renders from the view model and continue emits vpn consent host command`() {
@@ -601,199 +583,229 @@ class MainActivityContentTest {
                 activityController.pause().stop().destroy()
             }
         }
+}
 
-    private fun exportPreparation(purpose: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose) =
-        com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Archive(
-            com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest(
-                reason = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason.SHARE_ARCHIVE,
-                requestedAt = 10,
-            ),
-            purpose,
+private fun exportPreparation(purpose: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose) =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation.Archive(
+        com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest(
+            reason = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason.SHARE_ARCHIVE,
+            requestedAt = 10,
+        ),
+        purpose,
+    )
+
+private fun createViewModel(
+    appSettingsRepository: AppSettingsRepository =
+        FakeAppSettingsRepository(
+            AppSettings
+                .newBuilder()
+                .setOnboardingComplete(true)
+                .setRipdpiMode("vpn")
+                .build(),
+        ),
+    serviceController: FakeServiceController = FakeServiceController(),
+    permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
+    hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
+        com.poyka.ripdpi.hosts
+            .HostPackCatalogUiStateStore(),
+    strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
+        com.poyka.ripdpi.data
+            .InMemoryStrategyPackStateStore(),
+    appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
+    serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+    externalProviders: ConnectionExternalProviders = NoExternalProviders,
+): MainViewModel {
+    val crashReportReader =
+        com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
+            java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
         )
-
-    private fun createViewModel(
-        appSettingsRepository: AppSettingsRepository =
-            FakeAppSettingsRepository(
-                AppSettings
-                    .newBuilder()
-                    .setOnboardingComplete(true)
-                    .setRipdpiMode("vpn")
-                    .build(),
+    return MainViewModel(
+        appSettingsRepository = appSettingsRepository,
+        mainServiceDependencies =
+            MainServiceDependencies(
+                externalProviders = externalProviders,
+                appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+                reconnectCoordinator = FakeRunningServiceReconnect(),
+                recentWarningTracker = RecentWarningTracker(now = { 0L }),
+                serviceStateStore = serviceStateStore,
+                serviceController = serviceController,
+                trafficStatsReader = FakeTrafficStatsReader(),
+                hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
             ),
-        serviceController: FakeServiceController = FakeServiceController(),
-        permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
-        hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
-            com.poyka.ripdpi.hosts
-                .HostPackCatalogUiStateStore(),
-        strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
-            com.poyka.ripdpi.data
-                .InMemoryStrategyPackStateStore(),
-        appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
-        serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
-        externalProviders: ConnectionExternalProviders = NoExternalProviders,
-    ): MainViewModel {
-        val crashReportReader =
-            com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
-                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
-            )
-        return MainViewModel(
-            appSettingsRepository = appSettingsRepository,
-            mainServiceDependencies =
-                MainServiceDependencies(
-                    externalProviders = externalProviders,
-                    appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
-                    reconnectCoordinator = FakeRunningServiceReconnect(),
-                    recentWarningTracker = RecentWarningTracker(now = { 0L }),
-                    serviceStateStore = serviceStateStore,
-                    serviceController = serviceController,
-                    trafficStatsReader = FakeTrafficStatsReader(),
-                    hardKillSwitchStateStore = FakeAndroidHardKillSwitchStateStore(),
-                ),
-            mainPermissionDependencies =
-                MainPermissionDependencies(
-                    permissionPlatformBridge =
-                        FakePermissionPlatformBridge(
-                            vpnPermissionIntent = Intent("fake.vpn.permission"),
-                        ),
-                    permissionStatusProvider = permissionStatusProvider,
-                    permissionCoordinator = PermissionCoordinator(),
-                ),
-            mainDiagnosticsDependencies =
-                MainDiagnosticsDependencies(
-                    diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
-                    diagnosticsScanController = StubDiagnosticsScanController(),
-                    homeDiagnosticsServices =
-                        StatusDiagnosticsServices(
-                            workflowService = StubDiagnosticsHomeWorkflowService(),
-                            compositeRunService = StubDiagnosticsHomeCompositeRunService(),
-                        ),
-                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
-                    networkPathValidationSource = FakeNetworkPathValidationSource(),
-                    networkHandoverMonitor = SilentNetworkHandoverMonitor(),
-                ),
-            mainControlPlaneDependencies =
-                MainControlPlaneDependencies(
-                    hostPackCatalogUiStateStore = hostPackCatalogUiStateStore,
-                    hostPackCatalogUiStateCoordinator =
-                        com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
-                            repository =
-                                object : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
-                                    override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts
-                                        .HostPackCatalogLoadResult =
-                                        com.poyka.ripdpi.hosts.HostPackCatalogLoadResult(
-                                            snapshot =
-                                                com.poyka.ripdpi.data
-                                                    .HostPackCatalogSnapshot(),
-                                        )
+        mainPermissionDependencies =
+            MainPermissionDependencies(
+                permissionPlatformBridge =
+                    FakePermissionPlatformBridge(
+                        vpnPermissionIntent = Intent("fake.vpn.permission"),
+                    ),
+                permissionStatusProvider = permissionStatusProvider,
+                permissionCoordinator = PermissionCoordinator(),
+            ),
+        mainDiagnosticsDependencies =
+            MainDiagnosticsDependencies(
+                diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+                diagnosticsScanController = StubDiagnosticsScanController(),
+                homeDiagnosticsServices =
+                    StatusDiagnosticsServices(
+                        workflowService = StubDiagnosticsHomeWorkflowService(),
+                        compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+                    ),
+                latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
+                networkPathValidationSource = FakeNetworkPathValidationSource(),
+                networkHandoverMonitor = SilentNetworkHandoverMonitor(),
+            ),
+        mainControlPlaneDependencies =
+            MainControlPlaneDependencies(
+                hostPackCatalogUiStateStore = hostPackCatalogUiStateStore,
+                hostPackCatalogUiStateCoordinator =
+                    com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
+                        repository =
+                            object : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
+                                override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts
+                                    .HostPackCatalogLoadResult =
+                                    com.poyka.ripdpi.hosts.HostPackCatalogLoadResult(
+                                        snapshot =
+                                            com.poyka.ripdpi.data
+                                                .HostPackCatalogSnapshot(),
+                                    )
 
-                                    override suspend fun refreshSnapshot(): com.poyka.ripdpi.data
-                                        .HostPackCatalogSnapshot =
-                                        com.poyka.ripdpi.data
-                                            .HostPackCatalogSnapshot()
-                                },
-                            clock =
-                                com.poyka.ripdpi.hosts
-                                    .HostPackCatalogClock { 0L },
-                            stateStore = hostPackCatalogUiStateStore,
-                        ),
-                    strategyPackStateStore = strategyPackStateStore,
-                    proxyGroupRepository = TestEmptyProxyGroupRepository,
-                    subscriptionExpiryClock =
-                        com.poyka.ripdpi.subscription
-                            .SubscriptionExpiryClock { 0L },
-                ),
-            mainLifecycleDependencies =
-                createLifecycleDependencies(
-                    appSettingsRepository = appSettingsRepository,
-                    crashReportReader = crashReportReader,
-                    appStartupReadiness = appStartupReadiness,
-                ),
-            stringResolver = FakeStringResolver(),
-            activeTransportProvider = java.util.Optional.empty(),
-            pcapCaptureRuntimeController = null,
-            savedStateHandle = SavedStateHandle(),
+                                override suspend fun refreshSnapshot(): com.poyka.ripdpi.data
+                                    .HostPackCatalogSnapshot =
+                                    com.poyka.ripdpi.data
+                                        .HostPackCatalogSnapshot()
+                            },
+                        clock =
+                            com.poyka.ripdpi.hosts
+                                .HostPackCatalogClock { 0L },
+                        stateStore = hostPackCatalogUiStateStore,
+                    ),
+                strategyPackStateStore = strategyPackStateStore,
+                proxyGroupRepository = TestEmptyProxyGroupRepository,
+                subscriptionExpiryClock =
+                    com.poyka.ripdpi.subscription
+                        .SubscriptionExpiryClock { 0L },
+            ),
+        mainLifecycleDependencies =
+            createLifecycleDependencies(
+                appSettingsRepository = appSettingsRepository,
+                crashReportReader = crashReportReader,
+                appStartupReadiness = appStartupReadiness,
+            ),
+        stringResolver = FakeStringResolver(),
+        activeTransportProvider = java.util.Optional.empty(),
+        pcapCaptureRuntimeController = null,
+        savedStateHandle = SavedStateHandle(),
+    )
+}
+
+private fun createLifecycleDependencies(
+    appSettingsRepository: AppSettingsRepository,
+    crashReportReader: com.poyka.ripdpi.diagnostics.crash.CrashReportReader,
+    appStartupReadiness: AppStartupReadiness,
+): MainLifecycleDependencies =
+    MainLifecycleDependencies(
+        appLockLifecycleCoordinator =
+            MainAppLockLifecycleCoordinator(
+                com.poyka.ripdpi.security
+                    .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+            ),
+        startupSideEffectsCoordinator =
+            MainStartupSideEffectsCoordinator(
+                appSettingsRepository = appSettingsRepository,
+                crashReportReader = crashReportReader,
+            ),
+        settingsDismissCoordinator = MainSettingsDismissCoordinator(appSettingsRepository),
+        crashReportCoordinator = MainCrashReportCoordinator(crashReportReader),
+        appStartupReadiness = appStartupReadiness,
+    )
+
+private fun grantedStartupPermissionStatusProvider(): FakePermissionStatusProvider =
+    FakePermissionStatusProvider(
+        PermissionSnapshot(
+            vpnConsent = PermissionStatus.Granted,
+            notifications = PermissionStatus.Granted,
+            batteryOptimization = PermissionStatus.Granted,
+        ),
+    )
+
+private class MutableAppStartupReadiness(
+    initial: AppStartupReadinessState,
+) : AppStartupReadiness {
+    val state = kotlinx.coroutines.flow.MutableStateFlow(initial)
+    var retryCalls = 0
+        private set
+
+    override val readiness = state
+
+    override fun retryRecovery() {
+        retryCalls += 1
+        state.value = AppStartupReadinessState.Pending
+    }
+}
+
+private class DelayedAppSettingsRepository(
+    initialSnapshot: AppSettings = AppSettingsSerializer.defaultValue,
+) : AppSettingsRepository {
+    private val emissions = MutableSharedFlow<AppSettings>(replay = 1)
+    private var latest = initialSnapshot
+
+    var subscriptions = 0
+        private set
+
+    override val settings: Flow<AppSettings> =
+        flow {
+            subscriptions++
+            emitAll(emissions)
+        }
+
+    override suspend fun snapshot(): AppSettings = latest
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        replace(
+            latest
+                .toBuilder()
+                .apply(transform)
+                .build(),
         )
     }
 
-    private fun createLifecycleDependencies(
-        appSettingsRepository: AppSettingsRepository,
-        crashReportReader: com.poyka.ripdpi.diagnostics.crash.CrashReportReader,
-        appStartupReadiness: AppStartupReadiness,
-    ): MainLifecycleDependencies =
-        MainLifecycleDependencies(
-            appLockLifecycleCoordinator =
-                MainAppLockLifecycleCoordinator(
-                    com.poyka.ripdpi.security
-                        .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
-                ),
-            startupSideEffectsCoordinator =
-                MainStartupSideEffectsCoordinator(
-                    appSettingsRepository = appSettingsRepository,
-                    crashReportReader = crashReportReader,
-                ),
-            settingsDismissCoordinator = MainSettingsDismissCoordinator(appSettingsRepository),
-            crashReportCoordinator = MainCrashReportCoordinator(crashReportReader),
-            appStartupReadiness = appStartupReadiness,
-        )
-
-    private fun grantedStartupPermissionStatusProvider(): FakePermissionStatusProvider =
-        FakePermissionStatusProvider(
-            PermissionSnapshot(
-                vpnConsent = PermissionStatus.Granted,
-                notifications = PermissionStatus.Granted,
-                batteryOptimization = PermissionStatus.Granted,
-            ),
-        )
-
-    private class MutableAppStartupReadiness(
-        initial: AppStartupReadinessState,
-    ) : AppStartupReadiness {
-        val state = kotlinx.coroutines.flow.MutableStateFlow(initial)
-        var retryCalls = 0
-            private set
-
-        override val readiness = state
-
-        override fun retryRecovery() {
-            retryCalls += 1
-            state.value = AppStartupReadinessState.Pending
-        }
+    override suspend fun replace(settings: AppSettings) {
+        latest = settings
+        emissions.emit(settings)
     }
 
-    private class DelayedAppSettingsRepository(
-        initialSnapshot: AppSettings = AppSettingsSerializer.defaultValue,
-    ) : AppSettingsRepository {
-        private val emissions = MutableSharedFlow<AppSettings>(replay = 1)
-        private var latest = initialSnapshot
-
-        var subscriptions = 0
-            private set
-
-        override val settings: Flow<AppSettings> =
-            flow {
-                subscriptions++
-                emitAll(emissions)
-            }
-
-        override suspend fun snapshot(): AppSettings = latest
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            replace(
-                latest
-                    .toBuilder()
-                    .apply(transform)
-                    .build(),
-            )
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            latest = settings
-            emissions.emit(settings)
-        }
-
-        fun emitSettings(settings: AppSettings) {
-            latest = settings
-            check(emissions.tryEmit(settings))
-        }
+    fun emitSettings(settings: AppSettings) {
+        latest = settings
+        check(emissions.tryEmit(settings))
     }
+}
+
+@Composable
+private fun rememberPauseViewModelForTest(onCreated: () -> Unit = {}): StatusPauseViewModel {
+    val store = remember { ViewModelStore() }
+    val pauseViewModel =
+        remember {
+            onCreated()
+            val authority =
+                com.poyka.ripdpi.data
+                    .testPauseAuthority()
+            val state =
+                com.poyka.ripdpi.data
+                    .DefaultServiceStateStore()
+            val controller =
+                com.poyka.ripdpi.services.TimedPauseController(
+                    RuntimeEnvironment.getApplication(),
+                    authority,
+                    com.poyka.ripdpi.data
+                        .TestBackupMutationCoordinator(),
+                    state,
+                    com.poyka.ripdpi.services
+                        .LiveVpnLockdownReader(),
+                    com.poyka.ripdpi.services
+                        .ServiceIntentArbiter(authority),
+                )
+            StatusPauseViewModel(controller, authority, state).also { store.put("pause", it) }
+        }
+    DisposableEffect(store) { onDispose { store.clear() } }
+    return pauseViewModel
 }

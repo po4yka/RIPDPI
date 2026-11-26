@@ -78,6 +78,8 @@ import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusUiState
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerScreen
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
+import com.poyka.ripdpi.ui.testing.AwgTestTags
+import com.poyka.ripdpi.ui.testing.BackupTestTags
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -291,7 +293,7 @@ class ArabicLargeFontScreensTest {
                 onResetClick = {},
             )
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.BackupExportButton).assertIsDisplayed()
+        composeRule.onNodeWithTag(BackupTestTags.BackupExportButton).assertIsDisplayed()
         composeRule.assertNoClippedText("backup restore")
         render {
             AppCustomizationScreen(
@@ -422,17 +424,14 @@ class ArabicLargeFontScreensTest {
                 onCohortSelected = {},
                 onCarrierSelected = {},
                 onPasteConf = {},
-                onRevealPrivateKey = {},
-                onRevealPresharedKey = {},
+                onRevealSecret = {},
                 onConnect = {},
                 onSave = {},
-                onRevealHeaderProtectionKey = {},
-                onConfirmCohortReplacement = {},
-                onCancelCohortReplacement = {},
+                onResolveCohortReplacement = {},
                 onDelete = {},
             )
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsDisplayed()
+        composeRule.onNodeWithTag(AwgTestTags.AwgConnectAction).assertIsDisplayed()
         composeRule.assertNoClippedText("awg editor")
         render {
             PcapViewerScreen(

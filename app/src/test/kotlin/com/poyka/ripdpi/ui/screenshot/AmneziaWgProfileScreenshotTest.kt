@@ -148,13 +148,10 @@ class AmneziaWgProfileScreenshotTest {
                 onCohortSelected = {},
                 onCarrierSelected = {},
                 onPasteConf = {},
-                onRevealPrivateKey = {},
-                onRevealPresharedKey = {},
+                onRevealSecret = {},
                 onConnect = {},
                 onSave = {},
-                onRevealHeaderProtectionKey = {},
-                onConfirmCohortReplacement = {},
-                onCancelCohortReplacement = {},
+                onResolveCohortReplacement = {},
                 onDelete = {},
             )
         }

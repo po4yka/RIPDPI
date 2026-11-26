@@ -15,7 +15,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.AwgTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -40,7 +40,7 @@ internal fun AwgDeleteProfileAction(
         enabled =
             !uiState.inUse && !uiState.deleting && !uiState.loadingProfile &&
                 uiState.activationStatus != AwgActivationStatus.Connecting,
-        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AwgDeleteAction),
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(AwgTestTags.AwgDeleteAction),
     )
     if (confirming) {
         val cancel = { confirming = false }
@@ -55,7 +55,7 @@ internal fun AwgDeleteProfileAction(
                         confirming = false
                         onDelete()
                     },
-                    testTag = RipDpiTestTags.AwgDeleteConfirm,
+                    testTag = AwgTestTags.AwgDeleteConfirm,
                     destructive = true,
                 ),
             visuals = RipDpiDialogVisuals(message = stringResource(R.string.awg_delete_body)),
