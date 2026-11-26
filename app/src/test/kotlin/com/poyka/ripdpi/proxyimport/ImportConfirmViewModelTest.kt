@@ -180,7 +180,6 @@ class ImportConfirmViewModelTest {
                     },
                 )
             viewModel.setProfile(selectableTrojan)
-            // Select waits for the save: nothing is selected before Add.
             viewModel.select(connect = true)
             advanceUntilIdle()
             assertTrue(selected.isEmpty())
@@ -192,7 +191,6 @@ class ImportConfirmViewModelTest {
                 assertEquals(true, awaitItem())
             }
             assertEquals(listOf(selectableTrojan.id), selected)
-            // The screen is leaving; a second tap does not select again.
             viewModel.select(connect = true)
             advanceUntilIdle()
             assertEquals(1, selected.size)
@@ -280,7 +278,6 @@ class ImportConfirmViewModelTest {
             viewModel.confirm()
             advanceUntilIdle()
             assertTrue(viewModel.uiState.value.saved)
-            // A second Add after the save does not write the profile again.
             viewModel.confirm()
             advanceUntilIdle()
 

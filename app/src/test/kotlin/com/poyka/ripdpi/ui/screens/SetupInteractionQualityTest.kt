@@ -352,7 +352,6 @@ class SetupInteractionQualityTest {
                 )
             }
         }
-        // An unnamed link is shown by its host until Check reads the server's title.
         composeRule.onNodeWithText("sub.example").assertExists()
         composeRule.onNodeWithText(text(R.string.import_confirm_add_action)).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.SubscriptionImportCheck).performClick()

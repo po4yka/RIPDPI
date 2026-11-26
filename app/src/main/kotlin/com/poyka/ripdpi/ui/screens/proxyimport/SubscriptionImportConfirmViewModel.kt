@@ -59,15 +59,10 @@ data class SubscriptionImportConfirmUiState(
     val importFailed: Boolean = false,
     /** The named cause of [importFailed], when the payload itself was refused. */
     val rejection: ImportRejection? = null,
-    /** Why the fetch failed, when it was not the payload itself. */
     val refreshFailure: SubscriptionRefreshFailure? = null,
-    /** The HTTP status the subscription server answered with, when it refused the fetch. */
     val httpStatus: Int? = null,
-    /** The server-given title from Check, or empty. */
     val fetchedTitle: String = "",
-    /** The number of servers Check found; `null` until Check succeeds. */
     val serverCount: Int? = null,
-    /** Check ran; after a failed Check, Add still saves the link so auto-update can retry it. */
     val checked: Boolean = false,
     /** Set once the import is saved with entries left out; the screen stays to show them. */
     val skipped: ImmutableList<SingBoxSkippedNode> = persistentListOf(),
@@ -76,7 +71,6 @@ data class SubscriptionImportConfirmUiState(
     /** A RIPDPI bundle the user holds locally; it has no [url]. */
     val localBundle: Boolean = false,
 ) {
-    /** An ordinary link is checked before Add; a bootstrap link is spent by its first fetch, so Add fetches it. */
     val needsCheck: Boolean
         get() = !bootstrap && !localBundle && url.isNotBlank() && !checked
 }
@@ -196,7 +190,6 @@ class SubscriptionImportConfirmViewModel
         // Kept out of the UI state: the bundle carries credentials.
         private var localBundleText: String? = null
 
-        // Kept out of the UI state: the fetched payload carries credentials.
         private var preview: SubscriptionPreview? = null
 
         // A consumed one-time payload that is not saved yet: a retry saves it without spending the token again.
@@ -251,7 +244,6 @@ class SubscriptionImportConfirmViewModel
             }
         }
 
-        /** Fetches the link without saving it, so the user sees its name and server count before Add. */
         fun check() {
             val state = _uiState.value
             if (!state.needsCheck || state.importing || completed) return
@@ -261,7 +253,6 @@ class SubscriptionImportConfirmViewModel
                     val groupId =
                         repository.list().firstOrNull { it.subscription?.link == state.url }?.id ?: groupIdFactory()
                     val result = previewSubscription(groupId, state.url)
-                    // A new request replaced this one while the fetch ran.
                     if (_uiState.value.url != state.url) return@launch
                     when (result) {
                         is SubscriptionPreviewResult.Fetched -> {
@@ -393,7 +384,6 @@ class SubscriptionImportConfirmViewModel
             groupId: String,
             isNewGroup: Boolean,
         ) {
-            // Add saves what Check showed; only a link without a check (a re-added one) is fetched here.
             val checked = preview?.takeIf { it.groupId == groupId && it.link == _uiState.value.url }
             val result = if (checked != null) installPreview(checked) else refreshSubscription(groupId)
             // A first fetch that is not a subscription at all (a web page, say) leaves nothing

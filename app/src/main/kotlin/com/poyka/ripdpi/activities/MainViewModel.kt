@@ -278,7 +278,6 @@ class MainViewModel
 
         val retryStartupRecovery: () -> Unit = lifecycleOwner::retryStartupRecovery
 
-        /** Starts the configured mode; a running connection is left as is, since it already follows the selection. */
         fun onStartRequested() {
             val state = uiState.value
             if (resolvePrimaryConnectionAction(state.connectionState, state.appStatus) ==

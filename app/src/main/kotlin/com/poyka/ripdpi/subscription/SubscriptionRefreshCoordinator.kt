@@ -81,23 +81,19 @@ sealed interface SubscriptionRefreshResult {
         val retryable: Boolean,
         /** The named cause of a rejected payload, when one is known. */
         val rejection: ImportRejection? = null,
-        /** The HTTP status of a refused fetch, when the server answered. */
         val httpStatus: Int? = null,
     ) : SubscriptionRefreshResult
 }
 
-/** A fetched subscription that is not saved yet; [install] saves exactly what was shown. */
 class SubscriptionPreview internal constructor(
     val groupId: String,
     val link: String,
-    /** The server-given title, or empty. */
     val title: String,
     val serverCount: Int,
     internal val attemptedAt: Long,
     internal val outcome: RefreshOutcome.Updated,
 )
 
-/** Result of [SubscriptionRefreshCoordinator.preview]. */
 sealed interface SubscriptionPreviewResult {
     data class Fetched(
         val preview: SubscriptionPreview,
@@ -215,10 +211,6 @@ class SubscriptionRefreshCoordinator private constructor(
         return result
     }
 
-    /**
-     * Fetches and parses [link] for a group that will get [groupId], without saving anything, so the
-     * user can see what the subscription holds before Add.
-     */
     suspend fun preview(
         groupId: String,
         link: String,
@@ -254,7 +246,6 @@ class SubscriptionRefreshCoordinator private constructor(
         }
     }
 
-    /** Saves a [preview] into its group, which the caller has added, without a second fetch. */
     suspend fun install(preview: SubscriptionPreview): SubscriptionRefreshResult {
         val group =
             repository.list().firstOrNull { it.id == preview.groupId && it.subscription?.link == preview.link }

@@ -33,7 +33,6 @@ internal class ConnectionRelayProfileSelector(
 
     // Both read saved settings inside the selection lock, so a tap made before the UI updated still lands.
 
-    /** Returns the selection job, or `null` when a reconnect in progress refused it. */
     fun select(profileId: String): Job? =
         changeActivePath {
             val settings = dependencies.appSettingsRepository.snapshot()

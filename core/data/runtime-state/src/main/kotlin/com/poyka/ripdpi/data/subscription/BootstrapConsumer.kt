@@ -61,7 +61,6 @@ sealed interface BootstrapConsumeResult {
     /** A transient transport failure (timeout, DNS, non-410 5xx). Safe to retry later. */
     data class NetworkError(
         val reason: String,
-        /** The HTTP status the server answered with; `null` when it did not answer. */
         val httpStatus: Int? = null,
     ) : BootstrapConsumeResult
 

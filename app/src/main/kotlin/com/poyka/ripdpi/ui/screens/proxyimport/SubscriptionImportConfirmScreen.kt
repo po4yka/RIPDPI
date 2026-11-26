@@ -171,6 +171,5 @@ internal fun SubscriptionImportConfirmScreen(
     }
 }
 
-/** The name Add saves: the user's, then the server's title, then the link's host. */
 private fun subscriptionDisplayName(uiState: SubscriptionImportConfirmUiState): String =
     uiState.name.ifBlank { uiState.fetchedTitle }.ifBlank { subscriptionHost(uiState.url).ifEmpty { uiState.url } }

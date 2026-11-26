@@ -58,7 +58,6 @@ fun ProfileImportConfirmRoute(
 
     ProfileImportConfirmScreen(
         uiState = uiState,
-        // Once the profile is saved, Back leaves it saved and unselected.
         onBack = if (uiState.saved) onImported else onBack,
         onConfirm = viewModel::confirm,
         onSelect = { viewModel.select(connect = false) },

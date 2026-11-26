@@ -87,8 +87,8 @@ fun ConnectionImportMenu(
 }
 
 /**
- * Renders the typed clipboard-import error as a dismissible dialog. An empty clipboard offers a field
- * to paste or type the link instead. A dialog rather than an inline banner so the error is not
+ * Renders the typed clipboard-import error as a dismissible dialog; an empty clipboard offers a
+ * field to paste or type the link. A dialog rather than an inline banner so the error is not
  * constrained by wherever the menu host composable sits (e.g. a top-bar RowScope).
  * The raw clipboard payload is never shown — at most the scheme prefix.
  */
@@ -133,7 +133,6 @@ private fun EnterLinkDialog(
     onDismiss: () -> Unit,
     onLinkEntered: (String) -> Unit,
 ) {
-    // Saved state could write the credential-bearing link to disk, so the field uses plain remember.
     var link by remember { mutableStateOf("") }
     Dialog(onDismissRequest = onDismiss) {
         RipDpiCard {
@@ -146,7 +145,6 @@ private fun EnterLinkDialog(
                         label = stringResource(R.string.import_link_label),
                         testTag = RipDpiTestTags.ClipboardImportLink,
                     ),
-                // A URI keyboard without autocorrect keeps the token-bearing link out of keyboard suggestions.
                 behavior =
                     RipDpiTextFieldBehavior(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),

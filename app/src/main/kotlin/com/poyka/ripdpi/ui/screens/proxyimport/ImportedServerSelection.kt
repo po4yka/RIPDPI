@@ -16,22 +16,17 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import javax.inject.Inject
 
-/** What a selection of an imported server did. */
 enum class ImportedServerSelectionResult {
     Failed,
     Selected,
 
-    /** The service was running and now follows the selection; it must not be started again. */
     AppliedToRunningService,
 }
 
-/** Makes an imported server the active one, the same way the Connection server list does. */
 fun interface ImportedServerSelection {
     suspend fun select(profileId: String): ImportedServerSelectionResult
 }
 
-// Its own selector, so a selection here does not wait for or exclude one on the Connection screen;
-// the import screen has no settings save in flight.
 internal class ConnectionImportedServerSelection
     @Inject
     constructor(
@@ -45,7 +40,6 @@ internal class ConnectionImportedServerSelection
         private val selector =
             ConnectionRelayProfileSelector(
                 dependencies = dependencies,
-                // A reconnect outlives the import screen, as it does for the Connection screen.
                 scope = dependencies.applicationScope,
                 stringResolver = stringResolver,
                 effects = effects,
@@ -60,7 +54,6 @@ internal class ConnectionImportedServerSelection
             effects.resetReplayCache()
             val job = selector.select(profileId) ?: return ImportedServerSelectionResult.Failed
             job.join()
-            // Only the selection's own failure counts; a reconnect warning leaves the profile selected.
             return when {
                 job.isCancelled || activationFailed in effects.replayCache -> ImportedServerSelectionResult.Failed
                 wasRunning -> ImportedServerSelectionResult.AppliedToRunningService

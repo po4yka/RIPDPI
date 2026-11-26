@@ -56,7 +56,6 @@ class ClipboardImportViewModel
             route(ClipboardImportClassifier.classify(clipboardReader.readPrimaryClipText()), fromClipboard = true)
         }
 
-        /** Imports a link the user pasted or typed after the clipboard was empty; the clipboard is not read again. */
         fun onLinkEntered(text: String) {
             route(ClipboardImportClassifier.classify(text), fromClipboard = false)
         }

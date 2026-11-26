@@ -32,7 +32,6 @@ internal fun importRejectionText(rejection: ImportRejection?): String =
         }
     } ?: stringResource(R.string.import_profile_confirm_error)
 
-/** Why a subscription import failed: the refused payload, a named cause, the HTTP status, or the transport, by that priority. */
 @Composable
 internal fun subscriptionFailureText(
     rejection: ImportRejection?,
