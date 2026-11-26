@@ -2,17 +2,18 @@
 id: UIX-1795615861770408
 title: Hide the empty-profile message above saved AWG profiles
 kind: bug
-status: backlog
+status: review
 area: ui
 priority: medium
-owner: unassigned
+owner: claude
 parent: EPC-1795615697939690
 blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-26
 spec_reason: regression-tested-single-module
+status_detail: Does not reproduce after the unified server list; pinned by ConnectionScreenTest
 ---
 
 ## Goal
