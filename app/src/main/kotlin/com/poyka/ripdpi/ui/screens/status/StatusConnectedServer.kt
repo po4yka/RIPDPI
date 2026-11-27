@@ -27,7 +27,6 @@ internal fun connectedServerOf(
         StatusConnectedServer(it, egress.firstNotNullOfOrNull { snapshot -> snapshot.upstreamRttMs })
     }
 
-/** The running native relay server, named as the server list names it. */
 internal fun runningRelayServerName(
     applications: Map<Mode, RuntimeConfigurationApplication>,
     serverNames: Map<String, String>,

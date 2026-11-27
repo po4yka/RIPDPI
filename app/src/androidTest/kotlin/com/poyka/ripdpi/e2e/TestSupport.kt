@@ -527,7 +527,6 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
     }
 }
 
-/** Resolves through the DoH server that `xray-provider-peer` serves behind its own Xray inbounds. */
 fun AppSettings.Builder.useXrayPeerDns(
     bootstrapIp: String,
     manifest: JSONObject,
