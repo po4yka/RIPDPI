@@ -234,7 +234,7 @@ fn paused_download_preserves_bytes_and_returns_at_the_stall_budget() {
     let client = std::net::TcpStream::connect(listener.local_addr().unwrap()).expect("test client");
     let (mut peer, _) = listener.accept().expect("test server");
     peer.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\na").expect("response prefix");
-    let mut client = ConnectionStream::Plain(client);
+    let mut client = ConnectionStream::Plain(client.into());
 
     let started = Instant::now();
     let result = telegram_download_transfer_loop(&mut client, TransferResponse::Page, &transfer_control(100, 2000));
@@ -320,7 +320,7 @@ fn media_rate_keeps_header_wait_out_of_body_window() {
         std::thread::sleep(Duration::from_millis(100));
         peer.write_all(&response).expect("test HTTP response");
     });
-    let mut client = ConnectionStream::Plain(client);
+    let mut client = ConnectionStream::Plain(client.into());
     let result = telegram_download_transfer_loop(&mut client, TransferResponse::Png, &transfer_control(800, 1000));
     writer.join().expect("test server");
 

@@ -192,7 +192,7 @@ fn read_http_response_rejects_truncated_content_length() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nabc").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     assert_eq!(read_http_response(&mut stream, 1024).unwrap_err(), "response_truncated");
     server.join().unwrap();
 }
@@ -207,7 +207,7 @@ fn read_http_headers_rejects_eof_before_boundary() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(std::net::TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(std::net::TcpStream::connect(addr).unwrap().into());
     let headers = read_http_headers(&mut stream, 1024);
     server.join().unwrap();
     assert_eq!(headers.unwrap_err(), "response_missing_headers");
@@ -228,7 +228,7 @@ fn read_http_response_ignores_content_length_on_not_modified() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 304 Not Modified\r\nContent-Length: 5\r\n\r\n").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     let response = read_http_response(&mut stream, 1024).expect("bodyless 304 response");
     assert_eq!(response.status_code, 304);
     assert!(response.body.is_empty());
@@ -250,7 +250,7 @@ fn read_http_response_ignores_bytes_after_content_length() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\nblocked").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     let response = read_http_response(&mut stream, 1024).expect("empty body response");
     assert!(response.body.is_empty());
     server.join().unwrap();
@@ -271,7 +271,7 @@ fn read_http_response_skips_interim_response() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     let response = read_http_response(&mut stream, 1024).expect("final response after early hints");
     assert_eq!(response.status_code, 200);
     assert_eq!(response.body, b"OK");
@@ -294,7 +294,7 @@ fn read_http_response_decodes_chunked_body() {
             .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nblo\r\n4\r\ncked\r\n0\r\n\r\n")
             .unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     let response = read_http_response(&mut stream, 1024).expect("complete chunked response");
     assert_eq!(response.body, b"blocked");
     server.join().unwrap();
@@ -314,7 +314,7 @@ fn read_http_response_rejects_truncated_chunked_body() {
         let (mut stream, _) = listener.accept().unwrap();
         stream.write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5\r\nabc").unwrap();
     });
-    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap());
+    let mut stream = ConnectionStream::Plain(TcpStream::connect(addr).unwrap().into());
     assert_eq!(read_http_response(&mut stream, 1024).unwrap_err(), "response_truncated");
     server.join().unwrap();
 }
@@ -339,7 +339,7 @@ fn read_http_response_rejects_malformed_chunk_trailer() {
             .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1\r\na\r\n0\r\ninvalid trailer\r\n\r\n")
             .unwrap();
     });
-    let mut stream = crate::transport::ConnectionStream::Plain(TcpStream::connect(address).unwrap());
+    let mut stream = crate::transport::ConnectionStream::Plain(TcpStream::connect(address).unwrap().into());
     assert!(read_http_response(&mut stream, 1024).is_err());
     server.join().unwrap();
 }

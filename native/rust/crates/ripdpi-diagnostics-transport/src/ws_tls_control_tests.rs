@@ -1,5 +1,5 @@
 use std::io::{Read, Write};
-use std::net::{Ipv4Addr, TcpListener};
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -30,7 +30,7 @@ fn cancelling_an_upgrade_closes_the_socket_before_the_deadline() {
         let should_abort = || cancel.load(Ordering::Acquire).then_some("cancelled");
         let control = WsOverTlsControl::new(&should_abort);
         let target = WsOverTlsTarget::new("example.test", "/apiws");
-        let socket = client.try_clone().unwrap();
+        let socket = client.try_clone().unwrap().into();
         let result = with_scan_io_deadline(Some(Instant::now() + Duration::from_secs(1)), || {
             upgrade_websocket(build_ws_request(&target).unwrap(), client, socket, &control)
         });
@@ -69,7 +69,7 @@ fn upgrade_that_runs_out_of_scan_time_returns_a_typed_deadline() {
         let should_abort = || (Instant::now() >= deadline).then_some("deadline_exceeded");
         let control = WsOverTlsControl::new(&should_abort);
         let target = WsOverTlsTarget::new("example.test", "/apiws");
-        let socket = client.try_clone().unwrap();
+        let socket = client.try_clone().unwrap().into();
         with_scan_io_deadline(Some(deadline), || {
             upgrade_websocket(build_ws_request(&target).unwrap(), client, socket, &control)
         })
@@ -172,7 +172,7 @@ fn run_fixture_upgrade(target: &WsOverTlsTarget, response: &[u8]) -> io::Result<
             peer.write_all(response).unwrap();
         });
         let control = WsOverTlsControl::new(&|| None);
-        let socket = client.try_clone()?;
+        let socket = client.try_clone()?.into();
         upgrade_websocket(request, client, socket, &control)
     })
 }
@@ -191,7 +191,7 @@ fn idle_upgrade_keeps_the_socket_error_kind() {
             read_upgrade_request(&mut peer);
             assert_eq!(peer.read(&mut [0]).unwrap(), 0);
         });
-        let socket = client.try_clone().unwrap();
+        let socket = client.try_clone().unwrap().into();
         let control = WsOverTlsControl::new(&|| None);
         upgrade_websocket(request, client, socket, &control).unwrap_err()
     });

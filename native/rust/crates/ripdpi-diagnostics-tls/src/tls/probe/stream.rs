@@ -5,7 +5,9 @@ use super::super::types::{
 use super::capture::CaptureTlsHandshakeOptions;
 use super::retry::capture_with_ech_retry;
 use crate::platform_ttl;
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, connect_transport_observed_with_abort};
+use crate::transport::{
+    ConnectionStream, ProbeStream, TargetAddress, TransportConfig, connect_transport_observed_with_abort,
+};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 use ripdpi_diagnostics_dns::cdn_ech::opportunistic_ech_provider_for_ip;
 use std::time::Instant;
@@ -155,7 +157,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
                 }
             };
             let local_socket_ttl = match &captured.stream {
-                ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
+                ConnectionStream::Tls(stream) => stream.sock.as_tcp().and_then(platform_ttl::get_local_socket_ttl),
                 ConnectionStream::Plain(_) => unreachable!(),
             };
 
@@ -184,7 +186,7 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
 }
 
 struct OpenedTransportStream {
-    stream: std::net::TcpStream,
+    stream: ProbeStream,
     transport_open_ms: u64,
     connected_addr: Option<std::net::SocketAddr>,
     local_addr: Option<std::net::SocketAddr>,
@@ -233,7 +235,7 @@ fn open_transport_stream(
 }
 
 fn build_plain_result(opened: OpenedTransportStream) -> Result<ProbeStreamResult, ProbeStreamError> {
-    let local_socket_ttl = platform_ttl::get_local_socket_ttl(&opened.stream);
+    let local_socket_ttl = opened.stream.as_tcp().and_then(platform_ttl::get_local_socket_ttl);
 
     Ok(ProbeStreamResult {
         stream: ConnectionStream::Plain(opened.stream),

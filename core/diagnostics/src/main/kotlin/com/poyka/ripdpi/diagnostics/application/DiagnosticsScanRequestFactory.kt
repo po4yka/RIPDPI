@@ -134,12 +134,13 @@ internal class DiagnosticsScanRequestFactory
             val request = json.decodeFromString(EngineScanRequestWire.serializer(), prepared.requestJson)
             val routedRequest =
                 request.copy(
-                    proxyHost = lease.host,
-                    proxyPort = lease.port,
+                    proxyHost = lease.host.ifEmpty { null },
+                    proxyPort = lease.port.takeIf { it != 0 },
                     inPathRoute =
                         EngineInPathRouteWire(
                             host = lease.host,
                             port = lease.port,
+                            unixPath = lease.unixPath,
                             credentials =
                                 EngineProxyCredentialsWire(
                                     username = lease.credentials.username,

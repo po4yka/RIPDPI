@@ -5,7 +5,7 @@ use crate::connectivity::adapters::dns::{
     build_dns_query_with_type, classify_udp_dns_error, is_retryable_udp_dns_error, parse_dns_response_for_query,
 };
 use crate::connectivity::adapters::transport::{
-    TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr,
+    TransportConfig, relay_udp_direct, relay_udp_via_socks5, relay_udp_via_socks5_unix, resolve_first_socket_addr,
 };
 use crate::connectivity::adapters::util::now_ms;
 use crate::connectivity::probes::classify_dns_probe_outcome;
@@ -65,6 +65,9 @@ fn execute_variant(server: &str, transport: &TransportConfig, packet: &[u8]) -> 
             relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref())
                 .map_err(|err| err.to_string())
                 .map(|(bytes, _)| bytes)
+        }
+        TransportConfig::Socks5Unix { path, credentials } => {
+            relay_udp_via_socks5_unix(path, server_addr, packet, credentials.as_ref()).map_err(|err| err.to_string())
         }
     }?;
 

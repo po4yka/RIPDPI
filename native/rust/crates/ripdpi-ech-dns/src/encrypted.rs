@@ -383,6 +383,7 @@ fn prepare_exchange(
             });
             EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials }
         }
+        TransportConfig::Socks5Unix { .. } => return Err("encrypted DNS cannot use a Unix proxy route".to_string()),
     };
     let timeout = bounded_scan_io_timeout(Duration::from_secs(4)).map_err(str::to_string)?;
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(

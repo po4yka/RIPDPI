@@ -50,9 +50,48 @@ impl std::fmt::Debug for InPathProxyCredentials {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InPathRoute {
+    #[serde(default)]
     pub host: String,
+    #[serde(default)]
     pub port: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unix_path: Option<InPathUnixPath>,
     pub credentials: InPathProxyCredentials,
+}
+
+impl InPathRoute {
+    pub fn is_valid_endpoint(&self) -> bool {
+        match &self.unix_path {
+            Some(path) => self.host.is_empty() && self.port == 0 && path.is_valid(),
+            None => matches!(self.host.as_str(), "127.0.0.1" | "::1") && self.port != 0,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct InPathUnixPath(String);
+
+impl InPathUnixPath {
+    const MAX_BYTES: usize = 107;
+
+    pub fn new(path: impl Into<String>) -> Self {
+        Self(path.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.0.starts_with('/') && self.0.len() <= Self::MAX_BYTES && !self.0.contains('\0')
+    }
+}
+
+impl std::fmt::Debug for InPathUnixPath {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("InPathUnixPath([REDACTED])")
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

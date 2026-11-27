@@ -77,8 +77,10 @@ data class EngineProxyCredentialsWire(
 
 @Serializable
 data class EngineInPathRouteWire(
-    val host: String,
-    val port: Int,
+    val host: String = "",
+    val port: Int = 0,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val unixPath: String? = null,
     val credentials: EngineProxyCredentialsWire,
 ) {
     override fun toString(): String = "EngineInPathRouteWire(host=$host, port=$port, credentials=[REDACTED])"

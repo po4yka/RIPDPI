@@ -5,7 +5,7 @@ use crate::transport::ConnectionStream;
 use ripdpi_diagnostics_dns::dns::EchResolutionOutcome;
 use rustls::client::EchStatus;
 use std::io::{Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -102,7 +102,7 @@ fn comparison_connects_plain_grease_and_real_ech_on_the_same_trusted_peer() {
         let socket = TcpStream::connect(address).unwrap();
         socket.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
         socket.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
-        let (result, retry) = capture_with_ech_retry(socket, Some(address), 0, &options);
+        let (result, retry) = capture_with_ech_retry(socket.into(), Some(address), 0, &options);
         let mut handshake = result.unwrap_or_else(|error| panic!("{profile:?}: {}", error.message));
         let ConnectionStream::Tls(stream) = &handshake.stream else { panic!("expected TLS") };
         assert_eq!(stream.conn.ech_status(), expected_status);
@@ -147,7 +147,7 @@ fn comparison_ech_distinguishes_setup_failures_even_for_a_cdn_peer() {
             application_protocol: ApplicationProtocolPolicy::Http11Only,
             should_abort: &|| None,
         };
-        let (result, retry) = capture_with_ech_retry(socket, Some(cdn_peer), 0, &options);
+        let (result, retry) = capture_with_ech_retry(socket.into(), Some(cdn_peer), 0, &options);
 
         let Err(error) = result else { panic!("an unusable ECH setup allowed a handshake") };
         let reason = match error.ech_lookup_failure.as_deref() {
@@ -197,7 +197,7 @@ fn comparison_never_retries_rejected_ech_with_authenticated_retry_configs() {
     };
 
     let socket = TcpStream::connect(address).unwrap();
-    let (result, retry) = capture_with_ech_retry(socket, Some(address), 0, &options);
+    let (result, retry) = capture_with_ech_retry(socket.into(), Some(address), 0, &options);
 
     let Err(error) = result else { panic!("rejected ECH yielded a stream") };
     assert_eq!(error.ech_status, Some(EchStatus::Rejected));
@@ -285,7 +285,7 @@ fn check_monitor_ech_retry(fixture: RetryFixture) {
         application_protocol: crate::tls::types::ApplicationProtocolPolicy::Http11Only,
         should_abort: &|| None,
     };
-    let (result, evidence) = capture_with_ech_retry(socket, Some(address), 7, &options);
+    let (result, evidence) = capture_with_ech_retry(socket.into(), Some(address), 7, &options);
     if matches!(fixture, RetryFixture::CustomVerifier) {
         let Err(error) = result else { panic!("unchecked ECH rejection authorized a retry") };
         assert_eq!(error.ech_status, Some(rustls::client::EchStatus::Rejected));

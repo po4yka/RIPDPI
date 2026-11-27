@@ -17,7 +17,7 @@ pub(crate) fn telegram_transport_path(transport: &TransportConfig) -> &'static s
     match transport {
         TransportConfig::Direct { route_experiment: Some(_) } => "direct_route_experiment",
         TransportConfig::Direct { route_experiment: None } => "direct",
-        TransportConfig::Socks5 { .. } => "socks5",
+        TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => "socks5",
     }
 }
 
@@ -64,8 +64,8 @@ pub(crate) fn telegram_ws_tunnel_probe_with_abort_callback(
             let stream = WsOverTlsConnector.connect_with_key_log_and_abort(&target, key_log.cloned(), should_abort)?;
             // A SOCKS socket peer is the proxy. It cannot identify the WS server address.
             let peer = match target.transport {
-                TransportConfig::Direct { .. } => stream.get_ref().sock.peer_addr().ok(),
-                TransportConfig::Socks5 { .. } => None,
+                TransportConfig::Direct { .. } => stream.get_ref().sock.peer_addr().ok().flatten(),
+                TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => None,
             };
             Ok(peer)
         },

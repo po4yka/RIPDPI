@@ -1,6 +1,9 @@
 use super::*;
+use ripdpi_socks5_core::descriptor::send_fd;
 use ripdpi_socks5_core::udp_feedback::{self, Frame, Nonce};
 use std::io;
+use std::os::fd::AsFd;
+use std::os::unix::net::UnixDatagram;
 use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
 
@@ -9,7 +12,10 @@ use crate::transport::udp::{
     cancellation_reason, matched_udp_result, poll_wait, send_udp_before, udp_exchange_deadline, udp_remaining,
 };
 use crate::transport::watchdog::run_with_socket_abort_watchdog;
+use crate::types::InPathUnixPath;
 use crate::util::with_scan_io_deadline;
+
+const UNIX_DATAGRAM_BUFFER: usize = 1 << 20;
 
 pub fn relay_udp_via_socks5(
     proxy_host: &str,
@@ -34,8 +40,8 @@ pub(crate) fn relay_udp_via_socks5_matching(
     let mut control = connect_control(proxy_host, proxy_port, credentials, deadline, cancel)?;
     let mut prebound = None;
     let mut nonce = None;
-    let relay = if credentials.is_some() && control.peer_addr()?.ip().is_loopback() {
-        let udp = UdpSocket::bind(SocketAddr::new(control.local_addr()?.ip(), 0))?;
+    let relay = if credentials.is_some() && tcp(&control)?.peer_addr()?.ip().is_loopback() {
+        let udp = UdpSocket::bind(SocketAddr::new(tcp(&control)?.local_addr()?.ip(), 0))?;
         let source = udp.local_addr()?;
         match guard_control(&mut control, deadline, cancel, |control| private_associate(control, source, deadline))? {
             Some((relay, session_nonce)) => {
@@ -91,29 +97,131 @@ pub(crate) fn relay_udp_via_socks5_matching(
         };
         matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
         check_control(&control).map_err(TransportError::udp_recv_error)?;
-        let body = match nonce.as_ref().map(|nonce| udp_feedback::decode(&bytes[..size], nonce)) {
-            Some(Ok(Frame::Response { payload })) => payload,
-            Some(Ok(Frame::Error { id: 1, error })) if error.target == destination => {
-                return Err(TransportError::udp_recv_error(io::Error::new(
-                    io::ErrorKind::ConnectionRefused,
-                    "SOCKS5 UDP peer reported an error",
-                )));
+        match classify_reply(&bytes[..size], nonce.as_ref(), destination, accept_response)? {
+            Reply::Accepted(payload) => {
+                udp_remaining(deadline, cancel)?;
+                return Ok((payload, udp.local_addr()?));
             }
-            Some(_) => continue,
-            None => &bytes[..size],
-        };
-        match decode_socks5_udp_frame(body) {
-            Ok((source, payload)) if source == destination => {
-                if accept_response(&payload) {
-                    udp_remaining(deadline, cancel)?;
-                    return Ok((payload, udp.local_addr()?));
-                }
-                saw_unmatched = true;
-                continue;
-            }
-            _ => continue,
+            Reply::Unmatched => saw_unmatched = true,
+            Reply::Ignored => {}
         }
     }
+}
+
+enum Reply {
+    Accepted(Vec<u8>),
+    Unmatched,
+    Ignored,
+}
+
+fn classify_reply(
+    bytes: &[u8],
+    nonce: Option<&Nonce>,
+    destination: SocketAddr,
+    accept_response: &dyn Fn(&[u8]) -> bool,
+) -> Result<Reply, TransportError> {
+    let body = match nonce.map(|nonce| udp_feedback::decode(bytes, nonce)) {
+        Some(Ok(Frame::Response { payload })) => payload,
+        Some(Ok(Frame::Error { id: 1, error })) if error.target == destination => {
+            return Err(TransportError::udp_recv_error(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                "SOCKS5 UDP peer reported an error",
+            )));
+        }
+        Some(_) => return Ok(Reply::Ignored),
+        None => bytes,
+    };
+    match decode_socks5_udp_frame(body) {
+        Ok((source, payload)) if source == destination => {
+            Ok(if accept_response(&payload) { Reply::Accepted(payload) } else { Reply::Unmatched })
+        }
+        _ => Ok(Reply::Ignored),
+    }
+}
+
+pub fn relay_udp_via_socks5_unix(
+    path: &InPathUnixPath,
+    destination: SocketAddr,
+    payload: &[u8],
+    credentials: Option<&Socks5Credentials>,
+) -> Result<Vec<u8>, TransportError> {
+    relay_udp_via_socks5_unix_matching(path, destination, payload, credentials, &|_| true, None)
+}
+
+pub(crate) fn relay_udp_via_socks5_unix_matching(
+    path: &InPathUnixPath,
+    destination: SocketAddr,
+    payload: &[u8],
+    credentials: Option<&Socks5Credentials>,
+    accept_response: &dyn Fn(&[u8]) -> bool,
+    cancel: Option<&AtomicBool>,
+) -> Result<Vec<u8>, TransportError> {
+    let deadline = udp_exchange_deadline(cancel)?;
+    control_remaining(deadline, cancel)?;
+    let check_abort = || cancellation_reason(cancel);
+    let mut control = with_scan_io_deadline(Some(deadline), || connect_unix(path, Some(&check_abort)))
+        .map_err(|error| TransportError::ConnectFailed { stage: error.stage, message: error.message })?;
+    control_remaining(deadline, cancel)?;
+    guard_control(&mut control, deadline, cancel, |control| socks5_handshake(control, credentials))?;
+    let nonce = guard_control(&mut control, deadline, cancel, |control| private_unix_associate(control, deadline))?;
+    let (local, remote) = UnixDatagram::pair()?;
+    for end in [&local, &remote] {
+        let socket = socket2::SockRef::from(end);
+        let _ = socket.set_send_buffer_size(UNIX_DATAGRAM_BUFFER);
+        let _ = socket.set_recv_buffer_size(UNIX_DATAGRAM_BUFFER);
+    }
+    guard_control(&mut control, deadline, cancel, |control| Ok(send_fd(control.as_fd(), remote.as_fd())?))?;
+    drop(remote);
+    let frame = udp_feedback::encode_request(&nonce, 1, &encode_socks5_udp_frame(destination, payload))?;
+    control.set_nonblocking(true)?;
+    check_control(&control)?;
+    local.set_write_timeout(Some(poll_wait(udp_remaining(deadline, cancel)?, cancel.is_some())))?;
+    local.send(&frame)?;
+    let mut bytes = [0; 65_535];
+    let mut saw_unmatched = false;
+    loop {
+        let timeout = matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
+        check_control(&control).map_err(TransportError::udp_recv_error)?;
+        local.set_read_timeout(Some(poll_wait(timeout, true)))?;
+        let size = match local.recv(&mut bytes) {
+            Ok(size) => size,
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                ) =>
+            {
+                continue;
+            }
+            Err(error) => return Err(TransportError::udp_recv_error(error)),
+        };
+        matched_udp_result(udp_remaining(deadline, cancel), saw_unmatched)?;
+        check_control(&control).map_err(TransportError::udp_recv_error)?;
+        match classify_reply(&bytes[..size], Some(&nonce), destination, accept_response)? {
+            Reply::Accepted(payload) => {
+                udp_remaining(deadline, cancel)?;
+                return Ok(payload);
+            }
+            Reply::Unmatched => saw_unmatched = true,
+            Reply::Ignored => {}
+        }
+    }
+}
+
+fn private_unix_associate(control: &mut ProbeStream, deadline: Instant) -> Result<Nonce, TransportError> {
+    control.set_write_timeout(Some(remaining(deadline)?))?;
+    control.write_all(&[5, udp_feedback::COMMAND, 0, 1, 0, 0, 0, 0, 0, 0])?;
+    let mut reply = [0; 10];
+    read_until(control, &mut reply, deadline)?;
+    if reply[0] != 5 || reply[2] != 0 || reply[3] != 1 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid private SOCKS5 reply").into());
+    }
+    if reply[1] != 0 {
+        return Err(TransportError::SocksUdpAssociateFailed(reply[1]));
+    }
+    let mut preface = [0; udp_feedback::PREFACE_LEN];
+    read_until(control, &mut preface, deadline)?;
+    Ok(udp_feedback::decode_preface(&preface)?)
 }
 
 fn connect_control(
@@ -122,7 +230,7 @@ fn connect_control(
     credentials: Option<&Socks5Credentials>,
     deadline: Instant,
     cancel: Option<&AtomicBool>,
-) -> Result<TcpStream, TransportError> {
+) -> Result<ProbeStream, TransportError> {
     control_remaining(deadline, cancel)?;
     let check_abort = || cancellation_reason(cancel);
     let result = with_scan_io_deadline(Some(deadline), || {
@@ -136,7 +244,7 @@ fn connect_control(
 }
 
 fn standard_association(
-    control: &mut TcpStream,
+    control: &mut ProbeStream,
     deadline: Instant,
     cancel: Option<&AtomicBool>,
 ) -> Result<SocketAddr, TransportError> {
@@ -148,10 +256,10 @@ fn standard_association(
 }
 
 fn guard_control<T>(
-    control: &mut TcpStream,
+    control: &mut ProbeStream,
     deadline: Instant,
     cancel: Option<&AtomicBool>,
-    operation: impl FnOnce(&mut TcpStream) -> Result<T, TransportError>,
+    operation: impl FnOnce(&mut ProbeStream) -> Result<T, TransportError>,
 ) -> Result<T, TransportError> {
     let wait = poll_wait(control_remaining(deadline, cancel)?, false);
     control.set_read_timeout(Some(wait))?;
@@ -172,7 +280,7 @@ fn control_remaining(deadline: Instant, cancel: Option<&AtomicBool>) -> Result<D
 }
 
 fn private_associate(
-    control: &mut TcpStream,
+    control: &mut ProbeStream,
     source: SocketAddr,
     deadline: Instant,
 ) -> Result<Option<(SocketAddr, Nonce)>, TransportError> {
@@ -188,7 +296,7 @@ fn private_associate(
     if header[1] != 0 && header[1] != 7 {
         return Err(TransportError::SocksUdpAssociateFailed(header[1]));
     }
-    let peer = control.peer_addr()?.ip();
+    let peer = tcp(control)?.peer_addr()?.ip();
     let address = match header[3] {
         1 => {
             let mut address = [0; 4];
@@ -232,7 +340,7 @@ fn private_associate(
     Ok(Some((SocketAddr::new(address, port), udp_feedback::decode_preface(&preface)?)))
 }
 
-fn read_until(control: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
+fn read_until(control: &mut ProbeStream, mut bytes: &mut [u8], deadline: Instant) -> io::Result<()> {
     while !bytes.is_empty() {
         control.set_read_timeout(Some(remaining(deadline)?))?;
         match control.read(bytes) {
@@ -247,13 +355,17 @@ fn read_until(control: &mut TcpStream, mut bytes: &mut [u8], deadline: Instant) 
     Ok(())
 }
 
-fn check_control(control: &TcpStream) -> io::Result<()> {
-    match control.peek(&mut [0]) {
+fn check_control(control: &ProbeStream) -> io::Result<()> {
+    match socket2::SockRef::from(control).peek(&mut [std::mem::MaybeUninit::uninit()]) {
         Err(error) if error.kind() == io::ErrorKind::WouldBlock => Ok(()),
         Err(error) => Err(error),
         Ok(0) => Err(io::Error::new(io::ErrorKind::UnexpectedEof, "SOCKS5 UDP association closed")),
         Ok(_) => Err(io::Error::new(io::ErrorKind::InvalidData, "unexpected SOCKS5 UDP control data")),
     }
+}
+
+fn tcp(control: &ProbeStream) -> io::Result<&std::net::TcpStream> {
+    control.as_tcp().ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, "TCP control stream required"))
 }
 
 fn remaining(deadline: Instant) -> io::Result<Duration> {

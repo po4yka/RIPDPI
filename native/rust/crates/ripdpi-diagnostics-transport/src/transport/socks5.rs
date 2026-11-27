@@ -1,13 +1,20 @@
 use std::io::{Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::os::fd::OwnedFd;
+use std::os::unix::net::UnixStream;
+use std::time::Duration;
+
+use socket2::{Domain, SockAddr, Socket, Type};
 
 use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
 use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
 use ripdpi_socks5_core::{AuthenticationMethod, Socks5Command, SocksError, validate_udp_rsv_frag};
 
-use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
+use crate::types::InPathUnixPath;
+use crate::util::{CONNECT_TIMEOUT, IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::abort::{ABORT_POLL_INTERVAL, AbortCheck};
+use super::stream::ProbeStream;
 use super::tcp::{connect_aborted, connect_direct_observed};
 use super::types::{
     Socks5Credentials, TargetAddress, TransportConnectError, TransportConnectResult, TransportError,
@@ -15,13 +22,17 @@ use super::types::{
 };
 
 mod udp;
-pub use udp::relay_udp_via_socks5;
-pub(super) use udp::relay_udp_via_socks5_matching;
+
+const UNIX_CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
+pub use udp::{relay_udp_via_socks5, relay_udp_via_socks5_unix};
+pub(super) use udp::{relay_udp_via_socks5_matching, relay_udp_via_socks5_unix_matching};
 
 #[cfg(test)]
 mod private_udp_tests;
 #[cfg(test)]
 mod reply_contract_tests;
+#[cfg(test)]
+mod unix_tests;
 
 pub(super) fn connect_via_socks5_observed(
     targets: &[TargetAddress],
@@ -31,11 +42,65 @@ pub(super) fn connect_via_socks5_observed(
     credentials: Option<&Socks5Credentials>,
     should_abort: Option<AbortCheck<'_>>,
 ) -> Result<TransportConnectResult, TransportConnectError> {
+    connect_via_socks5(targets, port, credentials, should_abort, || {
+        Ok(connect_direct_observed(&[TargetAddress::Host(proxy_host.to_string())], proxy_port, None, should_abort)?
+            .stream)
+    })
+}
+
+pub(super) fn connect_via_socks5_unix_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    path: &InPathUnixPath,
+    credentials: Option<&Socks5Credentials>,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<TransportConnectResult, TransportConnectError> {
+    connect_via_socks5(targets, port, credentials, should_abort, || connect_unix(path, should_abort))
+}
+
+pub(super) fn connect_unix(
+    path: &InPathUnixPath,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<ProbeStream, TransportConnectError> {
+    let failed =
+        |error: std::io::Error| TransportConnectError::new(TransportFailureStage::TcpConnect, error.kind().to_string());
+    let aborted = || should_abort.and_then(|check| check());
+    if let Some(reason) = aborted() {
+        return Err(connect_aborted(TransportFailureStage::TcpConnect, reason));
+    }
+    let timeout = bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| failed(std::io::ErrorKind::TimedOut.into()))?;
+    let deadline = std::time::Instant::now() + timeout;
+    let address = SockAddr::unix(path.as_str()).map_err(failed)?;
+    let socket = Socket::new(Domain::UNIX, Type::STREAM, None).map_err(failed)?;
+    socket.set_nonblocking(true).map_err(failed)?;
+    loop {
+        match socket.connect(&address) {
+            Ok(()) => break,
+            Err(error) if matches!(error.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::Interrupted) => {}
+            Err(error) => return Err(failed(error)),
+        }
+        if let Some(reason) = aborted() {
+            return Err(connect_aborted(TransportFailureStage::TcpConnect, reason));
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err(failed(std::io::ErrorKind::TimedOut.into()));
+        }
+        std::thread::sleep(UNIX_CONNECT_RETRY_INTERVAL);
+    }
+    socket.set_nonblocking(false).map_err(failed)?;
+    Ok(ProbeStream::Unix(UnixStream::from(OwnedFd::from(socket))))
+}
+
+fn connect_via_socks5(
+    targets: &[TargetAddress],
+    port: u16,
+    credentials: Option<&Socks5Credentials>,
+    should_abort: Option<AbortCheck<'_>>,
+    open_proxy: impl Fn() -> Result<ProbeStream, TransportConnectError>,
+) -> Result<TransportConnectResult, TransportConnectError> {
     let mut last_error = None;
     for target in targets {
-        let proxy =
-            connect_direct_observed(&[TargetAddress::Host(proxy_host.to_string())], proxy_port, None, should_abort)?
-                .stream;
+        let proxy = open_proxy()?;
         let result = negotiate_socks5_with_credentials(proxy, target, port, credentials, should_abort);
         if let Some(reason) = should_abort.and_then(|check| check()) {
             return Err(connect_aborted(TransportFailureStage::Socks5Negotiation, reason));
@@ -46,7 +111,7 @@ pub(super) fn connect_via_socks5_observed(
                     TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
                     TargetAddress::Host(_) => None,
                 };
-                let local_addr = stream.local_addr().ok();
+                let local_addr = stream.local_addr().ok().flatten();
                 return Ok(TransportConnectResult { stream, connected_addr, local_addr, route_report: None });
             }
             Err(err) => {
@@ -60,17 +125,17 @@ pub(super) fn connect_via_socks5_observed(
     }))
 }
 
-pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
+pub fn negotiate_socks5(proxy: ProbeStream, target: &TargetAddress, port: u16) -> Result<ProbeStream, TransportError> {
     negotiate_socks5_with_credentials(proxy, target, port, None, None)
 }
 
 fn negotiate_socks5_with_credentials(
-    proxy: TcpStream,
+    proxy: ProbeStream,
     target: &TargetAddress,
     port: u16,
     credentials: Option<&Socks5Credentials>,
     should_abort: Option<AbortCheck<'_>>,
-) -> Result<TcpStream, TransportError> {
+) -> Result<ProbeStream, TransportError> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
     let deadline = std::time::Instant::now() + timeout;
     let deadline = crate::util::active_scan_io_deadline().map_or(deadline, |scan| scan.min(deadline));
@@ -86,37 +151,62 @@ fn negotiate_socks5_with_credentials(
         password: credentials.password().to_string(),
     });
     let proxy = runtime.block_on(async move {
-        let proxy = tokio::net::TcpStream::from_std(proxy)?;
-        let operation = async move {
-            let mut socks = Socks5Stream::use_stream(proxy, auth, Socks5Config::default()).await?;
-            socks.request(Socks5Command::TCPConnect, target).await?;
-            Ok::<_, SocksError>(socks.get_socket())
-        };
-        let mut operation = std::pin::pin!(operation);
-        let deadline = tokio::time::Instant::from_std(deadline);
-        loop {
-            if let Some(reason) = should_abort.and_then(|check| check()) {
-                break Err(TransportError::ProbeAborted(reason));
+        match proxy {
+            ProbeStream::Tcp(stream) => {
+                let stream = tokio::net::TcpStream::from_std(stream)?;
+                Ok::<_, TransportError>(ProbeStream::Tcp(
+                    socks5_connect(stream, auth, target, deadline, should_abort).await?.into_std()?,
+                ))
             }
-            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            if remaining.is_zero() {
-                break Err(TransportError::SocksNegotiationTimedOut);
-            }
-            let wait = should_abort.map_or(remaining, |_| remaining.min(ABORT_POLL_INTERVAL));
-            if let Ok(outcome) = tokio::time::timeout(wait, operation.as_mut()).await {
-                break if tokio::time::Instant::now() >= deadline {
-                    Err(TransportError::SocksNegotiationTimedOut)
-                } else {
-                    outcome.map_err(TransportError::Socks)
-                };
+            ProbeStream::Unix(stream) => {
+                let stream = tokio::net::UnixStream::from_std(stream)?;
+                Ok(ProbeStream::Unix(socks5_connect(stream, auth, target, deadline, should_abort).await?.into_std()?))
             }
         }
     })?;
-    let proxy = proxy.into_std()?;
     proxy.set_nonblocking(false)?;
     proxy.set_read_timeout(Some(timeout))?;
     proxy.set_write_timeout(Some(timeout))?;
     Ok(proxy)
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: dropping the future mid-negotiation closes the stream and leaves the proxy handshake incomplete.
+async fn socks5_connect<S>(
+    stream: S,
+    auth: Option<AuthenticationMethod>,
+    target: Socks5TargetAddr,
+    deadline: std::time::Instant,
+    should_abort: Option<AbortCheck<'_>>,
+) -> Result<S, TransportError>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
+{
+    let operation = async move {
+        let mut socks = Socks5Stream::use_stream(stream, auth, Socks5Config::default()).await?;
+        socks.request(Socks5Command::TCPConnect, target).await?;
+        Ok::<_, SocksError>(socks.get_socket())
+    };
+    let mut operation = std::pin::pin!(operation);
+    let deadline = tokio::time::Instant::from_std(deadline);
+    loop {
+        if let Some(reason) = should_abort.and_then(|check| check()) {
+            break Err(TransportError::ProbeAborted(reason));
+        }
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            break Err(TransportError::SocksNegotiationTimedOut);
+        }
+        let wait = should_abort.map_or(remaining, |_| remaining.min(ABORT_POLL_INTERVAL));
+        if let Ok(outcome) = tokio::time::timeout(wait, operation.as_mut()).await {
+            break if tokio::time::Instant::now() >= deadline {
+                Err(TransportError::SocksNegotiationTimedOut)
+            } else {
+                outcome.map_err(TransportError::Socks)
+            };
+        }
+    }
 }
 
 fn socks5_target(target: &TargetAddress, port: u16) -> Socks5TargetAddr {
@@ -126,11 +216,11 @@ fn socks5_target(target: &TargetAddress, port: u16) -> Socks5TargetAddr {
     }
 }
 
-pub fn socks5_noauth_handshake(stream: &mut TcpStream) -> Result<(), TransportError> {
+pub fn socks5_noauth_handshake(stream: &mut ProbeStream) -> Result<(), TransportError> {
     socks5_handshake(stream, None)
 }
 
-fn socks5_handshake(stream: &mut TcpStream, credentials: Option<&Socks5Credentials>) -> Result<(), TransportError> {
+fn socks5_handshake(stream: &mut ProbeStream, credentials: Option<&Socks5Credentials>) -> Result<(), TransportError> {
     let method = if credentials.is_some() { 0x02 } else { 0x00 };
     stream.write_all(&[0x05, 0x01, method])?;
     let mut reply = [0u8; 2];
@@ -155,12 +245,12 @@ fn socks5_handshake(stream: &mut TcpStream, credentials: Option<&Socks5Credentia
     Ok(())
 }
 
-pub fn socks5_udp_associate(stream: &mut TcpStream) -> Result<SocketAddr, TransportError> {
+pub fn socks5_udp_associate(stream: &mut ProbeStream) -> Result<SocketAddr, TransportError> {
     socks5_udp_associate_with_abort(stream, None)
 }
 
 fn socks5_udp_associate_with_abort(
-    stream: &mut TcpStream,
+    stream: &mut ProbeStream,
     should_abort: Option<AbortCheck<'_>>,
 ) -> Result<SocketAddr, TransportError> {
     let request = [0x05, 0x03, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
@@ -205,7 +295,7 @@ fn socks5_udp_associate_with_abort(
                 return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 relay port").into());
             }
             if host.eq_ignore_ascii_case("localhost") || host.eq_ignore_ascii_case("localhost.") {
-                return Ok(SocketAddr::new(stream.peer_addr()?.ip(), port));
+                return Ok(SocketAddr::new(tcp_peer_addr(stream)?.ip(), port));
             }
             if let Ok(ip) = host.parse() {
                 return Ok(SocketAddr::new(ip, port));
@@ -225,12 +315,16 @@ fn socks5_udp_associate_with_abort(
     }
 }
 
-pub fn normalize_udp_relay_addr(relay_addr: SocketAddr, control: &TcpStream) -> Result<SocketAddr, TransportError> {
+fn tcp_peer_addr(stream: &ProbeStream) -> std::io::Result<SocketAddr> {
+    stream.peer_addr()?.ok_or_else(|| std::io::Error::new(std::io::ErrorKind::Unsupported, "peer address unavailable"))
+}
+
+pub fn normalize_udp_relay_addr(relay_addr: SocketAddr, control: &ProbeStream) -> Result<SocketAddr, TransportError> {
     if relay_addr.port() == 0 {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid SOCKS5 relay port").into());
     }
     if relay_addr.ip().is_unspecified() {
-        let peer = control.peer_addr()?;
+        let peer = tcp_peer_addr(control)?;
         Ok(SocketAddr::new(peer.ip(), relay_addr.port()))
     } else {
         Ok(relay_addr)
@@ -295,7 +389,7 @@ pub fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u8>), Tr
 
 #[cfg(test)]
 mod tests {
-    use std::net::{Ipv6Addr, SocketAddr, TcpListener};
+    use std::net::{Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     use std::thread;
 
     use super::*;
@@ -377,7 +471,7 @@ mod tests {
         });
 
         let credentials = Socks5Credentials::new("attempt", "test").expect("valid credentials");
-        let mut control = TcpStream::connect(address).expect("connect SOCKS fixture");
+        let mut control: ProbeStream = TcpStream::connect(address).expect("connect SOCKS fixture").into();
         socks5_handshake(&mut control, Some(&credentials)).expect("authenticate SOCKS control stream");
         assert_eq!(
             socks5_udp_associate(&mut control).expect("associate UDP relay"),

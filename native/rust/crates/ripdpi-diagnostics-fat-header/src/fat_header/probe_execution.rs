@@ -1,11 +1,11 @@
 use std::io::ErrorKind;
-use std::net::{IpAddr, TcpStream};
+use std::net::IpAddr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use ripdpi_diagnostics_contracts::util::{FAT_HEADER_MAX_REQUESTS, bounded_scan_io_timeout};
 
 use crate::tls::{ProbeStreamFailureStage, ProbeStreamResult, TlsKeyLogCallback};
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_abort_watchdog};
+use crate::transport::{ConnectionStream, ProbeStream, TargetAddress, TransportConfig, run_with_socket_abort_watchdog};
 use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
 
@@ -161,7 +161,7 @@ fn io_failed(
     observation.failed(status, stage, err.to_string())
 }
 
-fn probe_socket(stream: &ConnectionStream) -> &TcpStream {
+fn probe_socket(stream: &ConnectionStream) -> &ProbeStream {
     match stream {
         ConnectionStream::Plain(socket) => socket,
         ConnectionStream::Tls(tls) => &tls.sock,
@@ -187,7 +187,7 @@ fn stop_reason(cancel: Option<&AtomicBool>) -> Option<&'static str> {
 mod tests {
     use super::*;
     use std::io::Read;
-    use std::net::{Shutdown, TcpListener};
+    use std::net::{Shutdown, TcpListener, TcpStream};
     use std::time::Duration;
 
     #[test]
@@ -199,8 +199,12 @@ mod tests {
         peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
         socket.shutdown(Shutdown::Write).unwrap();
         let host = "control.test";
-        let obs =
-            padded_head_sequence(&mut ConnectionStream::Plain(socket), host, FatHeaderObservation::pending(1), None);
+        let obs = padded_head_sequence(
+            &mut ConnectionStream::Plain(socket.into()),
+            host,
+            FatHeaderObservation::pending(1),
+            None,
+        );
         let mut received = Vec::new();
         peer.read_to_end(&mut received).unwrap();
         assert!(received.is_empty());

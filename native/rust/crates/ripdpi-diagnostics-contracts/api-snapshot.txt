@@ -580,6 +580,16 @@ pub struct ripdpi_diagnostics_contracts::types::InPathRoute
 pub ripdpi_diagnostics_contracts::types::InPathRoute::credentials: ripdpi_diagnostics_contracts::types::InPathProxyCredentials
 pub ripdpi_diagnostics_contracts::types::InPathRoute::host: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::InPathRoute::port: u16
+pub ripdpi_diagnostics_contracts::types::InPathRoute::unix_path: core::option::Option<ripdpi_diagnostics_contracts::types::InPathUnixPath>
+impl ripdpi_diagnostics_contracts::types::InPathRoute
+pub fn ripdpi_diagnostics_contracts::types::InPathRoute::is_valid_endpoint(&self) -> bool
+pub struct ripdpi_diagnostics_contracts::types::InPathUnixPath(_)
+impl ripdpi_diagnostics_contracts::types::InPathUnixPath
+pub fn ripdpi_diagnostics_contracts::types::InPathUnixPath::as_str(&self) -> &str
+pub fn ripdpi_diagnostics_contracts::types::InPathUnixPath::is_valid(&self) -> bool
+pub fn ripdpi_diagnostics_contracts::types::InPathUnixPath::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::fmt::Debug for ripdpi_diagnostics_contracts::types::InPathUnixPath
+pub fn ripdpi_diagnostics_contracts::types::InPathUnixPath::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_diagnostics_contracts::types::IpFamilyEvidence
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::attempt_count: u32
 pub ripdpi_diagnostics_contracts::types::IpFamilyEvidence::destination_address: core::option::Option<alloc::string::String>

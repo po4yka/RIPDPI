@@ -25,7 +25,7 @@ impl ExecutionPlan {
             path_mode: self.request.path_mode.clone(),
             transport_kind: match self.transport {
                 TransportConfig::Direct { .. } => "direct",
-                TransportConfig::Socks5 { .. } => "socks5",
+                TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => "socks5",
             }
             .to_string(),
             stage_order: self.stage_order.iter().map(|stage| stage.as_str().to_string()).collect(),

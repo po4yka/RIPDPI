@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::io::{self, Read, Write};
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -11,7 +11,7 @@ use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 
 use crate::ja3::{self, RecordingStream};
-use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
+use crate::transport::{ConnectionStream, ProbeStream, TargetAddress, TransportConfig};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 use super::super::certs::extract_cert_info;
@@ -94,7 +94,7 @@ fn comparison_ech_query_name(server_name: &str, port: u16) -> Cow<'_, str> {
 }
 
 pub(crate) fn capture_tls_handshake(
-    socket: TcpStream,
+    socket: ProbeStream,
     connected_addr: Option<SocketAddr>,
     options: &CaptureTlsHandshakeOptions<'_>,
 ) -> Result<CapturedTlsHandshake, CaptureTlsError> {
@@ -316,15 +316,15 @@ fn administrative_error_after_io(should_abort: &dyn Fn() -> Option<&'static str>
 }
 
 struct BoundedHandshakeIo<'a> {
-    recording: &'a mut RecordingStream<TcpStream>,
+    recording: &'a mut RecordingStream<ProbeStream>,
     should_abort: &'a dyn Fn() -> Option<&'static str>,
 }
 
 impl BoundedHandshakeIo<'_> {
     fn poll_io<T>(
         &mut self,
-        set_timeout: impl Fn(&TcpStream, Option<Duration>) -> io::Result<()>,
-        mut operation: impl FnMut(&mut RecordingStream<TcpStream>) -> io::Result<T>,
+        set_timeout: impl Fn(&ProbeStream, Option<Duration>) -> io::Result<()>,
+        mut operation: impl FnMut(&mut RecordingStream<ProbeStream>) -> io::Result<T>,
     ) -> io::Result<T> {
         const CANCEL_POLL: Duration = Duration::from_millis(50);
         let timeout =
@@ -349,13 +349,13 @@ impl BoundedHandshakeIo<'_> {
 
 impl Read for BoundedHandshakeIo<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.poll_io(TcpStream::set_read_timeout, |recording| recording.read(buf))
+        self.poll_io(ProbeStream::set_read_timeout, |recording| recording.read(buf))
     }
 }
 
 impl Write for BoundedHandshakeIo<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.poll_io(TcpStream::set_write_timeout, |recording| recording.write(buf))
+        self.poll_io(ProbeStream::set_write_timeout, |recording| recording.write(buf))
     }
 
     fn flush(&mut self) -> io::Result<()> {
@@ -363,7 +363,7 @@ impl Write for BoundedHandshakeIo<'_> {
     }
 }
 
-fn refresh_tls_handshake_timeout(recording: &mut RecordingStream<TcpStream>) -> Result<(), String> {
+fn refresh_tls_handshake_timeout(recording: &mut RecordingStream<ProbeStream>) -> Result<(), String> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let socket = recording.inner_mut();
     socket.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;

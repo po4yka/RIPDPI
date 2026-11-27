@@ -131,8 +131,8 @@ pub fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), Stri
         if request.path_mode != ScanPathMode::InPath {
             return Err("inPathRoute is only valid for IN_PATH diagnostics".to_string());
         }
-        if !matches!(route.host.as_str(), "127.0.0.1" | "::1") || route.port == 0 {
-            return Err("inPathRoute requires a valid loopback listener".to_string());
+        if !route.is_valid_endpoint() {
+            return Err("inPathRoute requires one valid loopback or Unix listener".to_string());
         }
         if !route.credentials.is_valid() {
             return Err("inPathRoute requires bounded SOCKS5 credentials".to_string());

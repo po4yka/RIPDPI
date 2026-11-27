@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{Ipv6Addr, SocketAddr, TcpStream};
+use std::net::{Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -12,14 +12,14 @@ use tungstenite::http::{Request, Uri};
 use tungstenite::{Error as WebSocketError, HandshakeError, WebSocket};
 
 use crate::transport::{
-    TargetAddress, TransportConfig, connect_direct_address_with_abort, connect_transport_observed_with_abort,
-    direct_transport, run_with_socket_abort_watchdog,
+    ProbeStream, TargetAddress, TransportConfig, connect_direct_address_with_abort,
+    connect_transport_observed_with_abort, direct_transport, run_with_socket_abort_watchdog,
 };
 use crate::util::{
     CONNECT_TIMEOUT, IO_TIMEOUT, active_scan_io_deadline, bounded_scan_io_timeout, with_scan_io_deadline,
 };
 
-pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
+pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, ProbeStream>>;
 pub type WsTlsKeyLogCallback = Arc<dyn KeyLog>;
 
 const OPEN_TIMEOUT: Duration =
@@ -166,7 +166,7 @@ impl<'a> WsOverTlsControl<'a> {
         }
     }
 
-    fn watch_socket<T>(&self, socket: TcpStream, operation: impl FnOnce() -> io::Result<T>) -> io::Result<T> {
+    fn watch_socket<T>(&self, socket: ProbeStream, operation: impl FnOnce() -> io::Result<T>) -> io::Result<T> {
         self.remaining_timeout()?;
         let result = with_scan_io_deadline(self.transport_deadline(), || {
             run_with_socket_abort_watchdog(socket, &|| (self.should_abort)().is_some(), operation)
@@ -249,8 +249,8 @@ fn connect_with_steps<Steps: WsHandshakeSteps>(
 struct ProductionWsHandshakeSteps;
 
 impl WsHandshakeSteps for ProductionWsHandshakeSteps {
-    type Tcp = TcpStream;
-    type Tls = StreamOwned<ClientConnection, TcpStream>;
+    type Tcp = ProbeStream;
+    type Tls = StreamOwned<ClientConnection, ProbeStream>;
     type Ws = WsOverTlsStream;
 
     fn connect_tcp(&mut self, target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<Self::Tcp> {
@@ -300,13 +300,13 @@ fn validate_target(target: &WsOverTlsTarget) -> io::Result<ServerName<'static>> 
     ServerName::try_from(target.host.clone()).map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))
 }
 
-fn connect_tcp(target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<TcpStream> {
+fn connect_tcp(target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::Result<ProbeStream> {
     control.remaining_timeout()?;
     let stream = with_scan_io_deadline(control.transport_deadline(), || {
         if let TransportConfig::Direct { .. } = &target.transport
             && let Some(addr) = target.resolved_addr
         {
-            return connect_direct_address_with_abort(addr, control.should_abort);
+            return connect_direct_address_with_abort(addr, control.should_abort).map(ProbeStream::from);
         }
         connect_transport_observed_with_abort(
             &[target.host.parse().map_or_else(|_| TargetAddress::Host(target.host.clone()), TargetAddress::Ip)],
@@ -317,17 +317,19 @@ fn connect_tcp(target: &WsOverTlsTarget, control: &WsOverTlsControl<'_>) -> io::
         .map(|result| result.stream)
         .map_err(|err| io::Error::other(format!("WSS {}: {err}", err.stage.as_str())))
     })?;
-    stream.set_nodelay(true)?;
+    if let Some(tcp) = stream.as_tcp() {
+        tcp.set_nodelay(true)?;
+    }
     Ok(stream)
 }
 
 fn connect_tls(
-    tcp: TcpStream,
+    tcp: ProbeStream,
     server_name: ServerName<'static>,
     key_log: Option<WsTlsKeyLogCallback>,
     timeout: Duration,
     control: &WsOverTlsControl<'_>,
-) -> io::Result<StreamOwned<ClientConnection, TcpStream>> {
+) -> io::Result<StreamOwned<ClientConnection, ProbeStream>> {
     tcp.set_read_timeout(Some(timeout))?;
     tcp.set_write_timeout(Some(timeout))?;
     let connection = ClientConnection::new(default_tls_config(key_log), server_name)
@@ -346,7 +348,7 @@ fn connect_tls(
 
 fn websocket_handshake(
     request: Request<()>,
-    tls: StreamOwned<ClientConnection, TcpStream>,
+    tls: StreamOwned<ClientConnection, ProbeStream>,
     timeout: Duration,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<WsOverTlsStream> {
@@ -360,7 +362,7 @@ fn websocket_handshake(
 fn upgrade_websocket<S: io::Read + io::Write>(
     request: Request<()>,
     stream: S,
-    socket: TcpStream,
+    socket: ProbeStream,
     control: &WsOverTlsControl<'_>,
 ) -> io::Result<WebSocket<S>> {
     let (ws, _) = control.watch_socket(socket, || {
@@ -425,7 +427,7 @@ mod control_tests;
 mod tests {
     use super::*;
 
-    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
     use std::os::fd::RawFd;
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 
@@ -473,7 +475,7 @@ mod tests {
         let control = WsOverTlsControl::new(&|| None);
 
         let stream = connect_tcp(&target, &control).unwrap();
-        assert_eq!(stream.peer_addr().unwrap(), addr);
+        assert_eq!(stream.peer_addr().unwrap(), Some(addr));
     }
 
     #[test]
@@ -485,7 +487,7 @@ mod tests {
         let control = WsOverTlsControl::new(&|| None);
 
         let stream = connect_tcp(&target, &control).unwrap();
-        assert_eq!(stream.peer_addr().unwrap(), addr);
+        assert_eq!(stream.peer_addr().unwrap(), Some(addr));
     }
 
     #[test]
@@ -536,7 +538,7 @@ mod tests {
                 std::thread::sleep(Duration::from_millis(100));
             }
         });
-        let tcp = TcpStream::connect(addr).unwrap();
+        let tcp = TcpStream::connect(addr).unwrap().into();
         let control = WsOverTlsControl::new(&|| None);
         let started = Instant::now();
 

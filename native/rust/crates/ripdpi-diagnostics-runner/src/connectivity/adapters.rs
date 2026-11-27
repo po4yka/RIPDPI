@@ -45,7 +45,8 @@ pub(crate) mod transport {
     pub use ripdpi_diagnostics_transport::transport::{
         RouteExperimentReport, TargetAddress, TransportConfig, TransportError, UdpRelayResult,
         connect_transport_observed, domain_connect_targets, quic_connect_targets, relay_quic_probe_observed,
-        relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, throughput_connect_targets,
+        relay_udp_direct, relay_udp_via_socks5, relay_udp_via_socks5_unix, resolve_first_socket_addr,
+        throughput_connect_targets,
     };
 }
 

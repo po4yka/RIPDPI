@@ -1,7 +1,9 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::transport::{TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr};
+use crate::transport::{
+    TransportConfig, relay_udp_direct, relay_udp_via_socks5, relay_udp_via_socks5_unix, resolve_first_socket_addr,
+};
 use crate::util::{now_ms, ranged_probe_delay};
 
 use ripdpi_ech_dns::{DNS_RECORD_TYPE_A, build_diagnostic_dns_query};
@@ -109,18 +111,20 @@ pub fn resolve_via_udp_with_observations(domain: &str, server: &str, transport: 
 }
 
 fn execute_udp_query(server: &str, transport: &TransportConfig, packet: &[u8]) -> Result<Vec<u8>, String> {
-    let raw = match transport {
+    let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
+    match transport {
         TransportConfig::Direct { .. } => {
-            let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
-            relay_udp_direct(server_addr, packet).map_err(|err| err.to_string())
+            relay_udp_direct(server_addr, packet).map(|(response, _)| response).map_err(|err| err.to_string())
         }
         TransportConfig::Socks5 { host, port, credentials } => {
-            let server_addr = resolve_first_socket_addr(server).map_err(|err| err.to_string())?;
-            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref()).map_err(|err| err.to_string())
+            relay_udp_via_socks5(host, *port, server_addr, packet, credentials.as_ref())
+                .map(|(response, _)| response)
+                .map_err(|err| err.to_string())
         }
-    }?;
-    let (response, _local_addr) = raw;
-    Ok(response)
+        TransportConfig::Socks5Unix { path, credentials } => {
+            relay_udp_via_socks5_unix(path, server_addr, packet, credentials.as_ref()).map_err(|err| err.to_string())
+        }
+    }
 }
 
 pub fn classify_udp_dns_error(error: &str) -> &'static str {

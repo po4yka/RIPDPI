@@ -7,7 +7,8 @@ use std::time::{Duration, Instant};
 use super::abort::{AbortCheck, receive_until};
 use super::address::resolve_addresses_with_timeout_and_abort;
 use super::route_experiment::{connect_addresses_with_route_experiment, route_identity};
-use super::socks5::connect_via_socks5_observed;
+use super::socks5::{connect_via_socks5_observed, connect_via_socks5_unix_observed};
+use super::stream::ProbeStream;
 use super::types::{
     RouteExperimentConfig, TargetAddress, TransportConfig, TransportConnectError, TransportConnectResult,
     TransportError, TransportFailureStage,
@@ -47,6 +48,9 @@ fn connect_transport(
         TransportConfig::Socks5 { host, port: proxy_port, credentials } => {
             connect_via_socks5_observed(targets, port, host, *proxy_port, credentials.as_ref(), should_abort)
         }
+        TransportConfig::Socks5Unix { path, credentials } => {
+            connect_via_socks5_unix_observed(targets, port, path, credentials.as_ref(), should_abort)
+        }
     }
 }
 
@@ -56,7 +60,7 @@ pub fn connect_direct_address(address: SocketAddr) -> std::io::Result<TcpStream>
     super::protect::protected_tcp_connect(address, timeout)
 }
 
-pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, TransportError> {
+pub fn connect_direct(target: &TargetAddress, port: u16) -> Result<ProbeStream, TransportError> {
     connect_direct_observed(std::slice::from_ref(target), port, None, None)
         .map(|result| result.stream)
         .map_err(|err| TransportError::ConnectFailed { stage: err.stage, message: err.message })
@@ -108,7 +112,7 @@ fn connect_direct_candidates(
             let identity = route_identity(&addresses);
             connect_addresses_with_route_experiment(&addresses, config, &identity, should_abort).map(
                 |((stream, connected_addr, local_addr), route_report)| TransportConnectResult {
-                    stream,
+                    stream: stream.into(),
                     connected_addr: Some(connected_addr),
                     local_addr: Some(local_addr),
                     route_report: Some(route_report),
@@ -119,7 +123,7 @@ fn connect_direct_candidates(
                 .map(|(stream, connected_addr)| {
                     let local_addr = stream.local_addr().ok();
                     TransportConnectResult {
-                        stream,
+                        stream: stream.into(),
                         connected_addr: Some(connected_addr),
                         local_addr,
                         route_report: None,

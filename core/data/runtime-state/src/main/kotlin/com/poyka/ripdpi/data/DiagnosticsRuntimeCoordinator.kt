@@ -61,13 +61,22 @@ data class DiagnosticsInPathRouteLease(
     val host: String,
     val port: Int,
     val credentials: DiagnosticsProxyCredentials,
+    val unixPath: String? = null,
 ) {
     init {
         require(runtimeId.isNotBlank()) { "Diagnostics route runtimeId must not be blank" }
         require(issuedRevision == null || issuedRevision > 0) { "Diagnostics route revision must be positive" }
         require(routeGeneration > 0) { "Diagnostics route generation must be positive" }
-        require(host == "127.0.0.1" || host == "::1") { "Diagnostics route must use a loopback listener" }
-        require(port in 1..MaxTcpPort) { "Diagnostics route port must be valid" }
+        if (unixPath == null) {
+            require(host == "127.0.0.1" || host == "::1") { "Diagnostics route must use a loopback listener" }
+            require(port in 1..MaxTcpPort) { "Diagnostics route port must be valid" }
+        } else {
+            require(host.isEmpty() && port == 0) { "Diagnostics route must name one listener form" }
+            require(unixPath.startsWith("/") && '\u0000' !in unixPath) {
+                "Diagnostics route Unix path must be absolute"
+            }
+            require(unixPath.toByteArray().size < MaxUnixPathBytes) { "Diagnostics route Unix path is too long" }
+        }
     }
 
     override fun toString(): String =
@@ -77,3 +86,4 @@ data class DiagnosticsInPathRouteLease(
 
 private const val MaxSocks5CredentialBytes = 255
 private const val MaxTcpPort = 65_535
+private const val MaxUnixPathBytes = 108

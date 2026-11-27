@@ -1,9 +1,9 @@
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::Instant;
 
 use super::super::types::{CertificateVerification, EchInitialAttempt, ProbeStreamFailureStage, TlsClientProfile};
 use super::capture::{CaptureTlsError, CaptureTlsHandshakeOptions, CapturedTlsHandshake, capture_tls_handshake};
-use crate::transport::{RouteExperimentReport, TargetAddress, connect_transport_observed_with_abort};
+use crate::transport::{ProbeStream, RouteExperimentReport, TargetAddress, connect_transport_observed_with_abort};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 use ripdpi_diagnostics_contracts::util::{active_scan_io_deadline, with_scan_io_deadline};
 
@@ -18,7 +18,7 @@ pub(super) struct EchRetryEvidence {
 }
 
 pub(super) fn capture_with_ech_retry(
-    socket: TcpStream,
+    socket: ProbeStream,
     connected_addr: Option<SocketAddr>,
     transport_open_ms: u64,
     options: &CaptureTlsHandshakeOptions<'_>,

@@ -11,7 +11,10 @@ pub fn transport_for_request_with_session(request: &ScanRequest, session_id: &st
     if let (ScanPathMode::InPath, Some(route)) = (&request.path_mode, request.in_path_route.as_ref()) {
         let credentials =
             Socks5Credentials::new(route.credentials.username.clone(), route.credentials.password.clone());
-        return TransportConfig::Socks5 { host: route.host.clone(), port: route.port, credentials };
+        return match &route.unix_path {
+            Some(path) => TransportConfig::Socks5Unix { path: path.clone(), credentials },
+            None => TransportConfig::Socks5 { host: route.host.clone(), port: route.port, credentials },
+        };
     }
     match (&request.path_mode, request.proxy_host.as_ref(), request.proxy_port) {
         (ScanPathMode::InPath, Some(host), Some(port)) => {
@@ -35,6 +38,7 @@ pub fn describe_transport(transport: &TransportConfig) -> String {
         }
         TransportConfig::Direct { route_experiment: None } => "DIRECT".to_string(),
         TransportConfig::Socks5 { host, port, .. } => format!("SOCKS5({host}:{port})"),
+        TransportConfig::Socks5Unix { .. } => "SOCKS5(unix)".to_string(),
     }
 }
 
@@ -86,7 +90,7 @@ mod tests {
     fn transport_for_request_direct_on_raw_path() {
         match transport_for_request_with_session(&request(ScanPathMode::RawPath), "default") {
             TransportConfig::Direct { .. } => {}
-            TransportConfig::Socks5 { .. } => panic!("expected Direct for RawPath"),
+            other => panic!("expected Direct for RawPath, got {other:?}"),
         }
     }
 
@@ -97,8 +101,30 @@ mod tests {
                 assert_eq!(host, "proxy");
                 assert_eq!(port, 1080);
             }
-            TransportConfig::Direct { .. } => panic!("expected Socks5 for InPath"),
+            other => panic!("expected Socks5 for InPath, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn transport_for_request_builds_the_unix_form_from_the_route() {
+        use crate::types::{InPathProxyCredentials, InPathRoute, InPathUnixPath};
+
+        let mut request = request(ScanPathMode::InPath);
+        request.in_path_route = Some(InPathRoute {
+            host: String::new(),
+            port: 0,
+            unix_path: Some(InPathUnixPath::new("/data/px-1.sock")),
+            credentials: InPathProxyCredentials { username: "u".into(), password: "p".into() },
+        });
+        let transport = transport_for_request_with_session(&request, "default");
+        match &transport {
+            TransportConfig::Socks5Unix { path, credentials } => {
+                assert_eq!(path.as_str(), "/data/px-1.sock");
+                assert!(credentials.is_some());
+            }
+            other => panic!("expected Socks5Unix, got {other:?}"),
+        }
+        assert_eq!(describe_transport(&transport), "SOCKS5(unix)");
     }
 
     #[test]

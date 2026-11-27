@@ -12,13 +12,17 @@ pub fn append_tls_attempt_details(
 ) {
     let peer_role = match (transport, attempt.connected_addr, attempt.transport_open_ms) {
         (TransportConfig::Direct { .. }, Some(_), _) => Some("direct_peer"),
-        (TransportConfig::Socks5 { .. }, Some(_), _) => Some("socks_requested_destination"),
-        (TransportConfig::Socks5 { .. }, None, Some(_)) => Some("socks_destination_unknown"),
+        (TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. }, Some(_), _) => {
+            Some("socks_requested_destination")
+        }
+        (TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. }, None, Some(_)) => {
+            Some("socks_destination_unknown")
+        }
         _ => None,
     };
     let socket_leg = match transport {
         TransportConfig::Direct { .. } => "direct",
-        TransportConfig::Socks5 { .. } => "client_to_proxy",
+        TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => "client_to_proxy",
     };
     let values = [
         ("Status", Some(attempt.status.clone())),
@@ -71,7 +75,9 @@ pub fn append_tls_attempt_details(
                 Some(
                     match transport {
                         TransportConfig::Direct { .. } => "direct_peer",
-                        TransportConfig::Socks5 { .. } => "socks_requested_destination",
+                        TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => {
+                            "socks_requested_destination"
+                        }
                     }
                     .to_string(),
                 ),
@@ -137,8 +143,12 @@ pub fn append_tls_comparison_details(
     let scope = match (tls13.connected_addr, tls12.connected_addr, transport) {
         (Some(a), Some(b), TransportConfig::Direct { .. }) if a == b => "same_peer",
         (Some(_), Some(_), TransportConfig::Direct { .. }) => "mixed_peers",
-        (Some(a), Some(b), TransportConfig::Socks5 { .. }) if a == b => "same_requested_destination",
-        (Some(_), Some(_), TransportConfig::Socks5 { .. }) => "mixed_requested_destinations",
+        (Some(a), Some(b), TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. }) if a == b => {
+            "same_requested_destination"
+        }
+        (Some(_), Some(_), TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. }) => {
+            "mixed_requested_destinations"
+        }
         _ => "unknown_peer",
     };
     details.push(ProbeDetail { key: "tlsVersionComparisonScope".to_string(), value: scope.to_string() });

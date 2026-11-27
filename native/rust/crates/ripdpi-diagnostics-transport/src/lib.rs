@@ -5,6 +5,8 @@ pub mod platform_ttl;
 pub mod transport;
 pub mod ws_tls;
 
+pub use transport::ProbeStream;
+
 pub(crate) mod util {
     #![allow(unused_imports)]
     pub use ripdpi_diagnostics_contracts::util::{

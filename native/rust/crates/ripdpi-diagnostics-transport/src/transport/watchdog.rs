@@ -1,5 +1,7 @@
 use std::io;
-use std::net::{Shutdown, TcpStream};
+use std::net::Shutdown;
+
+use super::stream::ProbeStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
@@ -8,7 +10,11 @@ use crate::util::active_scan_io_deadline;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
 
-pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool>, operation: impl FnOnce() -> T) -> T {
+pub fn run_with_socket_watchdog<T>(
+    socket: ProbeStream,
+    cancel: Option<&AtomicBool>,
+    operation: impl FnOnce() -> T,
+) -> T {
     let deadline = active_scan_io_deadline();
     if deadline.is_none() && cancel.is_none() {
         return operation();
@@ -17,7 +23,7 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
 }
 
 pub fn run_with_socket_abort_watchdog<T>(
-    socket: TcpStream,
+    socket: ProbeStream,
     should_abort: &(dyn Fn() -> bool + Sync),
     operation: impl FnOnce() -> io::Result<T>,
 ) -> io::Result<T> {
@@ -28,7 +34,7 @@ pub fn run_with_socket_abort_watchdog<T>(
 }
 
 fn watch_socket<T>(
-    socket: TcpStream,
+    socket: ProbeStream,
     deadline: Option<Instant>,
     should_abort: &(dyn Fn() -> bool + Sync),
     operation: impl FnOnce(io::Result<()>) -> T,
@@ -60,7 +66,7 @@ fn watch_socket<T>(
 #[cfg(test)]
 mod tests {
     use std::io::{Read, Write};
-    use std::net::{Ipv4Addr, TcpListener};
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
     use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
 
@@ -81,7 +87,7 @@ mod tests {
         let started = Instant::now();
 
         let received = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(300)), || {
-            run_with_socket_watchdog(client.try_clone().unwrap(), None, || {
+            run_with_socket_watchdog(client.try_clone().unwrap().into(), None, || {
                 let mut total = 0;
                 let mut buf = [0u8; 16];
                 while let Ok(read @ 1..) = client.read(&mut buf) {
@@ -111,7 +117,7 @@ mod tests {
                 std::thread::sleep(Duration::from_millis(50));
                 cancel.store(true, Ordering::Release);
             });
-            run_with_socket_watchdog(client.try_clone().unwrap(), Some(&cancel), || client.read(&mut [0u8; 8]))
+            run_with_socket_watchdog(client.try_clone().unwrap().into(), Some(&cancel), || client.read(&mut [0u8; 8]))
         });
 
         assert!(matches!(read, Ok(0) | Err(_)));

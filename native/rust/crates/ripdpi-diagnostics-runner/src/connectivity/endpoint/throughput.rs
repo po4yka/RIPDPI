@@ -175,7 +175,10 @@ fn measure_run(
     let address_family = result
         .connected_addr
         .map(|address| if address.is_ipv4() { "ipv4" } else { "ipv6" }.to_string())
-        .or_else(|| matches!(transport, TransportConfig::Socks5 { .. }).then(|| "proxy_resolved_unknown".to_string()));
+        .or_else(|| {
+            matches!(transport, TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. })
+                .then(|| "proxy_resolved_unknown".to_string())
+        });
     let mut sample = failed_sample_with_connection(
         started,
         "request_write",
@@ -354,7 +357,9 @@ fn failed_stream_sample(error: ProbeStreamError, transport: &TransportConfig) ->
         .connected_addr
         .map(|address| if address.is_ipv4() { "ipv4" } else { "ipv6" }.to_string())
         .or_else(|| match transport {
-            TransportConfig::Socks5 { .. } => Some("proxy_resolved_unknown".to_string()),
+            TransportConfig::Socks5 { .. } | TransportConfig::Socks5Unix { .. } => {
+                Some("proxy_resolved_unknown".to_string())
+            }
             TransportConfig::Direct { .. } => None,
         });
     ThroughputSample {

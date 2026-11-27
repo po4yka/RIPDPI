@@ -1,15 +1,18 @@
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Shutdown, SocketAddr, TcpStream};
+use std::net::{IpAddr, Shutdown, SocketAddr};
 
 use ripdpi_socks5_core::{SocksError, UdpHeaderError};
 
 use super::address::DnsResolveError;
+use super::stream::ProbeStream;
+use crate::types::InPathUnixPath;
 use rustls::{ClientConnection, StreamOwned};
 
 #[derive(Clone, Debug)]
 pub enum TransportConfig {
     Direct { route_experiment: Option<RouteExperimentConfig> },
     Socks5 { host: String, port: u16, credentials: Option<Socks5Credentials> },
+    Socks5Unix { path: InPathUnixPath, credentials: Option<Socks5Credentials> },
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -69,7 +72,7 @@ pub enum TargetAddress {
 
 #[derive(Debug)]
 pub struct TransportConnectResult {
-    pub stream: TcpStream,
+    pub stream: ProbeStream,
     pub connected_addr: Option<SocketAddr>,
     pub local_addr: Option<SocketAddr>,
     pub route_report: Option<RouteExperimentReport>,
@@ -252,8 +255,8 @@ pub struct UdpRelayResult {
 
 #[derive(Debug)]
 pub enum ConnectionStream {
-    Plain(TcpStream),
-    Tls(Box<StreamOwned<ClientConnection, TcpStream>>),
+    Plain(ProbeStream),
+    Tls(Box<StreamOwned<ClientConnection, ProbeStream>>),
 }
 
 impl Read for ConnectionStream {

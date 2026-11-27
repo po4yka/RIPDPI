@@ -9,7 +9,7 @@ use crate::util::{IO_TIMEOUT, active_scan_io_deadline};
 use super::abort::ABORT_POLL_INTERVAL;
 use super::address::resolve_addresses_with_timeout_and_abort;
 use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
-use super::socks5::relay_udp_via_socks5_matching;
+use super::socks5::{relay_udp_via_socks5_matching, relay_udp_via_socks5_unix_matching};
 use super::tcp::candidate_address_groups;
 use super::types::{TargetAddress, TransportConfig, TransportError, UdpRelayResult};
 
@@ -161,7 +161,8 @@ fn relay_udp_probe<'a>(
                     Some(&packets.repeat),
                     &accept_response,
                     cancel,
-                ),
+                )
+                .map(|(bytes, local_addr)| (bytes, Some(local_addr))),
                 TransportConfig::Socks5 { host, port, credentials } => relay_udp_via_socks5_matching(
                     host,
                     *port,
@@ -170,14 +171,24 @@ fn relay_udp_probe<'a>(
                     credentials.as_ref(),
                     &accept_response,
                     cancel,
-                ),
+                )
+                .map(|(bytes, local_addr)| (bytes, Some(local_addr))),
+                TransportConfig::Socks5Unix { path, credentials } => relay_udp_via_socks5_unix_matching(
+                    path,
+                    destination,
+                    &packets.initial,
+                    credentials.as_ref(),
+                    &accept_response,
+                    cancel,
+                )
+                .map(|bytes| (bytes, None)),
             };
             match result {
                 Ok((bytes, local_addr)) => {
                     let reply = UdpRelayResult {
                         payload: bytes,
                         connected_addr: Some(destination),
-                        local_addr: Some(local_addr),
+                        local_addr,
                         route_report: None,
                     };
                     return Ok((reply, packets.initial));

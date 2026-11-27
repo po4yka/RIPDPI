@@ -17,7 +17,7 @@ mod progress;
 mod report;
 mod result;
 
-pub use config::{InPathProxyCredentials, InPathRoute, RouteProbeConfig, ScanRequest};
+pub use config::{InPathProxyCredentials, InPathRoute, InPathUnixPath, RouteProbeConfig, ScanRequest};
 pub use progress::{
     ScanProgress, StrategyProbeLiveProgress, StrategyProbeProgressLane, TransferEvidence, TransferMeasurement,
     TransferProgress, TransferSample,
@@ -31,8 +31,8 @@ pub use result::{ProbeDetail, ProbeResult};
 #[cfg(test)]
 mod tests {
     use super::{
-        ScanProgress, ScanReport, ScanReportDisposition, ScanRequest, StrategyProbeLiveProgress,
-        StrategyProbeProgressLane,
+        InPathRoute, InPathUnixPath, ScanProgress, ScanReport, ScanReportDisposition, ScanRequest,
+        StrategyProbeLiveProgress, StrategyProbeProgressLane,
     };
     use crate::types::{DiagnosticProfileFamily, ScanKind};
 
@@ -67,6 +67,39 @@ mod tests {
         assert!(serde_json::to_value(&request).unwrap().get("ipFamilyProbe").is_none());
         assert!(request.in_path_route.is_none());
         assert!(request.diagnostic_tls_keylog_path.is_none());
+    }
+
+    fn route(json: &str) -> InPathRoute {
+        serde_json::from_str(json).unwrap()
+    }
+
+    #[test]
+    fn loopback_route_encodes_without_a_unix_path() {
+        let json = r#"{"host":"127.0.0.1","port":1080,"credentials":{"username":"u","password":"p"}}"#;
+        let decoded = route(json);
+        assert!(decoded.is_valid_endpoint());
+        assert_eq!(serde_json::to_string(&decoded).unwrap(), json);
+    }
+
+    #[test]
+    fn unix_route_names_exactly_one_valid_endpoint() {
+        let credentials = r#""credentials":{"username":"u","password":"p"}"#;
+        let valid = route(&format!(r#"{{"unixPath":"/data/px-1.sock",{credentials}}}"#));
+        assert!(valid.is_valid_endpoint());
+        assert_eq!(valid.unix_path.as_ref().map(InPathUnixPath::as_str), Some("/data/px-1.sock"));
+        assert!(!format!("{valid:?}").contains("px-1"));
+        let long = format!("/{}", "a".repeat(107));
+        for (path, host_port) in [
+            ("/data/px-1.sock", r#""host":"127.0.0.1","port":1080,"#),
+            ("relative/px.sock", ""),
+            (long.as_str(), ""),
+            ("/data/a\\u0000b", ""),
+        ] {
+            let json = format!(r#"{{{host_port}"unixPath":"{path}",{credentials}}}"#);
+            assert!(!route(&json).is_valid_endpoint(), "{path}");
+        }
+        assert!(route(&format!(r#"{{"unixPath":"/{}",{credentials}}}"#, "a".repeat(106))).is_valid_endpoint());
+        assert!(!route(&format!("{{{credentials}}}")).is_valid_endpoint());
     }
 
     #[test]

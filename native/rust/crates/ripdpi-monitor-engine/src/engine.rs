@@ -361,6 +361,7 @@ mod tests {
         request.in_path_route = Some(crate::types::InPathRoute {
             host: "127.0.0.1".to_string(),
             port: 19_080,
+            unix_path: None,
             credentials: crate::types::InPathProxyCredentials {
                 username: "diagnostics".to_string(),
                 password: "bounded-secret".to_string(),

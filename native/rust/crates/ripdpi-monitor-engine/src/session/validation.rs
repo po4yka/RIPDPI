@@ -593,4 +593,26 @@ mod tests {
         let error = validate_scan_request(&request).expect_err("oversized request strings must fail");
         assert!(error.contains("size"), "unexpected validation error: {error}");
     }
+
+    #[test]
+    fn in_path_route_names_exactly_one_valid_listener() {
+        use crate::types::{InPathProxyCredentials, InPathRoute, InPathUnixPath};
+
+        let validate = |host: &str, port: u16, path: Option<&str>| {
+            let mut specimen = request();
+            specimen.path_mode = ScanPathMode::InPath;
+            specimen.in_path_route = Some(InPathRoute {
+                host: host.to_string(),
+                port,
+                unix_path: path.map(InPathUnixPath::new),
+                credentials: InPathProxyCredentials { username: "u".to_string(), password: "p".to_string() },
+            });
+            validate_scan_request(&specimen)
+        };
+        assert!(validate("", 0, Some("/data/px-1.sock")).is_ok());
+        assert!(validate("127.0.0.1", 1080, None).is_ok());
+        assert!(validate("127.0.0.1", 1080, Some("/data/px-1.sock")).is_err());
+        assert!(validate("", 0, Some("data/px-1.sock")).is_err());
+        assert!(validate("", 0, None).is_err());
+    }
 }

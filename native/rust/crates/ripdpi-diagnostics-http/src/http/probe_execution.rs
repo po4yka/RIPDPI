@@ -321,7 +321,7 @@ mod tests {
             let listener = TcpListener::bind("127.0.0.1:0").unwrap();
             let socket = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
             socket.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-            let mut stream = ConnectionStream::Plain(socket);
+            let mut stream = ConnectionStream::Plain(socket.into());
             let _peer = listener.accept().unwrap();
             let cancel = AtomicBool::new(false);
             let started = Instant::now();
@@ -419,7 +419,7 @@ mod tests {
     #[test]
     fn cancelled_json_exchange_starts_no_io() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let mut stream = ConnectionStream::Plain(TcpStream::connect(listener.local_addr().unwrap()).unwrap());
+        let mut stream = ConnectionStream::Plain(TcpStream::connect(listener.local_addr().unwrap()).unwrap().into());
         let _peer = listener.accept().unwrap();
         let cancel = AtomicBool::new(true);
         let result = run_with_abort(&mut stream, Some(&cancel), |_| -> Result<(), HttpRequestError> {

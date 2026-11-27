@@ -1,8 +1,8 @@
 use super::*;
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::thread;
 
-fn reply_stream(reply: Vec<u8>) -> (TcpStream, thread::JoinHandle<()>) {
+fn reply_stream(reply: Vec<u8>) -> (ProbeStream, thread::JoinHandle<()>) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let address = listener.local_addr().unwrap();
     let server = thread::spawn(move || {
@@ -12,7 +12,7 @@ fn reply_stream(reply: Vec<u8>) -> (TcpStream, thread::JoinHandle<()>) {
         assert_eq!(request, [5, 3, 0, 1, 0, 0, 0, 0, 0, 0]);
         stream.write_all(&reply).unwrap();
     });
-    (TcpStream::connect(address).unwrap(), server)
+    (TcpStream::connect(address).unwrap().into(), server)
 }
 
 #[test]

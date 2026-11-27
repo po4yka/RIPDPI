@@ -4,6 +4,7 @@ mod config;
 pub(crate) mod protect;
 mod route_experiment;
 mod socks5;
+mod stream;
 mod tcp;
 mod types;
 mod udp;
@@ -19,8 +20,9 @@ pub use address::{
 pub use config::{describe_transport, direct_transport, transport_for_request_with_session};
 pub use socks5::{
     decode_socks5_udp_frame, encode_socks5_udp_frame, negotiate_socks5, normalize_udp_relay_addr, relay_udp_via_socks5,
-    socks5_noauth_handshake, socks5_udp_associate,
+    relay_udp_via_socks5_unix, socks5_noauth_handshake, socks5_udp_associate,
 };
+pub use stream::ProbeStream;
 pub use tcp::{
     connect_direct, connect_direct_address, connect_direct_address_with_abort, connect_transport_observed,
     connect_transport_observed_with_abort, wait_for_listener,
