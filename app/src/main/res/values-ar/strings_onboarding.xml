@@ -22,6 +22,7 @@
     <string name="onboarding_validation_failed">فشل التحقُّق: %1$s</string>
     <string name="onboarding_validation_failed_generic">تعذَّر التحقُّق من الوضع المحدَّد.</string>
     <string name="onboarding_validation_failed_volume">توقف نقل الاختبار بعد %1$d بايت.</string>
+    <string name="onboarding_validation_failed_volume_hop">توقف نقل الاختبار عند القفزة %1$d من السلسلة بعد %2$d بايت.</string>
     <string name="onboarding_validation_failed_volume_rejected">لم يصل ملف الاختبار سليمًا.</string>
     <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من عرض حالة خدمة التحقُّق.</string>
     <string name="onboarding_validation_vpn_permission_denied">تمَّ رفض إذن VPN، لذا تعذَّر على RIPDPI التحقُّق من وضع VPN.</string>

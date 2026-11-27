@@ -5,10 +5,14 @@ import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.runningConfiguration
 import com.poyka.ripdpi.services.CandidateHttpPayloadEvidence
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
 import com.poyka.ripdpi.services.LocalSocksRoute
+import com.poyka.ripdpi.services.RelayChainStallLocator
+import com.poyka.ripdpi.services.RelayChainVolumeStop
 import com.poyka.ripdpi.services.RelayProbeEndpoint
 import dagger.Binds
 import dagger.Module
@@ -27,6 +31,7 @@ sealed interface OnboardingVolumeOutcome {
 
     data class Stalled(
         val receivedBytes: Long,
+        val hop: Int? = null,
     ) : OnboardingVolumeOutcome
 }
 
@@ -50,27 +55,78 @@ class DefaultOnboardingVolumeTransfer
         ): CandidateHttpPayloadEvidence = probe.probeControl(endpoint, control, timeoutMillis)
     }
 
+fun interface OnboardingChainStallLocator {
+    suspend fun locate(
+        chainProfileId: String,
+        control: PayloadProbeControl,
+        timeoutMillis: Long,
+    ): RelayChainVolumeStop
+}
+
+class DefaultOnboardingChainStallLocator
+    @Inject
+    constructor(
+        private val locator: RelayChainStallLocator,
+    ) : OnboardingChainStallLocator {
+        override suspend fun locate(
+            chainProfileId: String,
+            control: PayloadProbeControl,
+            timeoutMillis: Long,
+        ): RelayChainVolumeStop = locator.locate(chainProfileId, control, timeoutMillis)
+    }
+
 class OnboardingVolumeCheck
     @Inject
     constructor(
         private val groups: ProxyGroupRepository,
         private val applied: AppliedRuntimeConfigurationSource,
         private val transfer: OnboardingVolumeTransfer,
+        private val chainLocator: OnboardingChainStallLocator,
     ) {
         suspend fun run(
             mode: Mode,
             route: LocalSocksRoute,
         ): OnboardingVolumeOutcome {
-            val plan = if (route.resolveNamesLocally) null else volumePlan(mode)
-            return plan?.let { (controls, timeoutMillis) ->
+            val selection =
+                applied.applications.value[mode]
+                    ?.runningConfiguration()
+                    ?.effectiveSelection
+                    ?.takeUnless { route.resolveNamesLocally }
+            return selection?.let { measure(it, route) } ?: OnboardingVolumeOutcome.NotTested
+        }
+
+        private suspend fun measure(
+            selection: RuntimeConfigurationSelection,
+            route: LocalSocksRoute,
+        ): OnboardingVolumeOutcome? =
+            volumePlan(selection)?.let { (controls, timeoutMillis) ->
                 val endpoint =
                     RelayProbeEndpoint(
                         route.host,
                         route.port,
                         route.credentials?.let { DiagnosticsProxyCredentials(it.username, it.password) },
                     )
-                transferAll(endpoint, controls, timeoutMillis)
-            } ?: OnboardingVolumeOutcome.NotTested
+                val outcome = transferAll(endpoint, controls, timeoutMillis)
+                val chainId = selection.profileId?.takeIf { selection.relayKind == RelayKindChainRelay }
+                if (outcome is OnboardingVolumeOutcome.Stalled && chainId != null) {
+                    locateStall(outcome, chainId, controls.first(), timeoutMillis)
+                } else {
+                    outcome
+                }
+            }
+
+        private suspend fun locateStall(
+            outcome: OnboardingVolumeOutcome.Stalled,
+            chainId: String,
+            control: PayloadProbeControl,
+            timeoutMillis: Long,
+        ): OnboardingVolumeOutcome.Stalled {
+            val stop = chainLocator.locate(chainId, control, timeoutMillis)
+            return if (stop is RelayChainVolumeStop.Stopped) {
+                OnboardingVolumeOutcome.Stalled(stop.receivedBytes, stop.hop)
+            } else {
+                outcome
+            }
         }
 
         private suspend fun transferAll(
@@ -90,20 +146,15 @@ class OnboardingVolumeCheck
             return stalledBytes?.let { OnboardingVolumeOutcome.Stalled(it) } ?: OnboardingVolumeOutcome.Rejected
         }
 
-        private suspend fun volumePlan(mode: Mode): Pair<List<PayloadProbeControl>, Long>? {
-            val groupId =
-                applied.applications.value[mode]
-                    ?.runningConfiguration()
-                    ?.effectiveSelection
-                    ?.selectorGroupId
+        private suspend fun volumePlan(
+            selection: RuntimeConfigurationSelection,
+        ): Pair<List<PayloadProbeControl>, Long>? {
+            val available = groups.list()
             val policy =
-                groupId?.let { id ->
-                    groups
-                        .list()
-                        .firstOrNull { it.id == id }
-                        ?.failover
-                        ?.payloadPolicy
-                }
+                available.firstOrNull { it.id == selection.selectorGroupId }?.failover?.payloadPolicy
+                    ?: available
+                        .firstNotNullOfOrNull { it.failover?.payloadPolicy }
+                        ?.takeIf { selection.relayKind == RelayKindChainRelay }
             return policy?.let { found ->
                 found.probes.sortedByDescending { it.expectedBytes } to found.timeoutSeconds * MillisecondsPerSecond
             }
@@ -115,4 +166,9 @@ class OnboardingVolumeCheck
 abstract class OnboardingVolumeCheckModule {
     @Binds
     abstract fun bindOnboardingVolumeTransfer(transfer: DefaultOnboardingVolumeTransfer): OnboardingVolumeTransfer
+
+    @Binds
+    abstract fun bindOnboardingChainStallLocator(
+        locator: DefaultOnboardingChainStallLocator,
+    ): OnboardingChainStallLocator
 }

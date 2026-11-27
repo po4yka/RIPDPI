@@ -2,7 +2,7 @@
 id: DGN-1795705002630350
 title: Locate the stalling hop of a user-built relay chain with a large transfer
 kind: feature
-status: backlog
+status: doing
 area: diagnostics
 priority: low
 owner: Diagnostics engineer
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1795705002630350-locate-the-stalling-hop-of-a-user-built-relay-chain-with-a-large-transfer
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 ---
 
 ## Goal
@@ -34,4 +34,4 @@ Related: RLY-1795610464611997 (chain hops beyond two in the relay wire config) b
 
 ## Ownership
 
-Not assigned yet. Before a writer starts, record the owner of the relay chain model and of the diagnostics transfer code.
+One writer, Diagnostics engineer, owns this change: the chain-prefix locator in `core/service` (relay chain model is read, not changed), `CandidateRelayPayloadProbe.measureVolume`, the onboarding volume check, and the new onboarding string in all 10 locales.

@@ -22,6 +22,7 @@
     <string name="onboarding_validation_failed">Falha na validação: %1$s</string>
     <string name="onboarding_validation_failed_generic">Não foi possível validar o modo selecionado.</string>
     <string name="onboarding_validation_failed_volume">A transferência de teste parou após %1$d bytes.</string>
+    <string name="onboarding_validation_failed_volume_hop">A transferência de teste parou no salto %1$d da cadeia após %2$d bytes.</string>
     <string name="onboarding_validation_failed_volume_rejected">O arquivo de teste não chegou intacto.</string>
     <string name="onboarding_validation_notifications_required">Permita notificações para que o RIPDPI possa mostrar o status do serviço de validação.</string>
     <string name="onboarding_validation_vpn_permission_denied">A permissão de VPN foi negada, então o RIPDPI não pôde validar o modo VPN.</string>

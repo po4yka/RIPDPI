@@ -13,6 +13,8 @@ import com.poyka.ripdpi.data.PayloadFailoverPolicy
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.RelayKindChainRelay
+import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
@@ -22,6 +24,7 @@ import com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.OwnedTlsFingerprintSelection
+import com.poyka.ripdpi.services.RelayChainVolumeStop
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeHandle
@@ -89,7 +92,9 @@ class OnboardingModeValidationRunnerTest {
                         OnboardingVolumeCheck(
                             FakeProxyGroupRepository(),
                             FakeAppliedRuntimeConfigurationSource(),
-                        ) { _, _, _ -> error("volume probe not expected") },
+                            { _, _, _ -> error("volume probe not expected") },
+                            { _, _, _ -> error("chain locator not expected") },
+                        ),
                 )
 
             try {
@@ -326,6 +331,8 @@ class OnboardingModeValidationRunnerTest {
         applied: FakeAppliedRuntimeConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
         volumeTransfer: OnboardingVolumeTransfer =
             OnboardingVolumeTransfer { _, _, _ -> error("volume probe not expected") },
+        chainLocator: OnboardingChainStallLocator =
+            OnboardingChainStallLocator { _, _, _ -> error("chain locator not expected") },
     ): DefaultOnboardingModeValidationRunner =
         DefaultOnboardingModeValidationRunner(
             appSettingsRepository = settings,
@@ -340,7 +347,7 @@ class OnboardingModeValidationRunnerTest {
                     io = UnconfinedTestDispatcher(),
                     main = UnconfinedTestDispatcher(),
                 ),
-            volumeCheck = OnboardingVolumeCheck(groups, applied, volumeTransfer),
+            volumeCheck = OnboardingVolumeCheck(groups, applied, volumeTransfer, chainLocator),
         )
 
     private fun policyControl(
@@ -353,6 +360,10 @@ class OnboardingModeValidationRunnerTest {
         transfer: OnboardingVolumeTransfer,
         socks: FakeSocksListener,
         settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        selection: RuntimeConfigurationSelection =
+            RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "m"),
+        chainLocator: OnboardingChainStallLocator =
+            OnboardingChainStallLocator { _, _, _ -> error("chain locator not expected") },
     ): OnboardingValidationResult {
         val groups = FakeProxyGroupRepository()
         val failover =
@@ -377,8 +388,7 @@ class OnboardingModeValidationRunnerTest {
             }
         groups.add(ProxyGroup("g", "g", ProxyGroupType.SUBSCRIPTION, 0, true, failover = failover))
         val applied = FakeAppliedRuntimeConfigurationSource()
-        applied.applications.value =
-            runningOn(RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "m"))
+        applied.applications.value = runningOn(selection)
         val store = FakeServiceStateStore()
         return validationRunner(
             serviceStateStore = store,
@@ -388,8 +398,73 @@ class OnboardingModeValidationRunnerTest {
             groups = groups,
             applied = applied,
             volumeTransfer = transfer,
+            chainLocator = chainLocator,
         ).validate(Mode.VPN) { }
     }
+
+    @Test
+    fun `a stalled user-built chain names the first hop where the volume stops`() =
+        runTest {
+            val small = policyControl("a.example", MinControlBytes)
+            val large = policyControl("b.example", LargeControlBytes)
+            val located = mutableListOf<Pair<String, PayloadProbeControl>>()
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(small, large),
+                        { _, _, _ -> CandidateHttpPayloadEvidence(false, 1L, timedOut = true, receivedBytes = 0L) },
+                        socks,
+                        selection =
+                            RuntimeConfigurationSelection(
+                                "native",
+                                relayKind = RelayKindChainRelay,
+                                profileId = "chain",
+                            ),
+                        chainLocator = { chainId, control, _ ->
+                            located += chainId to control
+                            RelayChainVolumeStop.Stopped(hop = 3, hopCount = 4, receivedBytes = StalledBytes)
+                        },
+                    )
+                val failure = result as OnboardingValidationResult.Failed
+                assertEquals(OnboardingValidationStep.Volume, failure.failedStep)
+                assertEquals(StalledBytes, failure.transferredBytes)
+                assertEquals(
+                    FakeStringResolver().getString(R.string.onboarding_validation_failed_volume_hop, 3, StalledBytes),
+                    failure.reason,
+                )
+                assertEquals(listOf("chain" to large), located)
+            }
+        }
+
+    @Test
+    fun `a stalled single endpoint keeps one verdict without per-hop claims`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(
+                            policyControl("a.example", MinControlBytes),
+                            policyControl("b.example", LargeControlBytes),
+                        ),
+                        { _, _, _ ->
+                            CandidateHttpPayloadEvidence(false, 1L, timedOut = true, receivedBytes = StalledBytes)
+                        },
+                        socks,
+                        selection =
+                            RuntimeConfigurationSelection(
+                                "native",
+                                relayKind = RelayKindTrojan,
+                                profileId = "cascade",
+                                selectorGroupId = "g",
+                            ),
+                    )
+                val failure = result as OnboardingValidationResult.Failed
+                assertEquals(
+                    FakeStringResolver().getString(R.string.onboarding_validation_failed_volume, StalledBytes),
+                    failure.reason,
+                )
+            }
+        }
 
     @Test
     fun `a verified transfer of the largest control passes with volume tested`() =

@@ -22,6 +22,7 @@
     <string name="onboarding_validation_failed">Validation failed: %1$s</string>
     <string name="onboarding_validation_failed_generic">The selected mode could not be validated.</string>
     <string name="onboarding_validation_failed_volume">The test transfer stopped after %1$d bytes.</string>
+    <string name="onboarding_validation_failed_volume_hop">The test transfer stopped at chain hop %1$d after %2$d bytes.</string>
     <string name="onboarding_validation_failed_volume_rejected">The test file did not arrive intact.</string>
     <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can show validation service status.</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN permission was denied, so RIPDPI could not validate VPN mode.</string>
