@@ -447,7 +447,10 @@ class OnboardingModeValidationRunnerTest {
                 val failure = result as OnboardingValidationResult.Failed
                 assertEquals(OnboardingValidationStep.Volume, failure.failedStep)
                 assertEquals(null, failure.transferredBytes)
-                assertEquals("The test file did not arrive intact.", failure.reason)
+                assertEquals(
+                    FakeStringResolver().getString(R.string.onboarding_validation_failed_volume_rejected),
+                    failure.reason,
+                )
             }
         }
 

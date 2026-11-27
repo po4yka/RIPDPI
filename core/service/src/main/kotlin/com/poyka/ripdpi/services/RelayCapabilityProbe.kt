@@ -248,8 +248,10 @@ internal class OkHttpRelayTcpProbe(
                                             expectedPayload?.let { control ->
                                                 consumeVerifiedPayload(response, control) { received = it.toLong() }
                                             } ?: consumeBoundedPayload(response)
-                                        } catch (error: IOException) {
-                                            bodyTimedOut = error is java.io.InterruptedIOException
+                                        } catch (_: java.io.InterruptedIOException) {
+                                            bodyTimedOut = true
+                                            false
+                                        } catch (_: IOException) {
                                             false
                                         }
                                     RelayTcpProbeResult(
