@@ -367,6 +367,7 @@ fn runtime_config_adapter_views_round_trip() {
             listen_port: 2442,
             bind_ip: IpAddr::from_str("::1").expect("bind ip"),
             auth_token: None,
+            unix_path: None,
         },
         resolve: false,
         remote_dns_upstream: None,

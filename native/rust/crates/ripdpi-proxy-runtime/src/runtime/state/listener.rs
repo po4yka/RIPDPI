@@ -1,9 +1,13 @@
 use super::*;
 
 #[derive(Clone, Copy)]
-pub(super) struct ListenerBinding {
-    addr: SocketAddr,
-    ipv6_only: bool,
+pub(super) enum ListenerBinding {
+    Tcp {
+        addr: SocketAddr,
+        ipv6_only: bool,
+    },
+    /// A private Unix listener has no IP address to match targets against.
+    Unix,
 }
 
 fn same_local_address(local: SocketAddr, target: SocketAddr) -> bool {
@@ -73,25 +77,35 @@ impl Drop for ActiveSocketGuard {
 
 impl RuntimeState {
     pub(in crate::runtime) fn set_listener_binding(&mut self, addr: SocketAddr, ipv6_only: bool) {
-        self.listener_binding = Some(ListenerBinding { addr, ipv6_only });
+        self.listener_binding = Some(ListenerBinding::Tcp { addr, ipv6_only });
+    }
+    pub(in crate::runtime) fn set_unix_listener_binding(&mut self) {
+        self.listener_binding = Some(ListenerBinding::Unix);
+    }
+    pub(in crate::runtime) fn listener_is_unix(&self) -> bool {
+        matches!(self.listener_binding, Some(ListenerBinding::Unix))
     }
     pub(in crate::runtime) fn listener_bound_to_loopback(&self) -> bool {
-        self.listener_binding
-            .map_or(self.listener_settings.bind_addr, |binding| binding.addr)
-            .ip()
-            .to_canonical()
-            .is_loopback()
+        match self.listener_binding {
+            Some(ListenerBinding::Unix) => true,
+            Some(ListenerBinding::Tcp { addr, .. }) => addr.ip().to_canonical().is_loopback(),
+            None => self.listener_settings.bind_addr.ip().to_canonical().is_loopback(),
+        }
     }
     pub(in crate::runtime) fn listener_covers_target(&self, local: SocketAddr, target: SocketAddr) -> bool {
-        let binding = self.listener_binding.unwrap_or(ListenerBinding { addr: local, ipv6_only: false });
-        if target.port() != binding.addr.port() {
+        let (bind_addr, ipv6_only) = match self.listener_binding {
+            Some(ListenerBinding::Tcp { addr, ipv6_only }) => (addr, ipv6_only),
+            Some(ListenerBinding::Unix) => return false,
+            None => (local, false),
+        };
+        if target.port() != bind_addr.port() {
             return false;
         }
-        let bind_ip = binding.addr.ip().to_canonical();
+        let bind_ip = bind_addr.ip().to_canonical();
         let target_ip = target.ip().to_canonical();
         let family_covered = match bind_ip {
             IpAddr::V4(_) => target_ip.is_ipv4(),
-            IpAddr::V6(bind_ip) => target_ip.is_ipv6() || (bind_ip.is_unspecified() && !binding.ipv6_only),
+            IpAddr::V6(bind_ip) => target_ip.is_ipv6() || (bind_ip.is_unspecified() && !ipv6_only),
         };
         if !family_covered {
             return false;
@@ -102,7 +116,11 @@ impl RuntimeState {
         bind_ip.is_unspecified() && is_local_address(target)
     }
     pub(in crate::runtime) fn reject_listener_target(&self, target: SocketAddr) -> io::Result<()> {
-        let local = self.listener_binding.map_or(self.listener_settings.bind_addr, |binding| binding.addr);
+        let local = match self.listener_binding {
+            Some(ListenerBinding::Tcp { addr, .. }) => addr,
+            Some(ListenerBinding::Unix) => return Ok(()),
+            None => self.listener_settings.bind_addr,
+        };
         if self.listener_covers_target(local, target) {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "proxy target is the proxy listener itself"));
         }
@@ -145,7 +163,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn note_listener_started(
         &self,
-        bind_addr: SocketAddr,
+        bind_addr: ListenerAddress,
         max_clients: usize,
         group_count: usize,
     ) {
@@ -231,6 +249,18 @@ mod tests {
         state.set_listener_binding(addr, ipv6_only);
 
         assert!(state.listener_bound_to_loopback(), "actual mapped bind is a loopback identity");
+    }
+
+    #[test]
+    fn unix_listener_has_no_ip_endpoint_to_loop_back_to() {
+        let mut state = RuntimeState::test(RuntimeConfig::default());
+        let configured = state.listener_settings.bind_addr;
+        assert!(state.reject_listener_target(configured).is_err(), "a TCP listener rejects its own address");
+
+        state.set_unix_listener_binding();
+
+        assert!(state.reject_listener_target(configured).is_ok());
+        assert!(state.listener_bound_to_loopback());
     }
 
     #[test]

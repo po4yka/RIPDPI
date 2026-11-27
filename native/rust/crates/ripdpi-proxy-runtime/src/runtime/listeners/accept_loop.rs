@@ -1,10 +1,10 @@
 use ripdpi_ws_transport_port::ClientStream;
 use std::io;
-use std::net::{TcpListener, TcpStream};
 use std::time::{Duration, Instant};
 
 use crate::runtime::state::RuntimeState;
 
+use super::ProxyListener;
 use super::client_job::ClientJob;
 use super::worker_pool::{ClientWorkerPool, WorkerDrainOutcome};
 use super::{RuntimeShutdown, close_rejected_client};
@@ -43,7 +43,7 @@ enum AcceptBatch {
 }
 
 pub(crate) fn run_accept_loop(
-    listener: TcpListener,
+    listener: ProxyListener,
     state: RuntimeState,
     shutdown: RuntimeShutdown,
     client_capacity: usize,
@@ -61,7 +61,7 @@ pub(crate) struct AcceptLoopOutcome {
 }
 
 fn poll_accept_loop(
-    listener: TcpListener,
+    listener: ProxyListener,
     state: RuntimeState,
     shutdown: RuntimeShutdown,
     worker_pool: &ClientWorkerPool,
@@ -84,7 +84,7 @@ fn poll_accept_loop(
 }
 
 fn accept_ready_clients(
-    listener: &TcpListener,
+    listener: &ProxyListener,
     state: &RuntimeState,
     worker_pool: &ClientWorkerPool,
     client_capacity: usize,
@@ -92,9 +92,9 @@ fn accept_ready_clients(
     transient_reports: &mut TransientAcceptReports,
 ) -> io::Result<AcceptBatch> {
     accept_ready_clients_with(
-        || listener.accept().map(|(stream, _addr)| stream),
+        || listener.accept(),
         || shutdown.requested(),
-        |stream| accept_client(stream, state, worker_pool, client_capacity),
+        |client| accept_client(client, state, worker_pool, client_capacity),
         |err| {
             if let Some(suppressed) = transient_reports.should_report(Instant::now()) {
                 tracing::warn!(suppressed, "transient accept failure; retrying: {err}");
@@ -104,10 +104,10 @@ fn accept_ready_clients(
     )
 }
 
-fn accept_ready_clients_with(
-    mut accept: impl FnMut() -> io::Result<TcpStream>,
+fn accept_ready_clients_with<T>(
+    mut accept: impl FnMut() -> io::Result<T>,
     mut shutdown_requested: impl FnMut() -> bool,
-    mut on_accept: impl FnMut(TcpStream) -> io::Result<()>,
+    mut on_accept: impl FnMut(T) -> io::Result<()>,
     mut on_transient_error: impl FnMut(&io::Error),
 ) -> io::Result<AcceptBatch> {
     let mut accepted = 0usize;
@@ -141,13 +141,12 @@ fn listener_unusable(err: &io::Error) -> bool {
 }
 
 fn accept_client(
-    stream: TcpStream,
+    client: ClientStream,
     state: &RuntimeState,
     worker_pool: &ClientWorkerPool,
     client_capacity: usize,
 ) -> io::Result<()> {
     let state = state.clone();
-    let client = ClientStream::Tcp(stream);
     if let Err(err) = client.set_nonblocking(false) {
         // A per-client setup failure rejects that client only, never the listener.
         state.note_client_error(&err);
@@ -187,7 +186,7 @@ fn accept_client(
 #[cfg(test)]
 mod tests {
     use std::cell::Cell;
-    use std::net::{Ipv4Addr, SocketAddr};
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 
     use super::*;
 
@@ -249,9 +248,13 @@ mod tests {
     #[test]
     fn transient_accept_error_backs_off_instead_of_stopping_listener() {
         for errno in [libc::EMFILE, libc::ENFILE, libc::ENOBUFS, libc::ENOMEM, libc::ECONNABORTED, libc::EPROTO] {
-            let batch =
-                accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()), |_| {})
-                    .unwrap_or_else(|err| panic!("errno {errno} must not end the accept loop: {err}"));
+            let batch = accept_ready_clients_with::<()>(
+                || Err(io::Error::from_raw_os_error(errno)),
+                || false,
+                |_| Ok(()),
+                |_| {},
+            )
+            .unwrap_or_else(|err| panic!("errno {errno} must not end the accept loop: {err}"));
             assert_eq!(batch, AcceptBatch::Idle, "errno {errno} must back off for one idle sleep");
         }
     }
@@ -274,8 +277,12 @@ mod tests {
     #[test]
     fn listener_fd_errors_still_stop_the_accept_loop() {
         for errno in [libc::EBADF, libc::EINVAL, libc::ENOTSOCK] {
-            let result =
-                accept_ready_clients_with(|| Err(io::Error::from_raw_os_error(errno)), || false, |_| Ok(()), |_| {});
+            let result = accept_ready_clients_with::<()>(
+                || Err(io::Error::from_raw_os_error(errno)),
+                || false,
+                |_| Ok(()),
+                |_| {},
+            );
             assert!(result.is_err(), "errno {errno} means the listener is unusable");
         }
     }

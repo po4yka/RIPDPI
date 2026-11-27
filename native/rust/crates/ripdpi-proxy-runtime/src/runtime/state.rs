@@ -91,7 +91,7 @@ use super::ws::{
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
-    EmbeddedProxyControl, RuntimeTelemetrySink, current_runtime_telemetry,
+    EmbeddedProxyControl, ListenerAddress, RuntimeTelemetrySink, current_runtime_telemetry,
 };
 use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
 use ripdpi_proxy_runtime_adapter::model::services::{
@@ -214,7 +214,8 @@ impl RuntimeState {
         Self::validate_window_settings(config)?;
         Self::validate_upstream_socks_auth(config)?;
         validate_ip_fragmentation_support(&raw_packet_requirements(config))?;
-        Self::validate_listener_auth(config, config.network.listen.listen_ip)
+        let listen = &config.network.listen;
+        Self::validate_listener_auth(config, listen.unix_path.is_none().then_some(listen.listen_ip))
     }
     fn validate_window_settings(config: &RuntimeConfig) -> io::Result<()> {
         for group in &config.groups {
@@ -226,13 +227,24 @@ impl RuntimeState {
         }
         Ok(())
     }
-    pub(super) fn validate_listener_auth(config: &RuntimeConfig, bound_ip: IpAddr) -> io::Result<()> {
+    pub(super) fn validate_listener_auth(config: &RuntimeConfig, bound_ip: Option<IpAddr>) -> io::Result<()> {
         let token = config.network.listen.auth_token.as_deref();
-        if !bound_ip.is_loopback() && token.is_none_or(|value| value.trim().is_empty()) {
-            return Err(io::Error::new(
-                io::ErrorKind::PermissionDenied,
-                "non-loopback proxy listener requires auth token",
-            ));
+        if token.is_none_or(|value| value.trim().is_empty()) {
+            match bound_ip {
+                None => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "unix proxy listener requires auth token",
+                    ));
+                }
+                Some(ip) if !ip.is_loopback() => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        "non-loopback proxy listener requires auth token",
+                    ));
+                }
+                Some(_) => {}
+            }
         }
         if token.is_some()
             && matches!(
@@ -498,7 +510,7 @@ mod state_coverage_tests {
     }
 
     impl RuntimeTelemetrySink for CountingTelemetry {
-        fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+        fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
 
         fn on_listener_stopped(&self) {}
 

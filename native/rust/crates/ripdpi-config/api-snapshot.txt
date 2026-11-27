@@ -357,6 +357,7 @@ pub ripdpi_config::ListenConfig::auth_token: core::option::Option<alloc::string:
 pub ripdpi_config::ListenConfig::bind_ip: core::net::ip_addr::IpAddr
 pub ripdpi_config::ListenConfig::listen_ip: core::net::ip_addr::IpAddr
 pub ripdpi_config::ListenConfig::listen_port: u16
+pub ripdpi_config::ListenConfig::unix_path: core::option::Option<std::path::PathBuf>
 pub struct ripdpi_config::NumericRange<T>
 pub ripdpi_config::NumericRange::end: T
 pub ripdpi_config::NumericRange::start: T

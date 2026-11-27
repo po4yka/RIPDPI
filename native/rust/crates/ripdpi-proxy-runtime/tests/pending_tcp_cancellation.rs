@@ -165,7 +165,13 @@ fn process_owns_socket(inode: &str) -> bool {
 struct StopTelemetry(mpsc::Sender<&'static str>, Option<Arc<Barrier>>);
 
 impl RuntimeTelemetrySink for StopTelemetry {
-    fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
+    fn on_listener_started(
+        &self,
+        _: ripdpi_proxy_runtime_adapter::model::runtime_api::ListenerAddress,
+        _: usize,
+        _: usize,
+    ) {
+    }
     fn on_listener_stopped(&self) {}
     fn on_client_accepted(&self) {}
     fn on_client_finished(&self) {}

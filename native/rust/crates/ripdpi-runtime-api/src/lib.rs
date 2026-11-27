@@ -71,7 +71,7 @@ pub use desync_evidence::{
     DesyncExecutionTransport, DesyncFallbackReason, DesyncOffsetMarkerBase, DesyncStrategyFamily, DesyncTerminalReason,
     DesyncTlsPreludeEvidence, DesyncTlsPreludeKind, DesyncUdpIpv6ExtensionProfile,
 };
-pub use telemetry_sink::RuntimeTelemetrySink;
+pub use telemetry_sink::{ListenerAddress, RuntimeTelemetrySink};
 
 // --- Control surface ---
 pub use embedded_control::EmbeddedProxyControl;

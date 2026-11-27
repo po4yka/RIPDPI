@@ -19,6 +19,8 @@ pub struct ListenConfig {
     pub listen_port: u16,
     pub bind_ip: IpAddr,
     pub auth_token: Option<String>,
+    /// Private Unix socket to listen on instead of TCP; `listen_ip` and `listen_port` are then ignored.
+    pub unix_path: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -11,7 +11,7 @@ use std::thread;
 use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
 use golden_test_support::{assert_text_golden, canonicalize_json_with};
 use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use ripdpi_telemetry::LatencyDistributions;
 use serde_json::Value;
 use tracing_subscriber::prelude::*;
@@ -58,11 +58,21 @@ fn snapshot_with_captured_events(state: &ProxyTelemetryState, buffers: &EventRin
 }
 
 #[test]
+fn unix_listener_reports_only_the_unix_marker() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+
+    observer.on_listener_started(ListenerAddress::Unix, 256, 1);
+
+    assert_eq!(state.snapshot().listener_address.as_deref(), Some("unix"));
+}
+
+#[test]
 fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
     with_proxy_event_capture(|buffers| {
         let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
-        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let listener = ListenerAddress::Tcp(SocketAddr::from(([127, 0, 0, 1], 1080)));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
 
         observer.on_listener_started(listener, 256, 3);
@@ -118,7 +128,7 @@ fn proxy_telemetry_observer_updates_snapshot_and_drains_events() {
 fn proxy_forwarding_evidence_counts_protect_outcomes_and_bytes_without_sensitive_fields() {
     let state = Arc::new(ProxyTelemetryState::new(None));
     let observer = ProxyTelemetryObserver { state: state.clone() };
-    let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+    let listener = ListenerAddress::Tcp(SocketAddr::from(([127, 0, 0, 1], 1080)));
     let target = SocketAddr::from(([203, 0, 113, 10], 443));
 
     observer.on_listener_started(listener, 256, 1);
@@ -406,7 +416,7 @@ fn proxy_telemetry_snapshots_match_goldens() {
 
         let state = Arc::new(ProxyTelemetryState::new(None));
         let observer = ProxyTelemetryObserver { state: state.clone() };
-        let listener = SocketAddr::from(([127, 0, 0, 1], 1080));
+        let listener = ListenerAddress::Tcp(SocketAddr::from(([127, 0, 0, 1], 1080)));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
 
         observer.on_listener_started(listener, 256, 3);

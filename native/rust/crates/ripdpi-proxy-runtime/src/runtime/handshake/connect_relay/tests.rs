@@ -5,7 +5,7 @@ use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::ws::RuntimeTelegramDc;
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
 use std::sync::{Arc as StdArc, Mutex as StdMutex};
@@ -146,7 +146,7 @@ struct TestTelemetry {
 }
 
 impl RuntimeTelemetrySink for TestTelemetry {
-    fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
 
     fn on_listener_stopped(&self) {}
 

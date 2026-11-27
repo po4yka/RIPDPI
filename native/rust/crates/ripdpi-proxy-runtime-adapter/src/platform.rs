@@ -545,6 +545,26 @@ pub mod handshake {
     pub fn peek(socket: &impl std::os::fd::AsRawFd, buf: &mut [u8]) -> io::Result<usize> {
         nix::sys::socket::recv(socket.as_raw_fd(), buf, nix::sys::socket::MsgFlags::MSG_PEEK).map_err(io::Error::from)
     }
+
+    #[cfg(test)]
+    mod tests {
+        use std::io::{Read, Write};
+        use std::os::unix::net::UnixStream;
+
+        #[test]
+        fn peek_on_a_unix_stream_leaves_the_bytes_unread() {
+            let (mut writer, mut reader) = UnixStream::pair().expect("socket pair");
+            writer.write_all(b"\x05\x01").expect("write greeting");
+
+            let mut peeked = [0_u8; 2];
+            assert_eq!(super::peek(&reader, &mut peeked).expect("peek"), 2);
+            assert_eq!(peeked, [0x05, 0x01]);
+
+            let mut read = [0_u8; 2];
+            reader.read_exact(&mut read).expect("read after peek");
+            assert_eq!(read, [0x05, 0x01], "peek must not consume the bytes");
+        }
+    }
 }
 
 pub mod listener {
@@ -567,6 +587,23 @@ pub mod listener {
         let listener: TcpListener = socket.into();
         listener.set_nonblocking(true)?;
         Ok(listener)
+    }
+
+    /// Binds a non-blocking Unix listener with mode 0600. Fails if `path` already exists.
+    pub fn bind_unix_listener(path: &std::path::Path) -> io::Result<std::os::unix::net::UnixListener> {
+        let socket = Socket::new(Domain::UNIX, Type::STREAM, None)?;
+        socket.bind(&SockAddr::unix(path)?)?;
+        // The bind created the file, so a later failure removes only our own file.
+        (|| {
+            // The socket directory is app-private, so tightening the mode after the bind is enough.
+            std::fs::set_permissions(path, std::os::unix::fs::PermissionsExt::from_mode(0o600))?;
+            socket.listen(1024)?;
+            socket.set_nonblocking(true)
+        })()
+        .inspect_err(|_| {
+            let _ = std::fs::remove_file(path);
+        })?;
+        Ok(socket.into())
     }
 
     /// Returns the actual bind address and the IPv6-only socket option.

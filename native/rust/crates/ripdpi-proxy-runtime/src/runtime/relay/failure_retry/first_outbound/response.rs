@@ -89,7 +89,7 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::desync_platform::EvolutionHintContext;
     use ripdpi_proxy_runtime_adapter::model::config::{DETECT_TLS_ALERT, DesyncGroup};
     use ripdpi_proxy_runtime_adapter::model::ports::AdaptiveHintPort;
-    use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+    use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
     use std::io::Read;
     use std::net::{Ipv4Addr, TcpListener};
 
@@ -97,7 +97,7 @@ mod tests {
     struct HandshakeCount(std::sync::Mutex<usize>);
 
     impl RuntimeTelemetrySink for HandshakeCount {
-        fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
+        fn on_listener_started(&self, _: ListenerAddress, _: usize, _: usize) {}
         fn on_listener_stopped(&self) {}
         fn on_client_accepted(&self) {}
         fn on_client_finished(&self) {}

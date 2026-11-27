@@ -184,7 +184,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn resolved_domain_targets_allowed(&self) -> bool {
         self.listener_bound_to_loopback()
-            && self.listener_settings.bind_addr.port() == 0
+            && (self.listener_is_unix() || self.listener_settings.bind_addr.port() == 0)
             && self.handshake_settings.auth_token.is_some()
     }
     pub(in crate::runtime) fn encode_socks4_reply(granted: bool) -> ProxyReply {

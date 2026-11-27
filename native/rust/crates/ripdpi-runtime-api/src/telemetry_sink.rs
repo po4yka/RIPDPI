@@ -15,13 +15,29 @@ use std::net::SocketAddr;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 
+/// Where a proxy listens. The Unix variant carries no path, so the private socket path never reaches telemetry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListenerAddress {
+    Tcp(SocketAddr),
+    Unix,
+}
+
+impl std::fmt::Display for ListenerAddress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Tcp(addr) => addr.fmt(f),
+            Self::Unix => f.write_str("unix"),
+        }
+    }
+}
+
 /// Per-event telemetry port for a running proxy.
 ///
 /// Required methods cover the listener/client/route lifecycle; the
 /// default-bodied methods are optional observation points an implementer may
 /// override. See the module docs for the stability contract.
 pub trait RuntimeTelemetrySink: Send + Sync {
-    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize);
+    fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize);
 
     fn on_listener_stopped(&self);
 

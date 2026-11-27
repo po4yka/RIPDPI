@@ -39,7 +39,7 @@ pub fn start_proxy(
 
 pub fn start_proxy_with_listener(
     config: ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
-    listener: std::net::TcpListener,
+    listener: ripdpi_proxy_runtime::ProxyListener,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
 ) -> RunningProxy {
     prepare_embedded();

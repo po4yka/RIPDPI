@@ -8,12 +8,12 @@ use crate::runtime::config::RuntimeConfig;
 use crate::runtime::relay::failure_retry::prepare_relay;
 use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 
 #[derive(Default)]
 struct Recorder(std::sync::Mutex<Vec<String>>);
 impl RuntimeTelemetrySink for Recorder {
-    fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
+    fn on_listener_started(&self, _: ListenerAddress, _: usize, _: usize) {}
     fn on_listener_stopped(&self) {}
     fn on_client_accepted(&self) {}
     fn on_client_finished(&self) {}

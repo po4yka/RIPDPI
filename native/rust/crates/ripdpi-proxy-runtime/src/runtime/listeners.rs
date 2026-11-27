@@ -1,10 +1,10 @@
 mod accept_loop;
 mod client_job;
+mod proxy_listener;
 mod worker_pool;
 
 use ripdpi_ws_transport_port::ClientStream;
 use std::io;
-use std::net::TcpListener;
 use std::sync::Arc as StdArc;
 
 use ripdpi_proxy_runtime_adapter::model::runtime_api::DesyncExecutionEvidence;
@@ -12,11 +12,13 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
 use ripdpi_proxy_runtime_adapter::platform::root_helper::RootHelperGeneration;
+use ripdpi_runtime_api::ListenerAddress;
 use ripdpi_ws_transport_port::WsTransport;
 
 use crate::process;
 
 use self::accept_loop::run_accept_loop;
+pub use self::proxy_listener::{ProxyListener, UnixProxyListener};
 use super::config::RuntimeConfig;
 use super::state::RuntimeState;
 
@@ -79,26 +81,38 @@ impl ProxyRuntimeCleanupReceipt {
     }
 }
 
-pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    listener_platform::bind_tcp_listener(RuntimeState::listener_bind_addr(config))
+pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<ProxyListener> {
+    match &config.network.listen.unix_path {
+        Some(path) => UnixProxyListener::bind(path).map(ProxyListener::Unix),
+        None => listener_platform::bind_tcp_listener(RuntimeState::listener_bind_addr(config)).map(ProxyListener::Tcp),
+    }
 }
 
 pub(super) fn run_proxy_with_listener_internal(
     config: RuntimeConfig,
-    listener: TcpListener,
+    listener: ProxyListener,
     control: Option<StdArc<EmbeddedProxyControl>>,
     ws_transport: StdArc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
     let mut config = config;
     super::validate_proxy_config(&config)?;
-    let (listener_addr, ipv6_only) = listener_platform::tcp_listener_binding(&listener)?;
-    RuntimeState::validate_listener_auth(&config, listener_addr.ip())?;
+    let (listener_addr, ipv6_only) = listener.binding()?;
+    RuntimeState::validate_listener_auth(
+        &config,
+        match listener_addr {
+            ListenerAddress::Tcp(addr) => Some(addr.ip()),
+            ListenerAddress::Unix => None,
+        },
+    )?;
     RuntimeState::ensure_config_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]
     let _root_helper = RootHelperRegistration::for_config(&config);
     let embedded_candidate_runtime = control.is_some();
     let mut state = RuntimeState::new(config, control.clone(), ws_transport)?;
-    state.set_listener_binding(listener_addr, ipv6_only);
+    match listener_addr {
+        ListenerAddress::Tcp(addr) => state.set_listener_binding(addr, ipv6_only),
+        ListenerAddress::Unix => state.set_unix_listener_binding(),
+    }
     let client_capacity = state.listener_client_capacity();
     state.note_listener_started(listener_addr, client_capacity, state.listener_route_group_count());
     // Drain any autolearn events accumulated during policy load so that

@@ -126,7 +126,7 @@ pub(crate) fn positive_os_error(err: &std::io::Error, fallback: i32) -> i32 {
 pub(crate) fn open_proxy_listener(
     config: &RuntimeConfig,
     telemetry: &ProxyTelemetryState,
-) -> Result<std::net::TcpListener, std::io::Error> {
+) -> Result<ripdpi_proxy_runtime::ProxyListener, std::io::Error> {
     ripdpi_proxy_runtime::create_listener(config).map_err(|err| {
         telemetry.on_client_error(format!("listener open failed: {err}"));
         err

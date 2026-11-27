@@ -17,7 +17,7 @@ use native_soak_support::{
     GrowthThresholds, LatencyRecorder, SoakProfile, SoakSampler, acquire_global_lock, assert_growth,
     capture_process_resource_snapshot, sample_thread_count_by_prefix, write_json_artifact,
 };
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use serde_json::json;
 
 use support::SOCKET_TIMEOUT;
@@ -657,7 +657,7 @@ struct LoadTestTelemetry {
 }
 
 impl RuntimeTelemetrySink for LoadTestTelemetry {
-    fn on_listener_started(&self, _bind_addr: std::net::SocketAddr, _max_clients: usize, _group_count: usize) {}
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
 
     fn on_listener_stopped(&self) {}
 

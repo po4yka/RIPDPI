@@ -50,7 +50,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-    use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+    use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 
     use super::*;
     use crate::runtime::config::RuntimeConfig;
@@ -60,7 +60,7 @@ mod tests {
     struct Recorder(Mutex<usize>);
 
     impl RuntimeTelemetrySink for Recorder {
-        fn on_listener_started(&self, _: SocketAddr, _: usize, _: usize) {}
+        fn on_listener_started(&self, _: ListenerAddress, _: usize, _: usize) {}
         fn on_listener_stopped(&self) {}
         fn on_client_accepted(&self) {}
         fn on_client_finished(&self) {}

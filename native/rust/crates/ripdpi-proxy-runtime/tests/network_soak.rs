@@ -18,7 +18,7 @@ use local_network_fixture::{
 use native_soak_support::{
     GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW, acquire_global_lock, assert_growth, write_json_artifact,
 };
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use serde_json::json;
@@ -629,7 +629,7 @@ struct TelemetrySnapshot {
 }
 
 impl RuntimeTelemetrySink for RecordingTelemetry {
-    fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {
         self.started.fetch_add(1, Ordering::Relaxed);
     }
 

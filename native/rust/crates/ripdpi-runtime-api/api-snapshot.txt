@@ -67,6 +67,11 @@ pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHop
 pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHop2
 pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::HopByHopDestinationOptions
 pub ripdpi_runtime_api::DesyncUdpIpv6ExtensionProfile::Unknown
+pub enum ripdpi_runtime_api::ListenerAddress
+pub ripdpi_runtime_api::ListenerAddress::Tcp(core::net::socket_addr::SocketAddr)
+pub ripdpi_runtime_api::ListenerAddress::Unix
+impl core::fmt::Display for ripdpi_runtime_api::ListenerAddress
+pub fn ripdpi_runtime_api::ListenerAddress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct ripdpi_runtime_api::AttemptCorrelationId
 impl ripdpi_runtime_api::AttemptCorrelationId
 pub fn ripdpi_runtime_api::AttemptCorrelationId::as_opaque_str(&self) -> &str
@@ -148,7 +153,7 @@ pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_direct_path_learning_signal(
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_failure_classified(&self, core::net::socket_addr::SocketAddr, &ripdpi_failure_classifier::types::ClassifiedFailure, core::option::Option<&str>)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_host_autolearn_event(&self, &'static str, core::option::Option<&str>, core::option::Option<usize>)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_host_autolearn_state(&self, bool, usize, usize, usize, core::option::Option<&str>, core::option::Option<&str>)
-pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_listener_started(&self, core::net::socket_addr::SocketAddr, usize, usize)
+pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_listener_started(&self, ripdpi_runtime_api::ListenerAddress, usize, usize)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_listener_stopped(&self)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_morph_hint_applied(&self, core::net::socket_addr::SocketAddr, &str, &str)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_morph_rollback(&self, core::net::socket_addr::SocketAddr, &str, &str)

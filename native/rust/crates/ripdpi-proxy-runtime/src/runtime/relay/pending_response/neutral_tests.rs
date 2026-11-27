@@ -109,7 +109,13 @@ fn dpi38_pending_closure_keeps_rotation_and_late_success_neutral() {
 struct HttpFailureRecorder(std::sync::Mutex<Vec<String>>);
 
 impl ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink for HttpFailureRecorder {
-    fn on_listener_started(&self, _: std::net::SocketAddr, _: usize, _: usize) {}
+    fn on_listener_started(
+        &self,
+        _: ripdpi_proxy_runtime_adapter::model::runtime_api::ListenerAddress,
+        _: usize,
+        _: usize,
+    ) {
+    }
     fn on_listener_stopped(&self) {}
     fn on_client_accepted(&self) {}
     fn on_client_finished(&self) {}

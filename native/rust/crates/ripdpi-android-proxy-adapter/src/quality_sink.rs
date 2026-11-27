@@ -33,7 +33,7 @@ use std::sync::LazyLock;
 use ripdpi_android_telemetry_adapter::ProxyTelemetryObserver;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_quality::{QualitySample, QualityWindow, TransportKind};
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 
 /// Process-wide TCP-proxy connection-quality window.
@@ -93,7 +93,7 @@ impl QualityWindowSink {
 }
 
 impl RuntimeTelemetrySink for QualityWindowSink {
-    fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
 
     fn on_listener_stopped(&self) {}
 
@@ -175,7 +175,7 @@ impl CompositeProxyTelemetrySink {
 }
 
 impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
-    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+    fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize) {
         self.primary.on_listener_started(bind_addr, max_clients, group_count);
         self.quality.on_listener_started(bind_addr, max_clients, group_count);
     }

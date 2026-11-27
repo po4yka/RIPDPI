@@ -13,12 +13,12 @@ mod tests {
 
     use loom::sync::{Arc, Mutex};
     use ripdpi_failure_classifier::ClassifiedFailure;
-    use ripdpi_runtime_api::RuntimeTelemetrySink;
+    use ripdpi_runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 
     struct NoopSink;
 
     impl RuntimeTelemetrySink for NoopSink {
-        fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+        fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
         fn on_listener_stopped(&self) {}
         fn on_client_accepted(&self) {}
         fn on_client_finished(&self) {}

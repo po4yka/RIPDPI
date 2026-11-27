@@ -65,6 +65,7 @@ impl Default for RuntimeNetworkSettings {
                 listen_port: 1080,
                 bind_ip,
                 auth_token: None,
+                unix_path: None,
             },
             resolve: true,
             remote_dns_upstream: None,

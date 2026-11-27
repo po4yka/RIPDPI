@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme};
@@ -45,7 +45,7 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
         }
     }
 
-    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+    fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize) {
         if let Some(delegate) = &self.delegate {
             delegate.on_listener_started(bind_addr, max_clients, group_count);
         }
@@ -167,12 +167,12 @@ mod tests {
     use super::super::START_TIMEOUT;
 
     struct BlockingListenerTelemetry {
-        entered: SyncSender<(SocketAddr, usize, usize)>,
+        entered: SyncSender<(ListenerAddress, usize, usize)>,
         release: Mutex<Receiver<()>>,
     }
 
     impl RuntimeTelemetrySink for BlockingListenerTelemetry {
-        fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+        fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize) {
             self.entered.send((bind_addr, max_clients, group_count)).expect("report delegate entry");
             self.release.lock().expect("lock delegate release").recv_timeout(START_TIMEOUT).expect("release delegate");
         }
@@ -230,7 +230,7 @@ mod tests {
                 release: Mutex::new(release_rx),
             })),
         };
-        let bind_addr = SocketAddr::from(([127, 0, 0, 1], 12345));
+        let bind_addr = ListenerAddress::Tcp(SocketAddr::from(([127, 0, 0, 1], 12345)));
         let worker = std::thread::spawn(move || telemetry.on_listener_started(bind_addr, 128, 2));
 
         let forwarded = entered_rx.recv_timeout(START_TIMEOUT).expect("delegate entered");

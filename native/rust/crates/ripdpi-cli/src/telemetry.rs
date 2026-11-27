@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 
 pub struct TracingTelemetrySink {
     total_sessions: AtomicU64,
@@ -23,7 +23,7 @@ impl TracingTelemetrySink {
 }
 
 impl RuntimeTelemetrySink for TracingTelemetrySink {
-    fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+    fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize) {
         tracing::info!(%bind_addr, max_clients, group_count, "listener started");
     }
 

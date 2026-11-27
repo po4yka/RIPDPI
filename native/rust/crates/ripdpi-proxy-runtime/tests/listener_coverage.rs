@@ -130,7 +130,7 @@ fn prebound_wildcard_listener_rejects_covered_self_targets() {
     ] {
         let listener = listener(bind_ip, only_v6);
         let port = listener.local_addr().expect("proxy address").port();
-        let proxy = start_proxy_with_listener(config(0), listener, None);
+        let proxy = start_proxy_with_listener(config(0), listener.into(), None);
         let mut client = authenticate(SocketAddr::new(connect_ip, port));
         request(&mut client, SocketAddr::new(target_ip, port), false);
         let reply = recv_socks5_reply(&mut client);
@@ -256,7 +256,7 @@ fn exchange_to(
         }
     });
     let port = listener.local_addr().expect("proxy address").port();
-    let proxy = start_proxy_with_listener(config(requested_port), listener, None);
+    let proxy = start_proxy_with_listener(config(requested_port), listener.into(), None);
     let mut client = authenticate(SocketAddr::new(connect_ip, port));
     request(&mut client, target, private);
     let reply = if private && client.peek(&mut [0]).expect("peek private admission result") == 0 {

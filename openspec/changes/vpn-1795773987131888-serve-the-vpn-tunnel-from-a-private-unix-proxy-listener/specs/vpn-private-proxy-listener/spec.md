@@ -63,7 +63,7 @@ The tunnel MUST carry UDP flows through the private UDP association on the Unix 
 
 ### Requirement: REQ-VPL-AUTH — Authentication on the Unix listener
 
-The Unix listener MUST require the session credentials. It MUST refuse SOCKS5 without authentication, SOCKS4, HTTP proxy requests, and transparent requests.
+The Unix listener MUST require the session credentials. It MUST refuse SOCKS5 without authentication, SOCKS4, HTTP proxy requests without the session credentials, and transparent requests.
 
 #### Scenario: Anonymous client on the Unix listener
 

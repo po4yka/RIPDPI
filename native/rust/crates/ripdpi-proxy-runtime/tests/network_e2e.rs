@@ -26,7 +26,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::model::config::{OffsetBase, OffsetExpr};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyUiConfig, runtime_config_from_ui};
-use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -54,11 +54,11 @@ static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 #[derive(Default)]
 struct ListenerAddressCapture {
-    listener_address: Mutex<Option<SocketAddr>>,
+    listener_address: Mutex<Option<ListenerAddress>>,
 }
 
 impl RuntimeTelemetrySink for ListenerAddressCapture {
-    fn on_listener_started(&self, bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {
+    fn on_listener_started(&self, bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {
         *self.listener_address.lock().unwrap_or_else(PoisonError::into_inner) = Some(bind_addr);
     }
 
@@ -116,7 +116,7 @@ fn ephemeral_listener_reports_non_zero_port_through_telemetry() {
     );
 
     let reported = *telemetry.listener_address.lock().unwrap_or_else(PoisonError::into_inner);
-    let reported = reported.expect("listener address");
+    let Some(ListenerAddress::Tcp(reported)) = reported else { panic!("expected a TCP listener address") };
 
     assert_eq!(reported.ip(), std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
     assert_eq!(reported.port(), proxy.port);
@@ -779,7 +779,7 @@ struct TelemetrySnapshot {
 }
 
 impl RuntimeTelemetrySink for RecordingTelemetry {
-    fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {
         self.started.fetch_add(1, Ordering::Relaxed);
     }
 

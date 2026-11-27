@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_runtime_api::{ListenerAddress, RuntimeTelemetrySink};
 
 use super::state::ProxyTelemetryState;
 
@@ -18,7 +18,7 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         self.state.push_event("proxy", "warn", "client rejected: at capacity".to_string());
     }
 
-    fn on_listener_started(&self, bind_addr: std::net::SocketAddr, max_clients: usize, group_count: usize) {
+    fn on_listener_started(&self, bind_addr: ListenerAddress, max_clients: usize, group_count: usize) {
         self.state.mark_running(bind_addr.to_string(), max_clients, group_count);
     }
 

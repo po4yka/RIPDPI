@@ -22,13 +22,12 @@ mod warmup;
 mod ws;
 
 use std::io;
-use std::net::TcpListener;
 use std::sync::Arc;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_ws_transport_port::WsTransport;
 
-pub use self::listeners::ProxyRuntimeCleanupReceipt;
+pub use self::listeners::{ProxyListener, ProxyRuntimeCleanupReceipt, UnixProxyListener};
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use self::state::RuntimeState;
 pub use geo::{RuntimeGeoDatabaseVersions, RuntimeGeoIpMetadata, load_geo_database_versions, load_geoip_metadata};
@@ -39,7 +38,7 @@ pub fn run_proxy(config: RuntimeConfig, ws_transport: Arc<dyn WsTransport>) -> i
     run_proxy_with_listener(config, listener, ws_transport)
 }
 
-pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
+pub fn create_listener(config: &RuntimeConfig) -> io::Result<ProxyListener> {
     validate_proxy_config(config)?;
     build_listener(config)
 }
@@ -52,7 +51,7 @@ pub fn validate_proxy_config(config: &RuntimeConfig) -> io::Result<()> {
 
 pub fn run_proxy_with_listener(
     config: RuntimeConfig,
-    listener: TcpListener,
+    listener: ProxyListener,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<()> {
     run_proxy_with_listener_internal(config, listener, None, ws_transport).and_then(ordinary_proxy_result)
@@ -60,7 +59,7 @@ pub fn run_proxy_with_listener(
 
 pub fn run_proxy_with_embedded_control(
     config: RuntimeConfig,
-    listener: TcpListener,
+    listener: ProxyListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<()> {
@@ -77,7 +76,7 @@ fn ordinary_proxy_result(receipt: ProxyRuntimeCleanupReceipt) -> io::Result<()> 
 /// Runs an embedded proxy and returns its terminal worker-cleanup receipt.
 pub fn run_proxy_with_embedded_control_receipt(
     config: RuntimeConfig,
-    listener: TcpListener,
+    listener: ProxyListener,
     control: std::sync::Arc<EmbeddedProxyControl>,
     ws_transport: Arc<dyn WsTransport>,
 ) -> io::Result<ProxyRuntimeCleanupReceipt> {
@@ -113,6 +112,13 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+
+    fn tcp_listener(config: &RuntimeConfig) -> TcpListener {
+        match create_listener(config).expect("create listener") {
+            super::ProxyListener::Tcp(listener) => listener,
+            super::ProxyListener::Unix(_) => panic!("expected a TCP listener"),
+        }
+    }
 
     #[test]
     fn listener_validation_rejects_unauthenticated_lan_and_unsupported_auth_modes() {
@@ -174,7 +180,7 @@ mod tests {
                 config.network.listen.listen_port = 0;
                 config.network.listen.auth_token = Some(token.clone());
                 config.network.mixed = mixed;
-                let listener = create_listener(&config).expect("valid token listener");
+                let listener = tcp_listener(&config);
                 listener.set_nonblocking(false).expect("blocking listener");
                 let address = listener.local_addr().expect("listener address");
                 let worker = thread::spawn(move || {
@@ -218,8 +224,9 @@ mod tests {
     fn prebound_lan_listener_cannot_bypass_auth_validation() {
         let config = RuntimeConfig::default();
         let listener = TcpListener::bind((Ipv4Addr::UNSPECIFIED, 0)).expect("bind LAN listener");
-        let err = super::run_proxy_with_listener(config, listener, Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))
-            .expect_err("prebound LAN listener needs auth");
+        let err =
+            super::run_proxy_with_listener(config, listener.into(), Arc::new(ripdpi_ws_tunnel::TelegramWsTransport))
+                .expect_err("prebound LAN listener needs auth");
         assert_eq!(err.kind(), io::ErrorKind::PermissionDenied);
     }
 
@@ -244,7 +251,7 @@ mod tests {
         config.network.listen.listen_ip = IpAddr::V4(Ipv4Addr::LOCALHOST);
         config.network.listen.listen_port = 0;
 
-        let listener = create_listener(&config).expect("create listener");
+        let listener = tcp_listener(&config);
         let mut reuseaddr = 0i32;
         let mut len = std::mem::size_of_val(&reuseaddr) as libc::socklen_t;
         // SAFETY: getsockopt is called with a live listener fd, SOL_SOCKET/SO_REUSEADDR,

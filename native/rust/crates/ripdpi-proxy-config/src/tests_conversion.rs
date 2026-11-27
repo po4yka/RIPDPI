@@ -854,8 +854,11 @@ fn command_line_lan_listener_requires_auth_after_session_overrides() {
         geosite_db_path: None,
         runtime_context: None,
         log_context: None,
-        session_overrides: auth_token
-            .map(|token| ProxySessionOverrides { listen_port_override: None, auth_token: Some(token.to_string()) }),
+        session_overrides: auth_token.map(|token| ProxySessionOverrides {
+            listen_port_override: None,
+            auth_token: Some(token.to_string()),
+            listen_unix_path: None,
+        }),
         schema_version: 2,
     };
     assert!(runtime_config_envelope_from_payload(payload(None)).is_err());
@@ -876,6 +879,7 @@ fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
         session_overrides: Some(ProxySessionOverrides {
             listen_port_override: Some(0),
             auth_token: Some("alpha-123".to_string()),
+            listen_unix_path: None,
         }),
         schema_version: 2,
     })
@@ -936,12 +940,75 @@ fn invalid_session_override_listen_port_is_rejected() {
         session_overrides: Some(ProxySessionOverrides {
             listen_port_override: Some(-1),
             auth_token: Some("alpha-123".to_string()),
+            listen_unix_path: None,
         }),
         schema_version: 2,
     })
     .expect_err("invalid listen port override");
 
     assert!(err.to_string().contains("listenPortOverride"));
+}
+
+fn unix_path_overrides(
+    listen_port_override: Option<i32>,
+    auth_token: Option<&str>,
+    listen_unix_path: &str,
+) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
+    runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string()],
+        host_autolearn_store_path: None,
+        destination_routing: ProxyUiDestinationRoutingConfig::default(),
+        geoip_db_path: None,
+        geosite_db_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: Some(ProxySessionOverrides {
+            listen_port_override,
+            auth_token: auth_token.map(str::to_string),
+            listen_unix_path: Some(listen_unix_path.to_string()),
+        }),
+        schema_version: 2,
+    })
+}
+
+#[test]
+fn session_overrides_without_a_unix_path_serialize_as_before() {
+    let overrides = ProxySessionOverrides {
+        listen_port_override: Some(0),
+        auth_token: Some("alpha-123".to_string()),
+        listen_unix_path: None,
+    };
+
+    assert_eq!(
+        serde_json::to_string(&overrides).expect("serialize overrides"),
+        r#"{"listenPortOverride":0,"authToken":"alpha-123"}"#
+    );
+}
+
+#[test]
+fn session_override_listen_unix_path_sets_the_unix_listener() {
+    let envelope = unix_path_overrides(None, Some("alpha-123"), "/data/files/px-0123").expect("unix listen path");
+
+    assert_eq!(envelope.config.network.listen.unix_path.as_deref(), Some(std::path::Path::new("/data/files/px-0123")));
+    assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+}
+
+#[test]
+fn invalid_session_override_listen_unix_path_is_rejected() {
+    let too_long = format!("/{}", "a".repeat(107));
+    let longest_fit = format!("/{}", "a".repeat(106));
+    let cases = [
+        ("empty path", unix_path_overrides(None, Some("alpha-123"), "")),
+        ("relative path", unix_path_overrides(None, Some("alpha-123"), "files/px-0123")),
+        ("path too long", unix_path_overrides(None, Some("alpha-123"), &too_long)),
+        ("port override", unix_path_overrides(Some(0), Some("alpha-123"), "/data/files/px-0123")),
+        ("missing token", unix_path_overrides(None, None, "/data/files/px-0123")),
+    ];
+    for (name, result) in cases {
+        let err = result.expect_err(name);
+        assert!(err.to_string().contains("listenUnixPath"), "{name}: {err}");
+    }
+    unix_path_overrides(None, Some("alpha-123"), &longest_fit).expect("107 bytes fit sun_path with its NUL");
 }
 
 #[test]

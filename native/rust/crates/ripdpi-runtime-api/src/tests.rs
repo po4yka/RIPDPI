@@ -11,7 +11,7 @@ use crate::sync::{Arc, AtomicUsize, Ordering};
 #[cfg(not(feature = "loom"))]
 use crate::{
     AttemptCorrelationId, DesyncExecutionEvidence, DesyncOffsetMarkerBase, DesyncStrategyFamily,
-    DesyncTlsPreludeEvidence, DesyncTlsPreludeKind, EmbeddedProxyControl, RuntimeTelemetrySink,
+    DesyncTlsPreludeEvidence, DesyncTlsPreludeKind, EmbeddedProxyControl, ListenerAddress, RuntimeTelemetrySink,
     clear_runtime_telemetry, current_runtime_telemetry, install_runtime_telemetry,
 };
 use crate::{DesyncExecutionDisposition, DesyncExecutionReceipt, DesyncExecutionTransport};
@@ -31,7 +31,7 @@ impl CountingSink {
 
 #[cfg(not(feature = "loom"))]
 impl RuntimeTelemetrySink for CountingSink {
-    fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+    fn on_listener_started(&self, _bind_addr: ListenerAddress, _max_clients: usize, _group_count: usize) {}
 
     fn on_listener_stopped(&self) {}
 

@@ -186,7 +186,13 @@ mod tests {
     }
 
     impl ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink for RecordingLearnerSink {
-        fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
+        fn on_listener_started(
+            &self,
+            _bind_addr: ripdpi_proxy_runtime_adapter::model::runtime_api::ListenerAddress,
+            _max_clients: usize,
+            _group_count: usize,
+        ) {
+        }
         fn on_listener_stopped(&self) {}
         fn on_client_accepted(&self) {}
         fn on_client_finished(&self) {}
