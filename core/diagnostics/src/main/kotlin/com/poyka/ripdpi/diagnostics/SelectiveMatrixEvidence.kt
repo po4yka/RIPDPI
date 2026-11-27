@@ -13,6 +13,15 @@ internal fun bucketSelectiveMatrix(outcome: String): DiagnosticsOutcomeBucket =
 internal fun List<ProbeResult>.selectiveMatrixSummaryLines(): List<String> =
     matrixResultLines() + targetGroupSummaryLines()
 
+internal fun List<Diagnosis>.mobileAllowlistSummaryLines(): List<String> =
+    filter { it.code == MobileAllowlistDiagnosis }
+        .flatMap { diagnosis ->
+            diagnosis.evidence.map { "mobileAllowlist $it" } +
+                listOfNotNull(diagnosis.recommendation?.let { "mobileAllowlist reason=$it" })
+        }.map(::redactDiagnosticsArchiveText)
+
+const val MobileAllowlistDiagnosis = "mobile_allowlist_mode"
+
 private fun List<ProbeResult>.matrixResultLines(): List<String> =
     filter { it.probeType in MatrixProbeTypes }.take(MatrixMaximumResultRows).flatMap { result ->
         buildList {

@@ -132,6 +132,28 @@ class DiagnosticsSessionDetailUiFactoryTest {
     }
 
     @Test
+    fun `allowlist diagnosis shows localized verdict and keeps the narrowing evidence`() {
+        val evidence = listOf("verdict=allowlist_mode", "narrowing=standard_https_to_permitted_destination")
+        val diagnosis =
+            support.toDiagnosisUiModel(
+                Diagnosis(
+                    code = "mobile_allowlist_mode",
+                    summary = "native fallback",
+                    severity = "warning",
+                    evidence = evidence,
+                    recommendation = "native action",
+                ),
+            )
+
+        assertEquals(support.context.getString(R.string.diagnostics_mobile_allowlist_summary), diagnosis.summary)
+        assertEquals(
+            support.context.getString(R.string.diagnostics_mobile_allowlist_recommendation),
+            diagnosis.recommendation,
+        )
+        assertEquals(evidence, diagnosis.evidence)
+    }
+
+    @Test
     fun `session detail surfaces top level completion and termination reason`() {
         val input = historyDiagnosticsDetail("scan-terminated")
         val detail =

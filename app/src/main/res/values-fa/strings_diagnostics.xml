@@ -954,6 +954,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">دو جریان متفاوت Reality پس از دست‌دهی متوقف شدند.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">آزمون QUIC Initial در همان شبکه پاسخ گرفت؛ این مسیر برنامه را تأیید نمی‌کند.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">یک رلهٔ UDP/QUIC آزمایش‌شده را امتحان کنید، سپس دادهٔ برنامه را بررسی کنید.</string>
+    <string name="diagnostics_mobile_allowlist_summary">فقط مقصدهای مجاز HTTPS را کامل کردند. نشانی‌های خارجی و UDP ناموفق بودند.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">فقط از انتقالی استفاده کنید که HTTPS استاندارد را روی TCP به یک مقصد مجاز کامل می‌کند.</string>
     <string name="diagnostics_sparkline_selected_state">نمونه %1$d از %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">آخرین مقدار: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">نمونه قبلی</string>

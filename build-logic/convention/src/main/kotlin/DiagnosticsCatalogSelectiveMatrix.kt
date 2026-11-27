@@ -28,66 +28,71 @@ internal data class SelectiveMatrixTargetDefinition(
     val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
-internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition =
-    DiagnosticsProfileDefinition(
+internal fun selectiveAvailabilityMatrixProfile(): DiagnosticsProfileDefinition {
+    val matrix = selectiveAvailabilityMatrix()
+    return DiagnosticsProfileDefinition(
         id = "selective-availability-matrix",
-        version = 2,
+        version = 3,
         name = "Selective availability matrix",
         family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
         regionTag = "ru",
         executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
-        selectiveMatrix =
-            SelectiveMatrixDefinition(
-                catalogVersion = "ru-selective-2026-10-09",
-                targets =
-                    listOf(
-                        matrixTarget(
-                            "yandex",
-                            "Yandex",
-                            "yandex.ru",
-                            "declared_available",
-                            "yandex",
-                            "domestic_hosting",
-                            13238L,
-                        ),
-                        matrixTarget("vk", "VK", "vk.com", "declared_available", "vk", "domestic_hosting", 47541L),
-                        matrixTarget(
-                            "selectel",
-                            "Selectel",
-                            "selectel.ru",
-                            "domestic",
-                            "selectel",
-                            "domestic_hosting",
-                            50340L,
-                        ),
-                        matrixTarget(
-                            "timeweb",
-                            "Timeweb",
-                            "timeweb.com",
-                            "domestic",
-                            "timeweb",
-                            "domestic_hosting",
-                            51115L,
-                        ),
-                        matrixTarget(
-                            "cloudflare",
-                            "Cloudflare",
-                            "speed.cloudflare.com",
-                            "global",
-                            "cloudflare",
-                            "cdn",
-                            13335L,
-                        ),
-                        matrixTarget(
-                            "ovh",
-                            "OVHcloud",
-                            "proof.ovh.net",
-                            "global",
-                            "ovhcloud",
-                            "foreign_datacenter",
-                            16276L,
-                        ),
-                    ),
+        quicTargets = matrix.targets.filter { it.targetClass == "cdn" }.map { QuicTargetDefinition(URI(it.url).host) },
+        selectiveMatrix = matrix,
+    )
+}
+
+private fun selectiveAvailabilityMatrix(): SelectiveMatrixDefinition =
+    SelectiveMatrixDefinition(
+        catalogVersion = "ru-selective-2026-10-09",
+        targets =
+            listOf(
+                matrixTarget(
+                    "yandex",
+                    "Yandex",
+                    "yandex.ru",
+                    "declared_available",
+                    "yandex",
+                    "domestic_hosting",
+                    13238L,
+                ),
+                matrixTarget("vk", "VK", "vk.com", "declared_available", "vk", "domestic_hosting", 47541L),
+                matrixTarget(
+                    "selectel",
+                    "Selectel",
+                    "selectel.ru",
+                    "domestic",
+                    "selectel",
+                    "domestic_hosting",
+                    50340L,
+                ),
+                matrixTarget(
+                    "timeweb",
+                    "Timeweb",
+                    "timeweb.com",
+                    "domestic",
+                    "timeweb",
+                    "domestic_hosting",
+                    51115L,
+                ),
+                matrixTarget(
+                    "cloudflare",
+                    "Cloudflare",
+                    "speed.cloudflare.com",
+                    "global",
+                    "cloudflare",
+                    "cdn",
+                    13335L,
+                ),
+                matrixTarget(
+                    "ovh",
+                    "OVHcloud",
+                    "proof.ovh.net",
+                    "global",
+                    "ovhcloud",
+                    "foreign_datacenter",
+                    16276L,
+                ),
             ),
     )
 
@@ -120,6 +125,12 @@ internal fun DiagnosticsProfileDefinition.validateSelectiveMatrix() {
     require(executionPolicy.manualOnly && !executionPolicy.allowBackground) {
         "Matrix profile $id must be manual-only"
     }
+    val foreignHosts =
+        matrix.targets
+            .filter { it.targetClass in setOf("foreign_datacenter", "cdn") }
+            .map { URI(it.url).host }
+            .toSet()
+    require(quicTargets.all { it.host in foreignHosts }) { "Matrix profile $id may probe UDP only on foreign targets" }
     require(matrix.version == 1 && matrix.catalogVersion.isNotBlank()) { "Invalid matrix version in $id" }
     require(matrix.targets.size in 1..10 && matrix.repetitions in 1..3) { "Invalid matrix size in $id" }
     require(matrix.timeoutMs in 100..10_000 && matrix.maxResponseBytes in 1..65_536) { "Invalid matrix limits in $id" }

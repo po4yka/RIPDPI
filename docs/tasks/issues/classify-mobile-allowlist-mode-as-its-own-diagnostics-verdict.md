@@ -2,7 +2,7 @@
 id: DGN-1795704952088416
 title: Classify mobile allowlist mode as its own diagnostics verdict
 kind: feature
-status: backlog
+status: doing
 area: diagnostics
 priority: medium
 owner: Diagnostics engineer
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1795704952088416-classify-mobile-allowlist-mode-as-its-own-diagnostics-verdict
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 ---
 
 ## Goal
@@ -37,4 +37,4 @@ The verdict needs a probe set that includes permitted-domain targets, foreign ta
 
 ## Ownership
 
-Not assigned yet. Before a writer starts, record the owner of the diagnostics verdict model and note that the classification depends on the target classes of the selective-availability matrix.
+The diagnostics engineer owns the verdict model in `ripdpi-diagnostics-classification` (`classification::mobile_allowlist`). The classification depends on the cohorts and target classes of the selective-availability matrix (DGN-1795704974460888).

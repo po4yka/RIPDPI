@@ -953,6 +953,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">两个不同的 Reality 流在握手后停滞。</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">QUIC Initial 探测在同一网络上收到响应；这不能验证应用路径。</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">尝试已测试的 UDP/QUIC 中继，然后检查应用数据是否可用。</string>
+    <string name="diagnostics_mobile_allowlist_summary">只有允许的目标完成了 HTTPS。境外地址和 UDP 目标均失败。</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">只使用能通过 TCP 向允许的目标完成标准 HTTPS 的传输方式。</string>
     <string name="diagnostics_sparkline_selected_state">第 %1$d 个样本，共 %2$d 个：%3$s</string>
     <string name="diagnostics_sparkline_latest_state">最新值：%1$s</string>
     <string name="diagnostics_sparkline_previous_sample">上一个样本</string>

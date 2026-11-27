@@ -153,7 +153,7 @@ class BundledDiagnosticsProfileImporterTest {
             ).importProfiles()
 
             val saved = stores.getProfile(SelectiveMatrixProfileId)!!
-            assertEquals(2, saved.version)
+            assertEquals(bundledMatrix.version, saved.version)
             val matrix = json.decodeFromString(ProfileSpecWire.serializer(), saved.requestJson).selectiveMatrix!!
             matrix.validate()
             assertEquals(
@@ -161,6 +161,12 @@ class BundledDiagnosticsProfileImporterTest {
                 matrix.targets.map { it.targetClass }.toSet(),
             )
             assertTrue(matrix.targets.all { it.destinationAsn != null })
+            val foreignHosts =
+                matrix.targets
+                    .filter { it.targetClass == TargetClassCdn || it.targetClass == TargetClassForeignDatacenter }
+                    .map { java.net.URI(it.url).host }
+            val quicHosts = bundledMatrix.request.quicTargets.map { it.host }
+            assertTrue(quicHosts.isNotEmpty() && foreignHosts.containsAll(quicHosts))
         }
 
     @Test

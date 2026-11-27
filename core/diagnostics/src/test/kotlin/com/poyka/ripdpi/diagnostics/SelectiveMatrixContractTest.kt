@@ -169,6 +169,24 @@ class SelectiveMatrixContractTest {
         assertEquals(DiagnosticsOutcomeBucket.Inconclusive, bucketSelectiveMatrix("matrix_target_body_incomplete"))
     }
 
+    @Test
+    fun `allowlist verdict exports its evidence and narrowing reason without network addresses`() {
+        val lines =
+            listOf(
+                Diagnosis(
+                    code = "mobile_allowlist_mode",
+                    summary = "verdict",
+                    evidence = listOf("verdict=allowlist_mode", "udpSilent=1", "gateway=192.168.1.1"),
+                    recommendation = "Use only standard HTTPS toward a permitted destination",
+                ),
+                Diagnosis(code = "quic_initial_unobserved", summary = "other", evidence = listOf("status=x")),
+            ).mobileAllowlistSummaryLines()
+        assertEquals("mobileAllowlist verdict=allowlist_mode", lines[0])
+        assertEquals("mobileAllowlist udpSilent=1", lines[1])
+        assertFalse(lines.any { "192.168.1.1" in it || "status=x" in it })
+        assertEquals("mobileAllowlist reason=Use only standard HTTPS toward a permitted destination", lines.last())
+    }
+
     private fun matrix() =
         SelectiveMatrixConfig(
             catalogVersion = "test-v1",

@@ -980,6 +980,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Two distinct Reality flows stalled after the handshake.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">A QUIC Initial probe received a response on the same network; this does not validate the application path.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Try a tested UDP/QUIC relay, then check that application data works.</string>
+    <string name="diagnostics_mobile_allowlist_summary">Only permitted destinations completed HTTPS. Foreign-address and UDP targets failed.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">Use only a transport that completes standard HTTPS over TCP to a permitted destination.</string>
     <string name="diagnostics_sparkline_selected_state">Sample %1$d of %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Latest value: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Previous sample</string>

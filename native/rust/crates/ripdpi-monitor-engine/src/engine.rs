@@ -512,6 +512,51 @@ mod tests {
         assert!(report.confirm_good_dpi_verdict.unwrap().evidence.quic_control_succeeded);
     }
 
+    #[test]
+    fn connectivity_report_carries_allowlist_verdict_only_for_selective_evidence() {
+        let matrix = |id: &str, cohort: &str, class: &str, outcome: &str, stage: &str| ProbeResult {
+            probe_type: "selective_availability".to_string(),
+            target: id.to_string(),
+            outcome: outcome.to_string(),
+            details: [("targetId", id), ("cohort", cohort), ("targetClass", class), ("failureStage", stage)]
+                .into_iter()
+                .map(|(key, value)| ProbeDetail { key: key.to_string(), value: value.to_string() })
+                .collect(),
+        };
+        let single = |probe_type: &str, outcome: &str| ProbeResult {
+            probe_type: probe_type.to_string(),
+            target: "t".to_string(),
+            outcome: outcome.to_string(),
+            details: vec![],
+        };
+        let report_for = |permitted: &str, summary: &str| {
+            let results = vec![
+                matrix("a", "declared_available", "domestic_hosting", permitted, "none"),
+                matrix("e", "domestic", "domestic_hosting", "matrix_target_transport_failed", "tcp"),
+                matrix("b", "global", "cdn", "matrix_target_transport_failed", "tcp"),
+                single("selective_availability_summary", summary),
+                single("quic_reachability", "quic_timeout"),
+            ];
+            build_report(
+                ReportBuildContext {
+                    session_id: "test".into(),
+                    request: scan_request(ScanKind::Connectivity, vec![], None),
+                    started_at: 0,
+                    execution_plan: None,
+                },
+                "test".into(),
+                results,
+                vec![],
+                None,
+                None,
+            )
+        };
+        let allowlist = report_for("matrix_target_available", "matrix_selective");
+        assert!(allowlist.diagnoses.iter().any(|diagnosis| diagnosis.code == "mobile_allowlist_mode"));
+        let outage = report_for("matrix_target_transport_failed", "matrix_unavailable");
+        assert!(outage.diagnoses.iter().all(|diagnosis| diagnosis.code != "mobile_allowlist_mode"));
+    }
+
     fn scan_request(
         kind: ScanKind,
         probe_tasks: Vec<crate::types::ProbeTask>,

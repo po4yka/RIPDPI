@@ -152,7 +152,7 @@
     {
       "id": "selective-availability-matrix",
       "name": "Selective availability matrix",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "selective-availability-matrix",
         "displayName": "Selective availability matrix",
@@ -171,7 +171,12 @@
         "domainTargets": [],
         "dnsTargets": [],
         "tcpTargets": [],
-        "quicTargets": [],
+        "quicTargets": [
+          {
+            "host": "speed.cloudflare.com",
+            "port": 443
+          }
+        ],
         "serviceTargets": [],
         "circumventionTargets": [],
         "throughputTargets": [],
