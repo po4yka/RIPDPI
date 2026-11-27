@@ -99,6 +99,7 @@ fn late_tcp_freeze_does_not_pin_the_strategy_after_forwarding_an_accepted_respon
     config.timeouts.freeze_max_stalls = 2;
     let state = RuntimeState::test(config);
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (upstream, mut origin) = pair();
     let target = upstream.peer_addr().expect("owned origin");
     for socket in [&app, &origin] {
@@ -165,6 +166,7 @@ fn dpi38_tls12_warning_survives_each_first_record_split() {
             config.timeouts.partial_timeout_ms = 1_000;
             let state = RuntimeState::test(config);
             let (client, mut app) = pair();
+            let client = ClientStream::Tcp(client);
             let (mut upstream, mut origin) = pair();
             upstream.set_read_timeout(Some(Duration::from_secs(1))).expect("bounded test read");
             let target = upstream.peer_addr().expect("target");
@@ -327,6 +329,7 @@ fn dpi38_partial_outbound_header_keeps_alert_observation() {
     let partial_request = &request[..1];
     let state = RuntimeState::test(RuntimeConfig::default());
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     upstream.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded oracle read");
     origin.write_all(&response[..7]).expect("warning prefix");
@@ -430,6 +433,7 @@ fn dpi38_sni_free_client_hello_retains_configured_tls_observation() {
     config.timeouts.partial_timeout_ms = 1_000;
     let state = RuntimeState::test(config);
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     upstream.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded oracle read");
     origin.write_all(&response[..7]).expect("warning before ServerHello");
@@ -534,6 +538,7 @@ fn dpi38_alert_chunks_do_not_extend_the_absolute_window() {
     let state = RuntimeState::test(config);
     let request = RUNTIME_DEFAULT_FAKE_TLS;
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     origin.write_all(b"\x15\x03\x03\x00\x02\x01\x70").expect("warning prefix");
     app.write_all(b"x").expect("owned continuation");
@@ -575,6 +580,7 @@ fn dpi38_alert_window_owner_stop_stays_interrupted() {
     let state = RuntimeState::test_with_control(RuntimeConfig::default(), control.clone());
     let request = RUNTIME_DEFAULT_FAKE_TLS;
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     origin.write_all(b"\x15\x03\x03\x00\x02\x01\x70").expect("warning prefix");
     app.write_all(b"x").expect("owned continuation");

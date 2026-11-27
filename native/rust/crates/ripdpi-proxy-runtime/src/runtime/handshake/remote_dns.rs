@@ -1,5 +1,6 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Shutdown, TcpStream};
+use std::net::{IpAddr, Shutdown};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
@@ -53,7 +54,7 @@ pub(super) fn target(request: &[u8]) -> io::Result<Option<(String, u16)>> {
     Ok(Some((host.to_owned(), port)))
 }
 
-pub(super) fn plain_domain_request(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
+pub(super) fn plain_domain_request(client: &mut ClientStream, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut request = vec![3, 0];
     super::read_exact_by(client, &mut request[1..], deadline)?;
     if request[1] == 0 {
@@ -66,7 +67,7 @@ pub(super) fn plain_domain_request(client: &mut TcpStream, deadline: Instant) ->
 }
 
 pub(super) fn relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     state: &RuntimeState,
     request: &[u8],
     reply: SuccessReply,
@@ -81,7 +82,7 @@ pub(super) fn relay(
         state.check_remote_domain_policy(&host, port)?;
         super::super::routing::connect_remote_domain(&host, port, upstream, state).map(Some)
     })();
-    let mut remote = match connected {
+    let remote = match connected {
         Ok(Some(remote)) => remote,
         Ok(None) => return Ok(false),
         Err(error) => {
@@ -110,6 +111,8 @@ pub(super) fn relay(
     };
     let _active = state.register_active_upstream_tcp_socket(&remote)?;
     super::connect_relay::write_remote_success_reply(client, &reply, &remote)?;
+    // `copy` is symmetric over both halves, so the upstream rides in the same enum.
+    let mut remote = ClientStream::Tcp(remote);
     client.set_read_timeout(Some(Duration::from_millis(100)))?;
     remote.set_read_timeout(Some(Duration::from_millis(100)))?;
     client.set_write_timeout(Some(Duration::from_millis(100)))?;
@@ -132,8 +135,8 @@ pub(super) fn relay(
 }
 
 fn copy(
-    reader: &mut TcpStream,
-    writer: &mut TcpStream,
+    reader: &mut ClientStream,
+    writer: &mut ClientStream,
     state: &RuntimeState,
     stop: &AtomicBool,
     activity: &AtomicU64,

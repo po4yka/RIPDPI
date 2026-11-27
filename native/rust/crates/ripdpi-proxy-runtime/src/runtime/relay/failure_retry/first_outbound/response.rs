@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -23,7 +24,7 @@ pub(super) struct FirstResponseContext<'a> {
 }
 
 pub(super) fn handle_first_response(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     upstream: &mut TcpStream,
     session_state: &mut FirstOutboundSession,
     context: FirstResponseContext<'_>,
@@ -131,7 +132,8 @@ mod tests {
             config.groups[0].matches.detect = DETECT_TLS_ALERT;
             let state = RuntimeState::test_with_telemetry(config.clone(), Some(telemetry.clone()));
             let (mut upstream, mut origin) = pair();
-            let (mut client, mut app) = pair();
+            let (client, mut app) = pair();
+            let mut client = ClientStream::Tcp(client);
             let target = upstream.peer_addr().expect("target");
             let request = RUNTIME_DEFAULT_FAKE_TLS;
             let response = code.map_or_default(|code| vec![0x15, 3, 3, 0, 2, 1, code]);
@@ -198,7 +200,8 @@ mod tests {
             config.adaptive.cache_ttl = 60;
             let state = RuntimeState::test(config);
             let (mut upstream, mut origin) = pair();
-            let (mut client, mut app) = pair();
+            let (client, mut app) = pair();
+            let mut client = ClientStream::Tcp(client);
             let target = upstream.peer_addr().expect("target");
             let request = b"GET / HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
             let response = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok";
@@ -254,7 +257,8 @@ mod tests {
             config.adaptive.cache_ttl = 60;
             let state = RuntimeState::test(config);
             let (mut upstream, mut origin) = pair();
-            let (mut client, mut app) = pair();
+            let (client, mut app) = pair();
+            let mut client = ClientStream::Tcp(client);
             let target = upstream.peer_addr().expect("target");
             let request = RUNTIME_DEFAULT_FAKE_TLS;
             let response = [0x15, 3, 3, 0, 2, 1, code];

@@ -1,4 +1,5 @@
-use std::net::{SocketAddr, TcpStream};
+use ripdpi_ws_transport_port::ClientStream;
+use std::net::SocketAddr;
 
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
@@ -9,7 +10,7 @@ use crate::runtime::types::RuntimeConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
 pub(super) fn immediate_connect_relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -34,7 +35,7 @@ fn preserve_success_reply_state(mut err: ConnectRelayError, success_reply_sent: 
 }
 
 pub(super) fn delayed_connect_relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -47,7 +48,7 @@ pub(super) fn delayed_connect_relay(
 }
 
 pub(super) fn connected_relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     upstream: UpstreamRoute,
@@ -59,7 +60,7 @@ pub(super) fn connected_relay(
 }
 
 pub(super) fn connect_after_ws_attempt(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -70,7 +71,7 @@ pub(super) fn connect_after_ws_attempt(
 }
 
 fn relay_upstream(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     state: &RuntimeState,
     target: SocketAddr,
     upstream_route: UpstreamRoute,

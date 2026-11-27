@@ -2,8 +2,9 @@ mod accept_loop;
 mod client_job;
 mod worker_pool;
 
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
 use std::sync::Arc as StdArc;
 
 use ripdpi_proxy_runtime_adapter::model::runtime_api::DesyncExecutionEvidence;
@@ -137,8 +138,10 @@ pub(super) fn run_proxy_with_listener_internal(
     result
 }
 
-pub(super) fn close_rejected_client(client: &TcpStream) {
-    listener_platform::close_rejected_client(client);
+pub(super) fn close_rejected_client(client: &ClientStream) {
+    if let Some(tcp) = client.as_tcp() {
+        listener_platform::close_rejected_client(tcp);
+    }
 }
 
 #[cfg(all(feature = "privileged-packets", any(target_os = "linux", target_os = "android")))]

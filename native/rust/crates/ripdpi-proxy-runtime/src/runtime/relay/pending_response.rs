@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -23,7 +24,7 @@ impl PendingFirstResponse {
         self,
         state: &RuntimeState,
         upstream: &mut TcpStream,
-        client: &mut TcpStream,
+        client: &mut ClientStream,
         session: &RelaySharedSession,
     ) -> io::Result<()> {
         let mut reader = self.reader;

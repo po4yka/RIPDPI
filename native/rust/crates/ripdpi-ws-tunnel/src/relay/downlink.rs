@@ -1,5 +1,5 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use tungstenite::WebSocket;
@@ -9,7 +9,7 @@ use super::error_mapping::{WsReadErrorAction, map_ws_read_error};
 use super::outbound_queue::{OutboundReceiver, drain_outbound_frames};
 
 pub(super) fn relay_loop<S: Read + Write>(
-    mut writer: TcpStream,
+    mut writer: ClientStream,
     ws: &mut WebSocket<S>,
     outbound_rx: &OutboundReceiver,
     shutdown: &AtomicBool,

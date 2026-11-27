@@ -1,12 +1,13 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
-use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use super::super::super::desync::{DesyncSendRequest, OutboundSendError};
+use super::super::super::listeners::close_rejected_client;
 use super::super::super::state::RuntimeState;
 use super::super::half_close::HalfCloseLinger;
 use super::super::platform as relay_platform;
@@ -31,7 +32,7 @@ fn retire_local_observation(
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     reader: &mut TcpStream,
-    writer: &mut TcpStream,
+    writer: &mut ClientStream,
     state: &RuntimeState,
     session: RelaySharedSession,
     remembered_host: Arc<Mutex<Option<String>>>,
@@ -119,10 +120,10 @@ pub(super) fn copy_inbound_half(
 /// Ends a frozen relay with an RST to the client: a FIN would make a truncated
 /// response look complete. Shutting the read side wakes the outbound half without a FIN;
 /// the zero linger turns the final close into the reset.
-fn abort_frozen_client(writer: &TcpStream, peer_done: &AtomicBool, freeze_detected: &AtomicBool) -> io::Result<()> {
+fn abort_frozen_client(writer: &ClientStream, peer_done: &AtomicBool, freeze_detected: &AtomicBool) -> io::Result<()> {
     freeze_detected.store(true, Ordering::Release);
     peer_done.store(true, Ordering::Release);
-    listener_platform::close_rejected_client(writer);
+    close_rejected_client(writer);
     let _ = writer.shutdown(Shutdown::Read);
     Ok(())
 }
@@ -196,7 +197,7 @@ pub(super) fn flush_outbound_payload(
 }
 
 pub(super) fn copy_outbound_half(
-    mut reader: TcpStream,
+    mut reader: ClientStream,
     mut writer: TcpStream,
     context: RelayOutboundContext,
     session: RelaySharedSession,

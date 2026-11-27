@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
@@ -45,7 +46,7 @@ impl<T> FirstOutboundRead<T> {
 }
 
 pub(super) fn prepare_first_payload(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     upstream: &TcpStream,
     state: &RuntimeState,
     seed_request: Option<Vec<u8>>,
@@ -66,7 +67,7 @@ pub(super) fn prepare_first_payload(
 }
 
 pub(in crate::runtime) fn read_first_client_payload(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     upstream: Option<&TcpStream>,
     buffer_size: usize,
     hostname_policy: bool,
@@ -145,7 +146,11 @@ enum FirstReadable {
 /// flows keep their first-payload desync. The call does not change the
 /// blocking mode or the timeouts of either socket.
 #[cfg(unix)]
-fn wait_for_first_readable(client: &TcpStream, upstream: &TcpStream, timeout: Duration) -> io::Result<FirstReadable> {
+fn wait_for_first_readable(
+    client: &ClientStream,
+    upstream: &TcpStream,
+    timeout: Duration,
+) -> io::Result<FirstReadable> {
     use std::os::fd::AsRawFd;
 
     const READY_EVENTS: libc::c_short = libc::POLLIN | libc::POLLERR | libc::POLLHUP | libc::POLLNVAL;
@@ -177,7 +182,7 @@ fn wait_for_first_readable(client: &TcpStream, upstream: &TcpStream, timeout: Du
 /// Without `poll(2)`, keep the client-first blocking read.
 #[cfg(not(unix))]
 fn wait_for_first_readable(
-    _client: &TcpStream,
+    _client: &ClientStream,
     _upstream: &TcpStream,
     _timeout: Duration,
 ) -> io::Result<FirstReadable> {
@@ -187,6 +192,7 @@ fn wait_for_first_readable(
 #[cfg(test)]
 mod tests {
     use super::{FirstOutboundRead, read_first_client_payload};
+    use ripdpi_ws_transport_port::ClientStream;
     use std::io::{Read, Write};
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
     use std::thread;
@@ -198,7 +204,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_reassembles_multi_write_client_hello() {
-        let (mut client, mut app) = connected_pair();
+        let (client, mut app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (upstream, _server) = connected_pair();
         let payload = build_multi_record_tls_client_hello();
         let expected = payload.clone();
@@ -218,7 +225,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_reports_server_first_without_consuming_upstream_bytes() {
-        let (mut client, _app) = connected_pair();
+        let (client, _app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (mut upstream, mut server) = connected_pair();
         client.set_read_timeout(Some(Duration::from_secs(7))).expect("set client timeout");
         server.write_all(b"220 ready\r\n").expect("write greeting");
@@ -236,7 +244,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_prefers_client_bytes_when_both_sides_are_readable() {
-        let (mut client, mut app) = connected_pair();
+        let (client, mut app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (upstream, mut server) = connected_pair();
         app.write_all(b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n").expect("write client request");
         server.write_all(b"220 ready\r\n").expect("write greeting");
@@ -249,7 +258,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_finishes_partial_client_hello_even_when_upstream_speaks() {
-        let (mut client, mut app) = connected_pair();
+        let (client, mut app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (mut upstream, mut server) = connected_pair();
         let payload = build_multi_record_tls_client_hello();
         let expected = payload.clone();
@@ -277,7 +287,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_leaves_upstream_eof_for_the_relay() {
-        let (mut client, _app) = connected_pair();
+        let (client, _app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (upstream, server) = connected_pair();
         drop(server);
 
@@ -289,7 +300,8 @@ mod tests {
 
     #[test]
     fn read_first_client_payload_reports_client_close_before_any_byte() {
-        let (mut client, app) = connected_pair();
+        let (client, app) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let (upstream, _server) = connected_pair();
         drop(app);
 

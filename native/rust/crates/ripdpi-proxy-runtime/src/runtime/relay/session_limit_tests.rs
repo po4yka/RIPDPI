@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -86,6 +87,7 @@ fn retry_session(fail_replacement: bool) {
     let mut app = TcpStream::connect(app_listener.local_addr().expect("app listener")).expect("connect app");
     app.set_read_timeout(Some(TIMEOUT)).expect("bound app response");
     let client = accept_before(&app_listener);
+    let client = ClientStream::Tcp(client);
     app.write_all(REQUEST).expect("send independently specified request");
     let relay_state = state.clone();
     let (finished_tx, finished_rx) = mpsc::sync_channel(1);

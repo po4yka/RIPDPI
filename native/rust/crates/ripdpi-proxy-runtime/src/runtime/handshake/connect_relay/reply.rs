@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 
@@ -35,7 +36,7 @@ impl SuccessReply {
 
 /// Write the protocol-appropriate success reply to the client.
 pub(super) fn write_success_reply(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     reply: &SuccessReply,
     upstream: Option<&TcpStream>,
 ) -> io::Result<()> {
@@ -76,7 +77,8 @@ mod tests {
             (SuccessReply::HttpConnect, b"HTTP/1.1 200 OK\r\n\r\n".to_vec()),
         ];
         for (reply, expected) in cases {
-            let (mut writer, mut reader) = pair();
+            let (writer, mut reader) = pair();
+            let mut writer = ClientStream::Tcp(writer);
             reader.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
             write_success_reply(&mut writer, &reply, Some(&upstream)).unwrap();
             drop(writer);

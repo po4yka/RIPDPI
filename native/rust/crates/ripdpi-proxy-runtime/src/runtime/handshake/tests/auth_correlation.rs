@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::time::Duration;
@@ -24,7 +25,8 @@ fn authenticate_loopback(
     let port = listener.local_addr().expect("auth listener address").port();
     let mut client = TcpStream::connect(SocketAddr::new(connect_ip, port)).expect("connect loopback auth client");
     client.set_read_timeout(Some(Duration::from_secs(2))).expect("bound auth reply");
-    let (mut server, peer) = listener.accept().expect("accept auth client");
+    let (server, peer) = listener.accept().expect("accept auth client");
+    let mut server = ClientStream::Tcp(server);
     assert!(peer.ip().to_canonical().is_loopback(), "fixture must stay on loopback");
     if bind_ip == IpAddr::V6(Ipv6Addr::UNSPECIFIED) {
         assert!(peer.is_ipv6(), "fixture must present a mapped peer");

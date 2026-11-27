@@ -59,7 +59,8 @@ enum Scenario {
 }
 
 fn run(scenario: Scenario) -> Vec<String> {
-    let (mut client, mut app) = pair();
+    let (client, mut app) = pair();
+    let mut client = ClientStream::Tcp(client);
     let (upstream, mut origin) = pair();
     let target = upstream.peer_addr().unwrap();
     let request = b"GET / HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
@@ -159,7 +160,8 @@ fn run_rotation(end: RotationEnd) -> Option<String> {
     const FIRST: &[u8] = b"GET /first HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
     const NEXT: &[u8] = b"GET /next HTTP/1.1\r\nHost: fixture.test\r\n\r\n";
     const RESPONSE: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
-    let (mut client, mut app) = pair();
+    let (client, mut app) = pair();
+    let mut client = ClientStream::Tcp(client);
     let (upstream, mut origin) = pair();
     for socket in [&app, &origin] {
         socket.set_read_timeout(Some(Duration::from_secs(3))).expect("bounded fixture read");
@@ -171,7 +173,7 @@ fn run_rotation(end: RotationEnd) -> Option<String> {
         Some(RotationPolicy { candidates: vec![RotationCandidate::default()], ..RotationPolicy::default() });
     let control = std::sync::Arc::new(EmbeddedProxyControl::new(None));
     let state = RuntimeState::test_with_control(config, control.clone());
-    let _client_guard = state.register_active_tcp_socket(&client).expect("register client");
+    let _client_guard = state.register_active_client_socket(&client).expect("register client");
     let _upstream_guard = state.register_active_upstream_tcp_socket(&upstream).expect("register upstream");
     let (next_tx, next_rx) = mpsc::sync_channel(1);
     let server = thread::spawn(move || {

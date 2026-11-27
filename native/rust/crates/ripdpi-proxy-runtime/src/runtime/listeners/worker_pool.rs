@@ -279,6 +279,7 @@ fn baseline_worker_count(max_workers: usize, parallelism: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+    use ripdpi_ws_transport_port::ClientStream;
     use std::io::Read;
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
 
@@ -303,6 +304,7 @@ mod tests {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client pair");
         let mut peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
         let (queued, _) = listener.accept().expect("accept queued client");
+        let queued = ClientStream::Tcp(queued);
         let slot = state.acquire_client_slot(1).expect("client slot");
         assert!(pool.enqueue(ClientJob { client: queued, state, slot }).is_ok(), "queue client job");
 
@@ -379,6 +381,7 @@ mod tests {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client pair");
         let peer = TcpStream::connect(listener.local_addr().expect("listener address")).expect("connect peer");
         let (queued, _) = listener.accept().expect("accept queued client");
+        let queued = ClientStream::Tcp(queued);
         let slot = state.acquire_client_slot(1).expect("client slot");
         {
             let mut pool_state = pool.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner);

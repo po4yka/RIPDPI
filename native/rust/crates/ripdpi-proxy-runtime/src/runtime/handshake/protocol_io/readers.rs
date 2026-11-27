@@ -1,6 +1,8 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
 use std::time::Instant;
+
+use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 
 use crate::runtime::client_identity::Socks5ClientIdentity;
 use crate::runtime::state::{HANDSHAKE_TIMEOUT, RuntimeState};
@@ -14,7 +16,7 @@ const MAX_SOCKS4_UNTERMINATED_REQUEST_LEN: usize = 4096;
 /// `HANDSHAKE_TIMEOUT` once a reader finishes, which is what the relay stage
 /// expects.
 pub(in crate::runtime::handshake) fn negotiate_socks5(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     auth_token: Option<&str>,
     deadline: Instant,
 ) -> io::Result<Socks5ClientIdentity> {
@@ -24,7 +26,7 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
 }
 
 fn negotiate_socks5_inner(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     auth_token: Option<&str>,
     deadline: Instant,
 ) -> io::Result<Socks5ClientIdentity> {
@@ -40,7 +42,7 @@ fn negotiate_socks5_inner(
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
         }
 
-        let allow_identity = client.peer_addr().is_ok_and(|addr| addr.ip().to_canonical().is_loopback());
+        let allow_identity = client.peer().is_ok_and(|peer| peer.ip().is_none_or(|ip| ip.to_canonical().is_loopback()));
         read_socks5_userpass_auth(client, token, allow_identity, deadline)
     } else {
         if !accepted {
@@ -51,7 +53,7 @@ fn negotiate_socks5_inner(
 }
 
 pub(in crate::runtime::handshake) fn read_socks5_request(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     deadline: Instant,
 ) -> io::Result<Vec<u8>> {
     let result = read_socks5_request_inner(client, deadline);
@@ -59,7 +61,7 @@ pub(in crate::runtime::handshake) fn read_socks5_request(
     result
 }
 
-fn read_socks5_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
+fn read_socks5_request_inner(client: &mut ClientStream, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut header = [0u8; 4];
     read_exact_by(client, &mut header, deadline)?;
     if header[0] != 0x05 || header[2] != 0 {
@@ -104,7 +106,7 @@ fn read_socks5_request_inner(client: &mut TcpStream, deadline: Instant) -> io::R
 }
 
 pub(in crate::runtime::handshake) fn read_socks4_request(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     version: u8,
     deadline: Instant,
 ) -> io::Result<Vec<u8>> {
@@ -113,7 +115,7 @@ pub(in crate::runtime::handshake) fn read_socks4_request(
     result
 }
 
-fn read_socks4_request_inner(client: &mut TcpStream, version: u8, deadline: Instant) -> io::Result<Vec<u8>> {
+fn read_socks4_request_inner(client: &mut ClientStream, version: u8, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut out = vec![version];
     let mut fixed = [0u8; 7];
     read_exact_by(client, &mut fixed, deadline)?;
@@ -129,7 +131,7 @@ fn read_socks4_request_inner(client: &mut TcpStream, version: u8, deadline: Inst
 
 /// Returns `None` if the terminated header cannot fit in the size limit.
 pub(in crate::runtime::handshake) fn read_http_connect_request(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     deadline: Instant,
 ) -> io::Result<Option<Vec<u8>>> {
     let result = read_http_connect_request_inner(client, deadline);
@@ -137,7 +139,7 @@ pub(in crate::runtime::handshake) fn read_http_connect_request(
     result
 }
 
-fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Option<Vec<u8>>> {
+fn read_http_connect_request_inner(client: &mut ClientStream, deadline: Instant) -> io::Result<Option<Vec<u8>>> {
     const MAX_HEADER: usize = 64 * 1024;
     let mut out = Vec::new();
     let mut chunk = [0u8; 512];
@@ -164,7 +166,7 @@ fn read_http_connect_request_inner(client: &mut TcpStream, deadline: Instant) ->
 }
 
 fn read_socks5_userpass_auth(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     token: &str,
     allow_identity: bool,
     deadline: Instant,
@@ -207,7 +209,7 @@ fn constant_time_bytes_eq(candidate: &[u8], expected: &[u8]) -> bool {
     constant_time_eq::constant_time_eq(candidate, expected)
 }
 
-fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>, deadline: Instant) -> io::Result<()> {
+fn read_until_nul(client: &mut ClientStream, out: &mut Vec<u8>, deadline: Instant) -> io::Result<()> {
     loop {
         let mut byte = [0u8; 1];
         read_exact_by(client, &mut byte, deadline)?;
@@ -224,7 +226,7 @@ fn read_until_nul(client: &mut TcpStream, out: &mut Vec<u8>, deadline: Instant) 
 /// Sets the client read timeout to the time left before `deadline`.
 ///
 /// Fails with `TimedOut` when the deadline has already passed.
-fn arm_read_timeout(client: &TcpStream, deadline: Instant) -> io::Result<()> {
+fn arm_read_timeout(client: &ClientStream, deadline: Instant) -> io::Result<()> {
     let remaining = deadline
         .checked_duration_since(Instant::now())
         .filter(|left| !left.is_zero())
@@ -234,7 +236,7 @@ fn arm_read_timeout(client: &TcpStream, deadline: Instant) -> io::Result<()> {
 
 /// `read` bounded by an absolute deadline.
 pub(in crate::runtime::handshake) fn read_by(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     buf: &mut [u8],
     deadline: Instant,
 ) -> io::Result<usize> {
@@ -243,20 +245,20 @@ pub(in crate::runtime::handshake) fn read_by(
 
 /// `peek` bounded by an absolute deadline.
 pub(in crate::runtime::handshake) fn peek_by(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     buf: &mut [u8],
     deadline: Instant,
 ) -> io::Result<usize> {
-    by_deadline(client, deadline, |client| client.peek(buf))
+    by_deadline(client, deadline, |client| handshake_platform::peek(client, buf))
 }
 
 /// Runs one read-like call with the timeout left before `deadline`. The
 /// socket timeout (`WouldBlock` from `SO_RCVTIMEO`) is reported as
 /// `TimedOut`, the same kind as a deadline that has already passed.
 fn by_deadline(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     deadline: Instant,
-    mut read: impl FnMut(&mut TcpStream) -> io::Result<usize>,
+    mut read: impl FnMut(&mut ClientStream) -> io::Result<usize>,
 ) -> io::Result<usize> {
     loop {
         arm_read_timeout(client, deadline)?;
@@ -272,7 +274,7 @@ fn by_deadline(
 
 /// `read_exact` bounded by an absolute deadline rather than a per-read timeout.
 pub(in crate::runtime::handshake) fn read_exact_by(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     buf: &mut [u8],
     deadline: Instant,
 ) -> io::Result<()> {

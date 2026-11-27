@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -89,7 +90,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
 
     fn run(
         mut self,
-        client: &mut TcpStream,
+        client: &mut ClientStream,
         upstream: TcpStream,
         cap_guard: Option<ExitIpSessionGuard>,
     ) -> io::Result<PreparedRelay> {
@@ -265,7 +266,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
 
 #[inline(never)]
 pub(crate) fn prepare_relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     upstream: TcpStream,
     state: &RuntimeState,
     target: SocketAddr,

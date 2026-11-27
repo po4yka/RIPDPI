@@ -23,10 +23,13 @@ fn transparent_connect_respects_destination_family_policy() {
 fn raw_exchange(origin_ip: IpAddr, mapped: bool, ipv6_enabled: bool, allowed: bool) {
     let client_listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind client listener");
     let mut peer = TcpStream::connect(client_listener.local_addr().expect("client address")).expect("connect peer");
-    let (mut client, _) = client_listener.accept().expect("accept peer");
+    let (client, _) = client_listener.accept().expect("accept peer");
+    let mut client = ClientStream::Tcp(client);
     let origin = loop {
         let origin = TcpListener::bind((origin_ip, 0)).expect("bind origin");
-        if origin.local_addr().expect("origin address").port() != client.local_addr().expect("client address").port() {
+        if origin.local_addr().expect("origin address").port()
+            != client.local_addr().expect("client address").expect("tcp address").port()
+        {
             break origin;
         }
     };

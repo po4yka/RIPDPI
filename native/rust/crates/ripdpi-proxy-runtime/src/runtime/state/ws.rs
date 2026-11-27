@@ -1,4 +1,5 @@
 use super::*;
+use ripdpi_ws_transport_port::ClientStream;
 
 impl RuntimeState {
     pub(in crate::runtime) fn should_ws_tunnel_first(&self, target: SocketAddr) -> Option<RuntimeTelegramDc> {
@@ -23,7 +24,7 @@ impl RuntimeState {
     }
     pub(in crate::runtime) fn relay_ws_tunnel(
         &self,
-        client: TcpStream,
+        client: ClientStream,
         dc: RuntimeTelegramDc,
         seed_request: Vec<u8>,
         config: &RuntimeWsTunnelConfig,

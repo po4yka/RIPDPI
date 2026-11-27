@@ -1,5 +1,6 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read};
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::Instant;
 
 use super::super::state::RuntimeState;
@@ -29,7 +30,7 @@ pub(super) enum WsTunnelResult {
 
 /// Execute the WebSocket tunnel relay after sniffing the first 64 bytes from
 /// the client connection.
-pub(super) fn run_ws_tunnel(client: TcpStream, target: SocketAddr, state: &RuntimeState) -> WsTunnelResult {
+pub(super) fn run_ws_tunnel(client: ClientStream, target: SocketAddr, state: &RuntimeState) -> WsTunnelResult {
     run_ws_tunnel_with(
         client,
         target,
@@ -42,7 +43,7 @@ pub(super) fn run_ws_tunnel(client: TcpStream, target: SocketAddr, state: &Runti
 
 /// Use the ready carrier when the seed selects its provisional DC.
 pub(super) fn run_ws_tunnel_prepared(
-    mut client: TcpStream,
+    mut client: ClientStream,
     target: SocketAddr,
     provisional_dc: RuntimeTelegramDc,
     prepared: Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>,
@@ -77,7 +78,7 @@ pub(super) fn run_ws_tunnel_prepared(
 /// Execute the WebSocket tunnel relay with a first request already preserved by
 /// the desync pipeline.
 pub(super) fn run_ws_tunnel_with_seed(
-    client: TcpStream,
+    client: ClientStream,
     target: SocketAddr,
     seed_request: Vec<u8>,
     state: &RuntimeState,
@@ -93,7 +94,7 @@ pub(super) fn run_ws_tunnel_with_seed(
 }
 
 fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
-    mut client: TcpStream,
+    mut client: ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     read_seed: ReadSeed,
@@ -101,11 +102,11 @@ fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
     relay_ws: RelayWs,
 ) -> WsTunnelResult
 where
-    ReadSeed: FnOnce(&mut TcpStream) -> Result<Vec<u8>, SeedReadError>,
+    ReadSeed: FnOnce(&mut ClientStream) -> Result<Vec<u8>, SeedReadError>,
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(
         &RuntimeState,
-        TcpStream,
+        ClientStream,
         RuntimeTelegramDc,
         Vec<u8>,
         &RuntimeWsTunnelConfig,
@@ -123,7 +124,7 @@ where
 }
 
 fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
-    mut client: TcpStream,
+    mut client: ClientStream,
     target: SocketAddr,
     seed_request: Vec<u8>,
     state: &RuntimeState,
@@ -134,7 +135,7 @@ where
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(
         &RuntimeState,
-        TcpStream,
+        ClientStream,
         RuntimeTelegramDc,
         Vec<u8>,
         &RuntimeWsTunnelConfig,
@@ -179,7 +180,7 @@ pub(super) fn classify_seed_for_target(
 }
 
 fn open_ws_tunnel_for_dc<ResolveAddr, RelayWs>(
-    client: TcpStream,
+    client: ClientStream,
     seed_request: Vec<u8>,
     dc: RuntimeTelegramDc,
     state: &RuntimeState,
@@ -190,7 +191,7 @@ where
     ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc, &dyn Fn() -> bool) -> io::Result<SocketAddr>,
     RelayWs: FnOnce(
         &RuntimeState,
-        TcpStream,
+        ClientStream,
         RuntimeTelegramDc,
         Vec<u8>,
         &RuntimeWsTunnelConfig,
@@ -240,11 +241,11 @@ struct SeedReadError {
     error: io::Error,
 }
 
-fn read_mtproto_seed(client: &mut TcpStream) -> Result<Vec<u8>, SeedReadError> {
+fn read_mtproto_seed(client: &mut ClientStream) -> Result<Vec<u8>, SeedReadError> {
     complete_mtproto_seed(client, Vec::new())
 }
 
-fn complete_mtproto_seed(client: &mut TcpStream, mut seed_request: Vec<u8>) -> Result<Vec<u8>, SeedReadError> {
+fn complete_mtproto_seed(client: &mut ClientStream, mut seed_request: Vec<u8>) -> Result<Vec<u8>, SeedReadError> {
     if seed_request.len() >= 64 {
         return Ok(seed_request);
     }
@@ -291,18 +292,18 @@ pub(super) mod tests {
     use crate::runtime::state::RuntimeState;
     use aes::Aes256;
     use aes::cipher::{KeyIvInit, StreamCipher};
-    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
     use std::thread;
     use std::time::Duration;
 
     type Aes256Ctr = ctr::Ctr128BE<Aes256>;
 
-    pub(super) fn connected_pair() -> (TcpStream, TcpStream) {
+    pub(super) fn connected_pair() -> (TcpStream, ClientStream) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
         let addr = listener.local_addr().expect("listener addr");
         let client = TcpStream::connect(addr).expect("connect client");
         let (server, _) = listener.accept().expect("accept client");
-        (client, server)
+        (client, ClientStream::Tcp(server))
     }
 
     fn runtime_state() -> RuntimeState {
@@ -351,7 +352,7 @@ pub(super) mod tests {
     struct PreparedCarrier(TcpStream);
 
     impl ripdpi_ws_transport_port::PreparedWsTunnel for PreparedCarrier {
-        fn relay(self: Box<Self>, mut client: TcpStream, seed_request: Vec<u8>) -> io::Result<()> {
+        fn relay(self: Box<Self>, mut client: ClientStream, seed_request: Vec<u8>) -> io::Result<()> {
             use std::io::Write;
             let mut carrier = self.0;
             carrier.write_all(&seed_request)?;

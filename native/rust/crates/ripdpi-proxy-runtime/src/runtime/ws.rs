@@ -1,5 +1,6 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::config::{WsTunnelSettings, ws_tunnel_config_with};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
@@ -165,7 +166,7 @@ pub(super) fn runtime_classify_mtproto_seed(transport: &dyn WsTransport, seed: &
 
 pub(super) fn runtime_relay_ws_tunnel(
     transport: &dyn WsTransport,
-    client: TcpStream,
+    client: ClientStream,
     dc: RuntimeTelegramDc,
     seed_request: Vec<u8>,
     config: &RuntimeWsTunnelConfig,

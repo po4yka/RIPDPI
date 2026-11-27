@@ -15,7 +15,7 @@ fn socks4_reader_preserves_application_bytes_after_exact_request_boundary() {
             request.extend_from_slice(domain.as_bytes());
             request.push(0);
         }
-        let (mut reader, mut writer) = connected_pair();
+        let (mut writer, mut reader) = connected_pair();
         reader.set_read_timeout(Some(Duration::from_secs(1))).expect("bound payload read");
         // The dispatcher has consumed the version byte.
         writer.write_all(&request[1..]).expect("send request tail");

@@ -14,7 +14,8 @@ fn refused_delayed_socks_connect_never_sends_success() {
     let target = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let addr = target.local_addr().unwrap();
     drop(target);
-    let (mut peer, mut client) = pair();
+    let (mut peer, client) = pair();
+    let mut client = ClientStream::Tcp(client);
     peer.write_all(b"GET / HTTP/1.0\r\n\r\n").unwrap();
     let mut config = RuntimeConfig::default();
     config.network.delay_conn = true;
@@ -36,6 +37,7 @@ fn socks_client(
     config: RuntimeConfig,
 ) -> (TcpStream, std::thread::JoinHandle<std::io::Result<()>>) {
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     peer.set_read_timeout(Some(std::time::Duration::from_secs(3))).unwrap();
     let worker =
         std::thread::spawn(move || crate::runtime::handshake::handle_client(client, &RuntimeState::test(config)));
@@ -198,7 +200,8 @@ fn refused_delayed_connect_returns_rep05_to_a_client_waiting_for_the_reply() {
 fn syn_data_group_serves_a_delayed_connect_with_one_origin_connection() {
     use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let (mut peer, mut client) = pair();
+    let (mut peer, client) = pair();
+    let mut client = ClientStream::Tcp(client);
     let sender = std::thread::spawn(move || {
         let mut reply = [0; 10];
         peer.read_exact(&mut reply).unwrap();
@@ -270,7 +273,8 @@ fn deferred_syn_data_socket_is_replaced_for_a_payload_that_is_not_replay_safe() 
 fn a_discovered_owned_stack_host_never_receives_application_bytes() {
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let target = origin.local_addr().unwrap();
-    let (mut peer, mut client) = pair();
+    let (mut peer, client) = pair();
+    let mut client = ClientStream::Tcp(client);
     let sender = std::thread::spawn(move || {
         let mut reply = [0; 10];
         peer.read_exact(&mut reply).unwrap();

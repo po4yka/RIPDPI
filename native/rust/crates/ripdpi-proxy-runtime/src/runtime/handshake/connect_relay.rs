@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
@@ -38,7 +39,7 @@ use ws_first::{AlwaysWsOutcome, run_ws_always_first};
 pub(super) use error::{ConnectPolicyRejection, ConnectRelayError};
 pub(super) use reply::SuccessReply;
 pub(super) fn write_remote_success_reply(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     reply: &SuccessReply,
     upstream: &TcpStream,
 ) -> io::Result<()> {
@@ -55,7 +56,7 @@ pub(super) fn write_remote_success_reply(
 ///
 /// Returns the raw error on failure; callers handle protocol-specific error policy.
 pub(super) fn connect_and_relay(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -65,7 +66,7 @@ pub(super) fn connect_and_relay(
     if !state.transparent_target_allowed(target) {
         return Err(ConnectRelayError::ruleset_denied("IPv6 is disabled for transparent proxy destinations"));
     }
-    if let Some(reason) = super::forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target, state) {
+    if let Some(reason) = super::forbidden_target_reason(client.peer()?, client.local_addr()?, target, state) {
         return Err(ConnectRelayError::ruleset_denied(reason));
     }
     connect_and_relay_with(
@@ -95,7 +96,7 @@ fn connect_and_relay_with<
     DelayedConnectRelay,
     ConnectAfterWsAttempt,
 >(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -110,18 +111,18 @@ fn connect_and_relay_with<
     mut connect_after_ws_attempt_fn: ConnectAfterWsAttempt,
 ) -> Result<(), ConnectRelayError>
 where
-    WriteSuccessReply: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
-    RunWsTunnel: FnMut(TcpStream, &RuntimeState) -> WsTunnelResult,
-    RunWsTunnelWithSeed: FnMut(TcpStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
+    WriteSuccessReply: FnMut(&mut ClientStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
+    RunWsTunnel: FnMut(ClientStream, &RuntimeState) -> WsTunnelResult,
+    RunWsTunnelWithSeed: FnMut(ClientStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
     MaybeDelayConnect: FnMut(
-        &mut TcpStream,
+        &mut ClientStream,
         &RuntimeState,
         SocketAddr,
         Option<&str>,
         Option<HandshakeKind>,
     ) -> Result<DelayConnect, ConnectRelayError>,
     ImmediateConnectRelay: FnMut(
-        &mut TcpStream,
+        &mut ClientStream,
         SocketAddr,
         &RuntimeState,
         Option<String>,
@@ -130,7 +131,7 @@ where
         Option<AttemptCorrelationId>,
     ) -> Result<(), ConnectRelayError>,
     DelayedConnectRelay: FnMut(
-        &mut TcpStream,
+        &mut ClientStream,
         SocketAddr,
         &RuntimeState,
         Option<String>,
@@ -139,7 +140,7 @@ where
         Option<AttemptCorrelationId>,
     ) -> Result<(), ConnectRelayError>,
     ConnectAfterWsAttempt:
-        FnMut(&mut TcpStream, SocketAddr, &RuntimeState, Option<String>, Vec<u8>) -> Result<(), ConnectRelayError>,
+        FnMut(&mut ClientStream, SocketAddr, &RuntimeState, Option<String>, Vec<u8>) -> Result<(), ConnectRelayError>,
 {
     let destination_egress = state.destination_egress(target, host_hint.as_deref(), RuntimeTransportProtocol::Tcp);
     if destination_egress == DestinationEgress::Block {

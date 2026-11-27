@@ -3,13 +3,15 @@
 //! Layer-2 contracts shared by Telegram WebSocket bootstrap, diagnostics,
 //! runtime orchestration, and the concrete tunnel implementation.
 
+mod client_stream;
 mod dc;
 mod worker_route;
 
 use std::io;
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
+pub use client_stream::{ClientPeer, ClientStream};
 pub use dc::{
     TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED, TELEGRAM_DC_IPV4_TABLE_SOURCE, TelegramDc, TelegramDcClass, dc_from_ip,
     dc_from_ipv6, exact_dc_from_ip, is_telegram_ip, ws_host, ws_url,
@@ -73,7 +75,7 @@ pub fn classify_target(ip: IpAddr) -> WsTunnelDecision {
 /// Dropping this value must close the carrier without starting detached work.
 pub trait PreparedWsTunnel {
     /// Relay a validated seed and own all relay work until it finishes.
-    fn relay(self: Box<Self>, client: TcpStream, seed_request: Vec<u8>) -> io::Result<()>;
+    fn relay(self: Box<Self>, client: ClientStream, seed_request: Vec<u8>) -> io::Result<()>;
 }
 
 /// Object-safe boundary between runtime orchestration and the L7 WS tunnel.
@@ -105,7 +107,7 @@ pub trait WsTransport: Send + Sync {
     /// client socket.
     fn relay(
         &self,
-        client: TcpStream,
+        client: ClientStream,
         dc: TelegramDc,
         seed_request: Vec<u8>,
         config: &WsTunnelConfig,
@@ -136,7 +138,7 @@ mod tests {
 
         fn relay(
             &self,
-            _client: TcpStream,
+            _client: ClientStream,
             _dc: TelegramDc,
             _seed_request: Vec<u8>,
             _config: &WsTunnelConfig,

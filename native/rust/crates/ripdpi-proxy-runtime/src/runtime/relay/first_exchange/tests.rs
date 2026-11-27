@@ -20,7 +20,8 @@ fn partial_tls_response_and_unread_continuation_survive_handoff() {
     let mut config = RuntimeConfig::default();
     config.timeouts.partial_timeout_ms = 1000;
     let state = RuntimeState::test(config);
-    let (mut client, mut app) = pair();
+    let (client, mut app) = pair();
+    let mut client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     upstream.set_read_timeout(Some(Duration::from_millis(40))).expect("existing relay read timeout");
     let target = upstream.peer_addr().expect("target");
@@ -57,6 +58,7 @@ fn continuation_does_not_restart_first_response_deadline() {
     config.timeouts.timeout_ms = 50;
     let state = RuntimeState::test(config);
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, _origin) = pair();
     let target = upstream.peer_addr().expect("target");
     let request = b"GET / HTTP/1.1\r\n\r\n";

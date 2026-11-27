@@ -22,6 +22,7 @@ fn client(
     let mut peer = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
     peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
     let accepted = listener.accept().unwrap().0;
+    let accepted = ClientStream::Tcp(accepted);
     let worker = thread::spawn(move || crate::runtime::handshake::handle_client(accepted, &RuntimeState::test(config)));
     let mut request = vec![4, 1];
     request.extend_from_slice(&target.port().to_be_bytes());

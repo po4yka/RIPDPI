@@ -1,5 +1,6 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read};
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
 use super::super::super::state::RuntimeState;
@@ -33,7 +34,7 @@ const SERVER_FIRST_PORTS: [u16; 9] = [21, 23, 25, 110, 119, 143, 587, 3306, 5900
 const DESTINATION_HOST_PROBE_TIMEOUT: Duration = Duration::from_millis(50);
 
 pub(super) fn maybe_delay_connect(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     state: &RuntimeState,
     target: SocketAddr,
     host_hint: Option<&str>,
@@ -117,7 +118,7 @@ pub(super) fn maybe_delay_connect(
 /// A TLS ClientHello split over several reads is reassembled first, as on the
 /// immediate path, so host matching and desync never see a truncated record.
 fn read_first_request(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     buffer_size: usize,
     idle_timeout: Duration,
     hostname_policy: bool,
@@ -166,6 +167,7 @@ mod tests {
         DestinationRoutingPolicy, DestinationRoutingRule, DesyncGroup,
     };
     use std::io::Write;
+    use std::net::TcpStream;
     use std::net::{Ipv4Addr, TcpListener};
 
     #[test]
@@ -176,7 +178,8 @@ mod tests {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
             client.write_all(b"GET / HTTP/1.1\r\nHost: direct.example\r\n\r\n").expect("write first payload");
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         let target = SocketAddr::from(([192, 0, 2, 10], 443));
         let config = RuntimeConfig {
             groups: vec![DesyncGroup::new(0)],
@@ -212,7 +215,8 @@ mod tests {
             let _client = TcpStream::connect(client_addr).expect("connect client");
             std::thread::sleep(Duration::from_millis(250));
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         let target = SocketAddr::from(([192, 0, 2, 22], 22));
         let config = RuntimeConfig {
             groups: vec![DesyncGroup::new(0)],
@@ -254,7 +258,8 @@ mod tests {
             std::thread::sleep(Duration::from_millis(20));
             client.write_all(&sent[20..]).expect("write rest of ClientHello");
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         let config = RuntimeConfig {
             groups: vec![DesyncGroup::new(0)],
             destination_routing: DestinationRoutingPolicy {
@@ -296,7 +301,8 @@ mod tests {
             std::thread::sleep(DELAY_CONN_SERVER_FIRST_PROBE + Duration::from_millis(500));
             client.write_all(&sent).expect("write late ClientHello");
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         let mut config = RuntimeConfig::default();
         config.network.delay_conn = true;
         config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
@@ -322,7 +328,8 @@ mod tests {
             // A server-first client waits for the banner and sends nothing.
             let _ = done_rx.recv_timeout(Duration::from_secs(10));
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         let mut config = RuntimeConfig::default();
         config.network.delay_conn = true;
         config.groups[0].matches.proto = ripdpi_packets::IS_HTTPS;
@@ -350,7 +357,8 @@ mod tests {
             let mut client = TcpStream::connect(client_addr).expect("connect client");
             client.write_all(&sent).expect("write ClientHello");
         });
-        let (mut accepted, _) = listener.accept().expect("accept client");
+        let (accepted, _) = listener.accept().expect("accept client");
+        let mut accepted = ClientStream::Tcp(accepted);
         // The production path sets delay_conn for a SynData group (ripdpi-proxy-config test).
         let mut config = RuntimeConfig::default();
         config.network.delay_conn = true;

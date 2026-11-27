@@ -1,5 +1,6 @@
 use super::*;
 use crate::runtime::config::RuntimeConfig;
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, TcpListener};
 use std::time::Duration;
@@ -16,6 +17,7 @@ fn refused_delayed_http_connect_never_sends_success() {
     let target = origin.local_addr().unwrap();
     drop(origin);
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     let mut config = RuntimeConfig::default();
     config.network.http_connect = true;
@@ -36,6 +38,7 @@ fn refused_delayed_http_connect_never_sends_success() {
 
 fn http_client(target: SocketAddr, config: RuntimeConfig) -> (TcpStream, std::thread::JoinHandle<io::Result<()>>) {
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     let worker =
         std::thread::spawn(move || crate::runtime::handshake::handle_client(client, &RuntimeState::test(config)));
@@ -144,6 +147,7 @@ fn http_ws_bootstrap_failure_never_sends_success() {
     drop(closed);
     let context = dns_context(port);
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     let mut config = RuntimeConfig::default();
     config.network.http_connect = true;
@@ -197,7 +201,7 @@ impl ripdpi_ws_transport_port::WsTransport for LoopbackWsTransport {
 
     fn relay(
         &self,
-        client: TcpStream,
+        client: ClientStream,
         dc: ripdpi_ws_transport_port::TelegramDc,
         seed: Vec<u8>,
         config: &ripdpi_ws_transport_port::WsTunnelConfig,
@@ -207,7 +211,7 @@ impl ripdpi_ws_transport_port::WsTransport for LoopbackWsTransport {
 }
 
 impl ripdpi_ws_transport_port::PreparedWsTunnel for LoopbackConnected {
-    fn relay(mut self: Box<Self>, mut client: TcpStream, seed: Vec<u8>) -> io::Result<()> {
+    fn relay(mut self: Box<Self>, mut client: ClientStream, seed: Vec<u8>) -> io::Result<()> {
         self.0.set_read_timeout(Some(Duration::from_secs(2)))?;
         self.0.write_all(&seed)?;
         self.0.shutdown(std::net::Shutdown::Write)?;
@@ -251,6 +255,7 @@ fn http_ws_connect_establishes_the_port_before_success_and_relays_the_validated_
     let state =
         RuntimeState::new(config, Some(control), Arc::new(LoopbackWsTransport(origin.local_addr().unwrap()))).unwrap();
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     peer.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
     let worker = std::thread::spawn(move || crate::runtime::handshake::handle_client(client, &state));
     peer.write_all(b"CONNECT 149.154.167.91:443 HTTP/1.1\r\nHost: 149.154.167.91:443\r\n\r\n").unwrap();

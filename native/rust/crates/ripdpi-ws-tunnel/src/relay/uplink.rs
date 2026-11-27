@@ -1,5 +1,5 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read};
-use std::net::TcpStream;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,7 @@ use super::packet_split::PacketSplitter;
 const CLIENT_READ_TIMEOUT: Duration = Duration::from_millis(250);
 
 pub(super) fn spawn_uplink_thread(
-    reader: TcpStream,
+    reader: ClientStream,
     outbound_tx: OutboundSender,
     shutdown: Arc<AtomicBool>,
     splitter: PacketSplitter,
@@ -31,7 +31,7 @@ pub(super) fn spawn_uplink_thread(
 }
 
 fn uplink_loop(
-    mut reader: TcpStream,
+    mut reader: ClientStream,
     outbound_tx: OutboundSender,
     shutdown: &AtomicBool,
     mut splitter: PacketSplitter,

@@ -6,8 +6,9 @@ mod tests;
 mod udp_feedback;
 mod ws_tunnel;
 
+use ripdpi_ws_transport_port::{ClientPeer, ClientStream};
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -16,7 +17,6 @@ use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_connect_au
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, HttpConnectHead, S_ER_DENY};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
-use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use connect_relay::{ConnectPolicyRejection, ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
@@ -30,7 +30,7 @@ use super::types::{RuntimeClientRequest, RuntimeProxyProtocolMode, RuntimeSessio
 const OWNED_STACK_REQUIRED_HTTP_REPLY: &[u8] =
     b"HTTP/1.1 403 Forbidden\r\nX-RIPDPI-Reason: OWNED_STACK_REQUIRED\r\nContent-Length: 0\r\n\r\n";
 
-pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
+pub(super) fn handle_client(mut client: ClientStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
     // One absolute deadline covers the whole pre-relay handshake, so a peer
@@ -65,7 +65,7 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
 /// to classify, then only consume the byte for the SOCKS/shadowsocks paths,
 /// whose handlers expect the version byte already read.
 fn handle_mixed(
-    mut client: TcpStream,
+    mut client: ClientStream,
     state: &RuntimeState,
     shadowsocks_enabled: bool,
     deadline: Instant,
@@ -96,16 +96,19 @@ fn handle_mixed(
 }
 
 /// Reads the protocol-selecting first byte under the handshake deadline.
-fn read_first_byte(client: &mut TcpStream, first: &mut [u8; 1], deadline: Instant) -> io::Result<()> {
+fn read_first_byte(client: &mut ClientStream, first: &mut [u8; 1], deadline: Instant) -> io::Result<()> {
     let result = read_exact_by(client, first, deadline);
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     result
 }
 
-fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let target = handshake_platform::original_destination(&client)
+fn handle_transparent(mut client: ClientStream, state: &RuntimeState) -> io::Result<()> {
+    let tcp = client
+        .as_tcp()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Unsupported, "transparent proxy needs a TCP client"))?;
+    let target = handshake_platform::original_destination(tcp)
         .map_err(|e| io::Error::other(format!("get transparent proxy original destination: {e}")))?;
-    let local = client.local_addr()?;
+    let local = tcp.local_addr()?;
     if local == target {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -119,14 +122,14 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
         Ok(()) => Ok(()),
         Err(err) => {
             if matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut) {
-                listener_platform::close_rejected_client(&client);
+                super::listeners::close_rejected_client(&client);
             }
             Err(err.into_io_error())
         }
     }
 }
 
-fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
+fn handle_socks4(mut client: ClientStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
     if state.proxy_auth_token().is_some() {
         client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
         return Err(io::Error::new(io::ErrorKind::PermissionDenied, "socks4 cannot authenticate"));
@@ -165,7 +168,7 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
     }
 }
 
-fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
+fn handle_socks5(mut client: ClientStream, state: &RuntimeState, version: u8, deadline: Instant) -> io::Result<()> {
     if !RuntimeState::is_socks5_version(version) {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
@@ -182,7 +185,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
         request[1] = 3;
     }
     if request.get(3).copied().is_some_and(RuntimeState::is_socks5_resolved_domain_address_type)
-        && (!client.peer_addr()?.ip().is_loopback() || !state.resolved_domain_targets_allowed())
+        && (!client.peer()?.is_local() || !state.resolved_domain_targets_allowed())
     {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
@@ -231,7 +234,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8, deadl
     }
 }
 
-fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: Instant) -> io::Result<()> {
+fn handle_http_connect(mut client: ClientStream, state: &RuntimeState, deadline: Instant) -> io::Result<()> {
     let Some(request) = read_http_connect_request(&mut client, deadline)? else {
         client.write_all(
             RuntimeState::encode_http_connect_failure(HttpConnectFailure::HeaderFieldsTooLarge).as_bytes(),
@@ -277,7 +280,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState, deadline: In
 }
 
 fn handle_shadowsocks(
-    mut client: TcpStream,
+    mut client: ClientStream,
     state: &RuntimeState,
     first_byte: u8,
     deadline: Instant,
@@ -300,14 +303,17 @@ fn handle_shadowsocks(
 }
 
 fn handle_socks5_udp_associate(
-    mut client: TcpStream,
+    mut client: ClientStream,
     state: &RuntimeState,
     attempt_token: Option<AttemptCorrelationId>,
     requested_udp_source: SocketAddr,
     private_udp: bool,
 ) -> io::Result<()> {
-    let local_ip = client.local_addr()?.ip();
-    let control_peer_ip = client.peer_addr()?.ip();
+    // TODO(po4yka): answer UDP ASSOCIATE for a Unix client once the Unix UDP path exists.
+    let (Some(local), Some(control_peer_ip)) = (client.local_addr()?, client.peer()?.ip()) else {
+        return udp_feedback::reject(&mut client);
+    };
+    let local_ip = local.ip();
     let protect_path = state.handshake_protect_path();
     let relay = super::udp::build_udp_relay_sockets(local_ip)?;
     let reply_addr = relay.client.local_addr()?;
@@ -360,24 +366,30 @@ fn handle_socks5_udp_associate(
 /// unspecified or link-local targets for a peer that is not on this device, so an
 /// Allow-LAN client cannot reach services that trust loopback (RFC 9110 section 9.3.6).
 #[cfg(test)]
-fn reject_forbidden_target(client: &TcpStream, target: SocketAddr, state: &RuntimeState) -> io::Result<()> {
-    match forbidden_target_reason(client.peer_addr()?, client.local_addr()?, target, state) {
+fn reject_forbidden_target(client: &ClientStream, target: SocketAddr, state: &RuntimeState) -> io::Result<()> {
+    match forbidden_target_reason(client.peer()?, client.local_addr()?, target, state) {
         Some(reason) => Err(io::Error::new(io::ErrorKind::PermissionDenied, reason)),
         None => Ok(()),
     }
 }
 
 fn forbidden_target_reason(
-    peer: SocketAddr,
-    local: SocketAddr,
+    peer: ClientPeer,
+    local: Option<SocketAddr>,
     target: SocketAddr,
     state: &RuntimeState,
 ) -> Option<&'static str> {
     let target_ip = target.ip().to_canonical();
-    if state.listener_covers_target(local, target) {
+    let self_connect = match local {
+        Some(local) => state.listener_covers_target(local, target),
+        None => state.reject_listener_target(target).is_err(),
+    };
+    if self_connect {
         return Some("proxy target is the proxy listener itself");
     }
-    is_device_local_target_for(peer.ip(), target_ip).then_some("proxy target is device-local and the client is not")
+    peer.ip()
+        .is_some_and(|peer_ip| is_device_local_target_for(peer_ip, target_ip))
+        .then_some("proxy target is device-local and the client is not")
 }
 
 /// True when a client at `peer_ip`, which is not on this device, targets a loopback,
@@ -392,14 +404,14 @@ pub(super) fn is_device_local_target_for(peer_ip: IpAddr, target_ip: IpAddr) -> 
     }
 }
 
-fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+fn handle_socks4_connect_error(client: &mut ClientStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
         client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
     }
     Err(err.into_io_error())
 }
 
-fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+fn handle_socks5_connect_error(client: &mut ClientStream, err: ConnectRelayError) -> io::Result<()> {
     let success_reply_sent = err.success_reply_sent();
     let policy_rejection = err.policy_rejection();
     let error = err.into_io_error();
@@ -412,7 +424,7 @@ fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
     Err(error)
 }
 
-fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
+fn handle_http_connect_error(client: &mut ClientStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
         let failure = match err.policy_rejection() {
             Some(ConnectPolicyRejection::OwnedStackRequired) => {

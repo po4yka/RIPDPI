@@ -540,6 +540,11 @@ pub mod handshake {
     pub fn original_destination(stream: &TcpStream) -> io::Result<SocketAddr> {
         ripdpi_runtime_platform::socket::original_dst(stream)
     }
+
+    /// Reads pending bytes without consuming them; works for TCP and Unix stream sockets.
+    pub fn peek(socket: &impl std::os::fd::AsRawFd, buf: &mut [u8]) -> io::Result<usize> {
+        nix::sys::socket::recv(socket.as_raw_fd(), buf, nix::sys::socket::MsgFlags::MSG_PEEK).map_err(io::Error::from)
+    }
 }
 
 pub mod listener {

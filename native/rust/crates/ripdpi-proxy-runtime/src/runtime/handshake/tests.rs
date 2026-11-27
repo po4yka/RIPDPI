@@ -19,8 +19,10 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     S_ATP_I4, S_ATP_I6, S_CMD_AUDP, S_CMD_CONN, S_ER_DENY, S_VER4, S_VER5, S4_OK, encode_socks4_reply,
 };
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
+use ripdpi_ws_transport_port::{ClientPeer, ClientStream};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::os::unix::net::UnixStream;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -28,12 +30,12 @@ fn test_deadline() -> Instant {
     Instant::now() + Duration::from_secs(5)
 }
 
-fn connected_pair() -> (TcpStream, TcpStream) {
+fn connected_pair() -> (TcpStream, ClientStream) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
     let addr = listener.local_addr().expect("listener addr");
     let client = TcpStream::connect(addr).expect("connect client");
     let (server, _) = listener.accept().expect("accept client");
-    (client, server)
+    (client, ClientStream::Tcp(server))
 }
 
 fn runtime_state(config: RuntimeConfig) -> RuntimeState {
@@ -91,7 +93,7 @@ fn dynamic_fixture_config() -> FixtureConfig {
 
 #[test]
 fn owned_stack_required_maps_to_socks5_ruleset_denied() {
-    let (mut writer, mut reader) = connected_pair();
+    let (mut reader, mut writer) = connected_pair();
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
 
     let error = super::handle_socks5_connect_error(
@@ -108,7 +110,7 @@ fn owned_stack_required_maps_to_socks5_ruleset_denied() {
 
 #[test]
 fn owned_stack_required_maps_to_http_forbidden_with_reason() {
-    let (mut writer, mut reader) = connected_pair();
+    let (mut reader, mut writer) = connected_pair();
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
 
     let error =
@@ -126,7 +128,7 @@ fn owned_stack_required_maps_to_http_forbidden_with_reason() {
 
 #[test]
 fn read_socks5_request_reads_domain_target() {
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     let request =
         [S_VER5, S_CMD_CONN, 0, 0x03, 11, b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'c', b'o', b'm', 0x01, 0xbb];
     writer.write_all(&request).expect("write socks5 request");
@@ -144,7 +146,7 @@ fn socks5_udp_associate_preserves_declared_client_endpoint() {
 
 #[test]
 fn read_http_connect_request_reads_delimiter_split_across_chunks() {
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     let mut request = b"CONNECT example.com:443 HTTP/1.1\r\n".to_vec();
     let padding_len = 510usize.checked_sub(request.len()).expect("request prefix fits in first chunk");
     request.extend(vec![b'A'; padding_len]);
@@ -159,7 +161,7 @@ fn read_http_connect_request_reads_delimiter_split_across_chunks() {
 
 #[test]
 fn read_http_connect_request_enforces_total_deadline_against_trickled_bytes() {
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     // Each read arrives well inside any per-read timeout; only an absolute
     // deadline can stop this peer.
     let trickle = thread::spawn(move || {
@@ -181,7 +183,7 @@ fn read_http_connect_request_enforces_total_deadline_against_trickled_bytes() {
 
 #[test]
 fn handshake_readers_report_a_silent_peer_as_timed_out() {
-    let (mut reader, _writer) = connected_pair();
+    let (_writer, mut reader) = connected_pair();
     // The socket timeout fires inside the read, which the OS reports as
     // WouldBlock; the reader must surface the deadline kind instead.
     let err = read_socks5_request(&mut reader, Instant::now() + Duration::from_millis(100))
@@ -194,7 +196,7 @@ fn handshake_readers_report_a_silent_peer_as_timed_out() {
 
 #[test]
 fn read_socks4_request_enforces_total_deadline_against_trickled_bytes() {
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     let trickle = thread::spawn(move || {
         for byte in [0x01u8, 0x00, 0x50, 0x7f, 0, 0, 1, b'u', b's', b'e', b'r'] {
             if writer.write_all(&[byte]).is_err() {
@@ -214,7 +216,7 @@ fn read_socks4_request_enforces_total_deadline_against_trickled_bytes() {
 
 #[test]
 fn read_http_connect_request_preserves_early_tunnel_data() {
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     reader.set_read_timeout(Some(Duration::from_secs(1))).expect("read timeout");
     let request = b"CONNECT example.com:443 HTTP/1.1\r\n\r\n";
     writer.write_all(&[request.as_slice(), b"early-data"].concat()).expect("write request and data");
@@ -267,7 +269,7 @@ fn parse_shadowsocks_target_respects_ipv6_and_resolve_flags() {
 fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
     let config = RuntimeConfig::default();
     let state = runtime_state(config);
-    let (mut reader, mut writer) = connected_pair();
+    let (mut writer, mut reader) = connected_pair();
     let payload = b"GET / HTTP/1.1\r\n\r\n";
 
     writer.write_all(&[127, 0]).expect("write first fragment");
@@ -288,7 +290,7 @@ fn read_shadowsocks_request_returns_fragmented_target_and_first_payload() {
 fn read_shadowsocks_request_reports_eof_before_complete_target() {
     let config = RuntimeConfig::default();
     let state = runtime_state(config);
-    let (mut reader, writer) = connected_pair();
+    let (writer, mut reader) = connected_pair();
     drop(writer);
 
     let err = read_shadowsocks_request(&mut reader, 0x03, &state, resolve_ip_literal, test_deadline())
@@ -303,7 +305,7 @@ fn raw_terminal_errors_do_not_wait_for_payload_or_fin() {
     config.network.ipv6 = false;
     let state = runtime_state(config);
     for (atyp, tail) in [(0x7f, &[][..]), (0x04, &[][..]), (0x03, &[0][..]), (0x03, &b"\x03bad\x01\xbb"[..])] {
-        let (mut reader, mut peer) = connected_pair();
+        let (mut peer, mut reader) = connected_pair();
         peer.write_all(tail).expect("address bytes");
         let err =
             read_shadowsocks_request(&mut reader, atyp, &state, |_| None, Instant::now() + Duration::from_millis(200))
@@ -469,6 +471,68 @@ fn handle_client_relays_successful_socks5_connect_flow() {
 
     upstream_thread.join().expect("upstream thread finished");
     proxy_thread.join().expect("proxy thread finished").expect("proxy flow succeeds");
+}
+
+#[test]
+fn handle_client_relays_successful_socks5_connect_flow_for_a_unix_client() {
+    let upstream = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind upstream listener");
+    let target = upstream.local_addr().expect("upstream addr");
+    let upstream_thread = thread::spawn(move || {
+        let (mut stream, _) = upstream.accept().expect("accept upstream");
+        let mut request = [0u8; 4];
+        stream.read_exact(&mut request).expect("read upstream payload");
+        assert_eq!(&request, b"ping");
+        stream.write_all(b"pong").expect("write upstream response");
+        let _ = stream.shutdown(Shutdown::Both);
+    });
+
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.resolve = false;
+    let state = runtime_state(config);
+    let (mut client, server) = UnixStream::pair().expect("unix pair");
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("set client timeout");
+    let proxy_thread = thread::spawn(move || super::handle_client(ClientStream::Unix(server), &state));
+
+    let mut request = vec![S_VER5, 1, 0];
+    request.extend([S_VER5, S_CMD_CONN, 0, S_ATP_I4]);
+    request.extend_from_slice(&Ipv4Addr::LOCALHOST.octets());
+    request.extend_from_slice(&target.port().to_be_bytes());
+    request.extend_from_slice(b"ping");
+    client.write_all(&request).expect("write socks5 connect request");
+    client.shutdown(Shutdown::Write).expect("finish client write side");
+
+    let mut auth = [0u8; 2];
+    client.read_exact(&mut auth).expect("read socks5 auth reply");
+    assert_eq!(auth, [S_VER5, 0]);
+    let mut success = [0u8; 10];
+    client.read_exact(&mut success).expect("read socks5 success reply");
+    assert_eq!(success[0], S_VER5);
+    assert_eq!(success[1], 0);
+    let mut response = [0u8; 4];
+    client.read_exact(&mut response).expect("read relayed response");
+    assert_eq!(&response, b"pong");
+
+    upstream_thread.join().expect("upstream thread finished");
+    proxy_thread.join().expect("proxy thread finished").expect("proxy flow succeeds");
+}
+
+#[test]
+fn handle_client_refuses_socks5_udp_associate_for_a_unix_client() {
+    let state = runtime_state(RuntimeConfig::default());
+    let (mut client, server) = UnixStream::pair().expect("unix pair");
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("set client timeout");
+    let proxy_thread = thread::spawn(move || super::handle_client(ClientStream::Unix(server), &state));
+
+    let mut request = vec![S_VER5, 1, 0];
+    request.extend([S_VER5, S_CMD_AUDP, 0, S_ATP_I4, 0, 0, 0, 0, 0, 0]);
+    client.write_all(&request).expect("write udp associate request");
+
+    let mut reply = [0u8; 12];
+    client.read_exact(&mut reply).expect("read auth and command replies");
+    assert_eq!(reply[..2], [S_VER5, 0]);
+    assert_eq!(reply[2], S_VER5);
+    assert_eq!(reply[3], RuntimeState::socks5_command_unsupported_code());
+    proxy_thread.join().expect("proxy thread finished").expect("refusal is a protocol reply");
 }
 
 #[test]
@@ -725,6 +789,7 @@ fn proxy_target_equal_to_the_listener_is_rejected_for_a_local_client() {
     let listener_addr = listener.local_addr().expect("listener addr");
     let _client = TcpStream::connect(listener_addr).expect("connect client");
     let (server_side, _) = listener.accept().expect("accept client");
+    let server_side = ClientStream::Tcp(server_side);
     let mut state = runtime_state(RuntimeConfig::default());
     let (bound_addr, ipv6_only) = listener_platform::tcp_listener_binding(&listener).expect("actual listener binding");
     state.set_listener_binding(bound_addr, ipv6_only);
@@ -779,14 +844,14 @@ fn lan_client_cannot_reach_device_local_targets() {
     ] {
         let target: SocketAddr = target.parse().expect("target");
         assert!(
-            super::forbidden_target_reason(lan_peer, listener, target, &state).is_some(),
+            super::forbidden_target_reason(ClientPeer::Ip(lan_peer), Some(listener), target, &state).is_some(),
             "{target} must be refused"
         );
     }
     for target in ["93.184.216.34:443", "192.168.1.1:80", "[2001:db8::1]:443", "192.168.1.5:8080"] {
         let target: SocketAddr = target.parse().expect("target");
         assert!(
-            super::forbidden_target_reason(lan_peer, listener, target, &state).is_none(),
+            super::forbidden_target_reason(ClientPeer::Ip(lan_peer), Some(listener), target, &state).is_none(),
             "{target} must be allowed"
         );
     }
@@ -847,7 +912,7 @@ fn socks5_userpass_rejects_empty_fields_and_accepts_boundary_lengths() {
 #[test]
 fn local_connect_deadlines_do_not_claim_ip_ttl_expiration() {
     for kind in [ErrorKind::TimedOut, ErrorKind::WouldBlock] {
-        let (mut writer, mut reader) = connected_pair();
+        let (mut reader, mut writer) = connected_pair();
         reader.set_read_timeout(Some(Duration::from_secs(1))).expect("bound reply read");
         let error = super::handle_socks5_connect_error(
             &mut writer,

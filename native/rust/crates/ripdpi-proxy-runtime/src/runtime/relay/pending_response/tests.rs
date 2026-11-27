@@ -74,7 +74,8 @@ fn pending_response_feedback(delayed_publication: bool) {
         Some(ActivationFilter { round: Some(NumericRange::new(2, 3)), ..Default::default() });
     let state = RuntimeState::test(config);
     let (mut upstream, mut origin) = pair();
-    let (mut client, mut app) = pair();
+    let (client, mut app) = pair();
+    let mut client = ClientStream::Tcp(client);
     let (mut parallel, _parallel_origin) = pair();
     let target = upstream.peer_addr().expect("target");
     let request = b"POST / HTTP/1.1\r\nHost: adaptive.example\r\nContent-Length: 4\r\n\r\n";

@@ -20,7 +20,8 @@ fn pair() -> (TcpStream, TcpStream) {
 
 #[test]
 fn accepted_continuation_enables_rotation_for_the_next_real_request() {
-    let (mut client, mut app) = pair();
+    let (client, mut app) = pair();
+    let mut client = ClientStream::Tcp(client);
     let (upstream, mut origin) = pair();
     let target = upstream.peer_addr().expect("target");
     let request = b"POST / HTTP/1.1\r\nHost: fixture.test\r\nContent-Length: 4\r\n\r\n";

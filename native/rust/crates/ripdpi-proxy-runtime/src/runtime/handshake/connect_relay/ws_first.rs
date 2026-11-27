@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
 use std::net::{SocketAddr, TcpStream};
 
@@ -14,7 +15,7 @@ pub(super) enum AlwaysWsOutcome {
 }
 
 pub(super) fn run_ws_always_first<WriteSuccessReply, RunWsTunnel>(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     reply: &SuccessReply,
@@ -22,8 +23,8 @@ pub(super) fn run_ws_always_first<WriteSuccessReply, RunWsTunnel>(
     run_ws_tunnel_fn: &mut RunWsTunnel,
 ) -> Result<Option<AlwaysWsOutcome>, ConnectRelayError>
 where
-    WriteSuccessReply: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
-    RunWsTunnel: FnMut(TcpStream, &RuntimeState) -> WsTunnelResult,
+    WriteSuccessReply: FnMut(&mut ClientStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
+    RunWsTunnel: FnMut(ClientStream, &RuntimeState) -> WsTunnelResult,
 {
     let Some(dc) = should_ws_tunnel_first(target, state) else {
         return Ok(None);
@@ -48,7 +49,7 @@ where
 }
 
 pub(super) fn normal_after_carrier_failure(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
@@ -142,7 +143,7 @@ impl WsBeforeReplyError {
 }
 
 pub(super) fn run_ws_before_reply<Write>(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     dc: crate::runtime::ws::RuntimeTelegramDc,
@@ -151,7 +152,7 @@ pub(super) fn run_ws_before_reply<Write>(
     write: &mut Write,
 ) -> Result<WsTunnelResult, WsBeforeReplyError>
 where
-    Write: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
+    Write: FnMut(&mut ClientStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
 {
     use std::time::Instant;
     let timeout = state.ws_tunnel_config(None).connect_timeout().unwrap_or(crate::runtime::state::HANDSHAKE_TIMEOUT);
@@ -166,7 +167,7 @@ where
             Ok(())
         }
     };
-    let mut guarded_write = |client: &mut TcpStream, reply: &SuccessReply, upstream: Option<&TcpStream>| {
+    let mut guarded_write = |client: &mut ClientStream, reply: &SuccessReply, upstream: Option<&TcpStream>| {
         check_stage()?;
         write(client, reply, upstream)
     };
@@ -190,7 +191,7 @@ where
 }
 
 fn run_prepared_ws_first<Open, Run, Write, Prepared>(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     reply: &SuccessReply,
     write: &mut Write,
     open: Open,
@@ -198,8 +199,8 @@ fn run_prepared_ws_first<Open, Run, Write, Prepared>(
 ) -> Result<WsTunnelResult, WsBeforeReplyError>
 where
     Open: FnOnce() -> io::Result<Prepared>,
-    Run: FnOnce(TcpStream, Prepared) -> WsTunnelResult,
-    Write: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
+    Run: FnOnce(ClientStream, Prepared) -> WsTunnelResult,
+    Write: FnMut(&mut ClientStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
 {
     let prepared = open().map_err(WsBeforeReplyError::Carrier)?;
     let relay_client = client.try_clone().map_err(WsBeforeReplyError::Client)?;
@@ -263,7 +264,8 @@ mod tests {
 
     #[test]
     fn failed_carrier_open_leaves_socks4_connect_unacknowledged() {
-        let (mut peer, mut client) = pair();
+        let (mut peer, client) = pair();
+        let mut client = ClientStream::Tcp(client);
         let err = run_prepared_ws_first(
             &mut client,
             &SuccessReply::Socks4,
@@ -282,7 +284,8 @@ mod tests {
 
     #[test]
     fn socks4_client_can_wait_for_ack_until_carrier_is_ready() {
-        let (mut peer, mut client) = pair();
+        let (mut peer, client) = pair();
+        let mut client = ClientStream::Tcp(client);
         let carrier = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let carrier_addr = carrier.local_addr().unwrap();
         let app = std::thread::spawn(move || {
@@ -339,7 +342,8 @@ mod tests {
                 origin.set_nonblocking(true).unwrap();
                 assert_eq!(origin.accept().unwrap_err().kind(), io::ErrorKind::WouldBlock);
             });
-            let (mut peer, mut client) = pair();
+            let (mut peer, client) = pair();
+            let mut client = ClientStream::Tcp(client);
             let app = std::thread::spawn(move || {
                 let mut reply = [0; 8];
                 peer.read_exact(&mut reply).unwrap();
@@ -428,7 +432,8 @@ mod tests {
                     control.request_shutdown();
                 }
             });
-            let (mut peer, mut client) = pair();
+            let (mut peer, client) = pair();
+            let mut client = ClientStream::Tcp(client);
             let started = Instant::now();
             let error = run_ws_before_reply(
                 &mut client,
@@ -465,7 +470,8 @@ mod tests {
             server.read_to_end(&mut received).unwrap();
             assert_eq!(received, payload);
         });
-        let (mut peer, mut client) = pair();
+        let (mut peer, client) = pair();
+        let mut client = ClientStream::Tcp(client);
         let worker = std::thread::spawn(move || {
             normal_after_carrier_failure(
                 &mut client,

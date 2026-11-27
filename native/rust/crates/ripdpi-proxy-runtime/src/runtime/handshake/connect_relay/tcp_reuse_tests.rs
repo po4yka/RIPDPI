@@ -31,7 +31,8 @@ fn compatible_payload_group_and_discovered_host_keep_the_accepted_socket() {
     for host_hint in [None, Some("authority.example"), Some("PAYLOAD.EXAMPLE.")] {
         let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let target = origin.local_addr().unwrap();
-        let (mut peer, mut client) = pair();
+        let (mut peer, client) = pair();
+        let mut client = ClientStream::Tcp(client);
         let payload = b"GET / HTTP/1.1\r\nHost: payload.example\r\n\r\n";
         let server = std::thread::spawn(move || {
             let mut response = [0; 19];
@@ -118,6 +119,7 @@ fn delayed_http_tls_group_completes_on_a_single_accepted_connection() {
         tls.flush().unwrap();
     });
     let (mut peer, client) = pair();
+    let client = ClientStream::Tcp(client);
     let mut config = payload_config(ripdpi_packets::IS_HTTPS);
     config.network.http_connect = true;
     let worker =
@@ -156,7 +158,8 @@ async fn changed_pre_connect_receive_buffer_replaces_the_socket() {
 
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let target = origin.local_addr().unwrap();
-    let (mut peer, mut client) = pair();
+    let (mut peer, client) = pair();
+    let mut client = ClientStream::Tcp(client);
     let sender = std::thread::spawn(move || {
         let mut success = [0; 19];
         peer.read_exact(&mut success).unwrap();

@@ -10,12 +10,12 @@ use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
 use std::sync::{Arc as StdArc, Mutex as StdMutex};
 
-fn connected_pair() -> (TcpStream, TcpStream) {
+fn connected_pair() -> (TcpStream, ClientStream) {
     let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
     let addr = listener.local_addr().expect("listener addr");
     let client = TcpStream::connect(addr).expect("connect client");
     let (server, _) = listener.accept().expect("accept client");
-    (client, server)
+    (client, ClientStream::Tcp(server))
 }
 
 fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTelemetrySink>>) -> RuntimeState {

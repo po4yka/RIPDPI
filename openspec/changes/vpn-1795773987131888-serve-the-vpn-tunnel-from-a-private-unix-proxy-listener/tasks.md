@@ -2,7 +2,7 @@
 
 ## Execution
 
-- [ ] VPN-1795774209869508 The proxy runtime and the WebSocket transport port serve each client through a transport-neutral client stream with no behavior change, gated by the ripdpi-proxy-runtime and ripdpi-ws-tunnel suites and the Rust API snapshots #feature @item:VPN-1795773987131888
+- [x] VPN-1795774209869508 The proxy runtime and the WebSocket transport port serve each client through a transport-neutral client stream with no behavior change, gated by the ripdpi-proxy-runtime and ripdpi-ws-tunnel suites and the Rust API snapshots #feature @item:VPN-1795773987131888
 - [ ] VPN-1795774210951595 The proxy binds an owner-only Unix listener from the session override, binds no TCP socket for it, keeps token authentication, refuses SOCKS4 and HTTP and transparent requests, reports a unix listener address without the path, and fails the start when the path cannot be bound #feature @item:VPN-1795773987131888
 - [ ] VPN-1795774211939093 The Unix listener serves the private UDP association over one passed AF_UNIX datagram socket with unchanged RUF1 framing and remote-error feedback, refuses standard UDP ASSOCIATE, and closes invalid passed descriptors, with tests for each refusal and for the maximum frame #feature @item:VPN-1795773987131888
 - [ ] VPN-1795774213020254 The tunnel accepts config schema 4 with either a TCP or a Unix upstream, rejects both or neither, and carries TCP and UDP flows through the Unix upstream with the same half-close, per-app identity, and remote-error behavior, gated by the ripdpi-tunnel-core suites and the Kotlin and Rust contract snapshot tests #feature @item:VPN-1795773987131888

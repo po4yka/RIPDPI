@@ -70,7 +70,7 @@ fn socks4_domain_and_userid_share_the_existing_request_budget() {
     {
         let domain = vec![b'a'; domain_len];
         let request = request(userid_len, Some(&domain), 80);
-        let (mut reader, mut writer) = connected_pair();
+        let (mut writer, mut reader) = connected_pair();
         writer.write_all(&request[1..]).expect("send request tail");
         let result = read_socks4_request(&mut reader, 4, test_deadline());
         if accepted {

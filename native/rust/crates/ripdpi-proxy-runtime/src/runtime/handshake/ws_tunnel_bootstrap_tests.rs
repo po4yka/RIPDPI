@@ -2,7 +2,8 @@ use super::tests::{build_test_init_packet, connected_pair};
 use super::*;
 use crate::runtime::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
-use std::net::{Ipv4Addr, TcpListener};
+use ripdpi_ws_transport_port::ClientStream;
+use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -10,7 +11,7 @@ use std::time::Duration;
 struct UnusedCarrier(TcpStream);
 
 impl ripdpi_ws_transport_port::PreparedWsTunnel for UnusedCarrier {
-    fn relay(self: Box<Self>, _client: TcpStream, _seed: Vec<u8>) -> io::Result<()> {
+    fn relay(self: Box<Self>, _client: ClientStream, _seed: Vec<u8>) -> io::Result<()> {
         let _carrier = self.0;
         panic!("stopped or wrong-DC carrier must be discarded");
     }
@@ -31,7 +32,7 @@ fn stopped_runtime_cancels_preserved_seed_and_changed_dc_reopen() {
         matches!(result, WsTunnelResult::BootstrapFailed { error, .. } if error.kind() == io::ErrorKind::Interrupted)
     );
 
-    let (mut origin, carrier) = connected_pair();
+    let (carrier, mut origin) = connected_pair();
     origin.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let (_peer, client) = connected_pair();
     let result = run_ws_tunnel_prepared(
@@ -47,7 +48,7 @@ fn stopped_runtime_cancels_preserved_seed_and_changed_dc_reopen() {
     );
     assert_eq!(origin.read(&mut [0; 1]).unwrap(), 0, "discarded carrier must close");
 
-    let (mut origin, carrier) = connected_pair();
+    let (carrier, mut origin) = connected_pair();
     origin.set_read_timeout(Some(Duration::from_secs(1))).unwrap();
     let (_peer, client) = connected_pair();
     let result = run_ws_tunnel_prepared(

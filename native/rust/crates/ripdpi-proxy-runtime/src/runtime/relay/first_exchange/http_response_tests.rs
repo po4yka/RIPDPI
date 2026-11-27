@@ -21,6 +21,7 @@ fn dpi38_http_blockpages_survive_each_header_and_body_split() {
             config.timeouts.timeout_ms = 1_000;
             let state = RuntimeState::test(config);
             let (client, mut app) = pair();
+            let client = ClientStream::Tcp(client);
             let (mut upstream, mut origin) = pair();
             let target = upstream.peer_addr().expect("target");
             origin.write_all(&response[..split]).expect("HTTP prefix");
@@ -61,6 +62,7 @@ fn dpi38_incomplete_large_http_body_cannot_train_or_match_quoted_blockpage() {
         config.timeouts.timeout_bytes_limit = (head.len() + phrase.len() + 3) as i32;
         let state = RuntimeState::test(config);
         let (client, mut app) = pair();
+        let client = ClientStream::Tcp(client);
         let (mut upstream, mut origin) = pair();
         upstream.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded read");
         let target = upstream.peer_addr().expect("target");
@@ -120,6 +122,7 @@ fn dpi38_close_delimited_http_body_waits_for_graceful_eof() {
     let response = b"HTTP/1.0 200 OK\r\n\r\nThis site has been blocked by your ISP";
     let state = RuntimeState::test(RuntimeConfig::default());
     let (client, mut app) = pair();
+    let client = ClientStream::Tcp(client);
     let (mut upstream, mut origin) = pair();
     origin.write_all(response).expect("close-delimited body");
     app.write_all(b"x").expect("owned continuation");

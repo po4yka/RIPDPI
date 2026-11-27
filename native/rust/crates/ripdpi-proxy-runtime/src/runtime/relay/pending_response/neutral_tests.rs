@@ -30,7 +30,8 @@ fn dpi38_pending_closure_keeps_rotation_and_late_success_neutral() {
         let request = crate::runtime::payload::RUNTIME_DEFAULT_FAKE_TLS;
         let response = [0x15, 3, 3, 0, 2, 1, 90];
         let (mut upstream, mut origin) = pair();
-        let (mut client, mut app) = pair();
+        let (client, mut app) = pair();
+        let mut client = ClientStream::Tcp(client);
         let target = upstream.peer_addr().expect("target");
         origin.write_all(&response[..3]).expect("partial closure header");
         app.write_all(b"x").expect("unread client continuation");
@@ -143,6 +144,7 @@ fn dpi38_pending_close_delimited_body_distinguishes_real_client_rst_from_write_f
         let state = RuntimeState::test_with_telemetry(config, Some(recorder.clone()));
         let (mut upstream, mut origin) = pair();
         let (client, mut app) = pair();
+        let client = ClientStream::Tcp(client);
         let target = upstream.peer_addr().expect("target");
         origin.write_all(RESPONSE).expect("retained close-delimited body source");
         app.write_all(b"x").expect("owned outbound continuation");
@@ -253,7 +255,8 @@ fn dpi38_partial_method_timeout_keeps_body_framing_and_learning_neutral() {
         assert!(!state.destination_policy_may_need_host(), "no hostname policy forbids the assembly fallback");
         assert!(state.first_response_exchange_required().expect("response policy"));
         let (upstream, mut origin) = pair();
-        let (mut client, mut app) = pair();
+        let (client, mut app) = pair();
+        let mut client = ClientStream::Tcp(client);
         let target = upstream.peer_addr().expect("target");
         let (prefix_tx, prefix_rx) = mpsc::sync_channel(1);
         let source_request = request.clone();

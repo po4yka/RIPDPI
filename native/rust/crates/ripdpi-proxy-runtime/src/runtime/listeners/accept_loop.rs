@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::time::{Duration, Instant};
@@ -140,19 +141,20 @@ fn listener_unusable(err: &io::Error) -> bool {
 }
 
 fn accept_client(
-    client: TcpStream,
+    stream: TcpStream,
     state: &RuntimeState,
     worker_pool: &ClientWorkerPool,
     client_capacity: usize,
 ) -> io::Result<()> {
     let state = state.clone();
+    let client = ClientStream::Tcp(stream);
     if let Err(err) = client.set_nonblocking(false) {
         // A per-client setup failure rejects that client only, never the listener.
         state.note_client_error(&err);
         close_rejected_client(&client);
         return Ok(());
     }
-    if let Err(err) = client.set_nodelay(true) {
+    if let Some(Err(err)) = client.as_tcp().map(|tcp| tcp.set_nodelay(true)) {
         tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
     }
     let Some(slot) = state.acquire_client_slot(client_capacity) else {

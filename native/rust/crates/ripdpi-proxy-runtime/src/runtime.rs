@@ -102,6 +102,7 @@ mod tests {
         encode_socks4_reply, encode_socks5_reply,
     };
     use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
+    use ripdpi_ws_transport_port::ClientStream;
     use std::io::{self, Read, Write};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(unix)]
@@ -178,6 +179,7 @@ mod tests {
                 let address = listener.local_addr().expect("listener address");
                 let worker = thread::spawn(move || {
                     let (client, _) = listener.accept().expect("accept authenticated client");
+                    let client = ClientStream::Tcp(client);
                     super::handshake::handle_client(client, &RuntimeState::test(config))
                 });
                 let mut client = TcpStream::connect(address).expect("connect client");

@@ -2,7 +2,7 @@
 id: VPN-1795773987131888
 title: Serve the VPN tunnel from a private Unix proxy listener
 kind: feature
-status: backlog
+status: doing
 area: vpn
 priority: medium
 owner: unassigned

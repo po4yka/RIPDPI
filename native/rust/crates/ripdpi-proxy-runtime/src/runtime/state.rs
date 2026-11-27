@@ -2,6 +2,7 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use crate::{SameSniProfileCaps, SameSniProfileGuard, SameSniProfileLimiter};
 use ripdpi_proxy_runtime_adapter::model::session::TargetAddr;
 use ripdpi_session_limit::{ExitIpSessionCaps, ExitIpSessionGuard, ExitIpSessionLimiter};
+use ripdpi_ws_transport_port::ClientStream;
 use std::collections::{BTreeMap, HashSet};
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::io::{self, Read};

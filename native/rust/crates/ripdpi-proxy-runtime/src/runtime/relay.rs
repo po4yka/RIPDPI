@@ -11,6 +11,7 @@ mod stream_copy;
 
 pub(in crate::runtime) use failure_retry::{FirstOutboundRead, RelayFlow, read_first_client_payload};
 
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
@@ -23,7 +24,7 @@ use super::types::RuntimeConnectionRoute;
 
 #[inline(never)]
 pub(super) fn relay(
-    mut client: TcpStream,
+    mut client: ClientStream,
     upstream: TcpStream,
     state: &RuntimeState,
     target: SocketAddr,

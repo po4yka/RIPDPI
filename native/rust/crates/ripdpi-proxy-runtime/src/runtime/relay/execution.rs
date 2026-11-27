@@ -1,4 +1,5 @@
 use crate::runtime::relay::session::AdaptiveFeedbackAttempts;
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
@@ -11,7 +12,7 @@ use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRelayTimeouts};
 
 #[inline(never)]
 pub(super) fn relay_established_streams(
-    client: TcpStream,
+    client: ClientStream,
     upstream: TcpStream,
     state: &RuntimeState,
     route: RuntimeConnectionRoute,

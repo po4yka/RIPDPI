@@ -166,6 +166,7 @@ mod tests {
         DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, RuntimeConfig, TcpChainStep,
         TcpChainStepKind, first_response_settings,
     };
+    use ripdpi_ws_transport_port::ClientStream;
     use std::io::ErrorKind;
     use std::net::{Ipv4Addr, SocketAddr, TcpListener};
 
@@ -303,7 +304,8 @@ mod tests {
             )
             .expect("one-failure policy");
             let (mut upstream, mut origin) = connected_pair();
-            let (mut writer, mut app) = connected_pair();
+            let (writer, mut app) = connected_pair();
+            let mut writer = ClientStream::Tcp(writer);
             app.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded client fixture");
             controller.start_round(
                 first_response_settings(&config),
@@ -408,7 +410,8 @@ mod tests {
             controller.start_round(first_response_settings(&config), 1, 0, b"GET / HTTP/1.1\r\n\r\n", None, None, None);
             let rotation = Arc::new(Mutex::new(controller));
             let (mut upstream, mut origin) = connected_pair();
-            let (mut writer, mut app) = connected_pair();
+            let (writer, mut app) = connected_pair();
+            let mut writer = ClientStream::Tcp(writer);
             app.set_read_timeout(Some(Duration::from_secs(2))).expect("bounded client");
             let source = response.clone();
             let peer_rotation = rotation.clone();

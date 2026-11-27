@@ -1,5 +1,6 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::Instant;
 
 use super::readers::read_by;
@@ -7,7 +8,7 @@ use crate::runtime::state::{HANDSHAKE_TIMEOUT, RuntimeState};
 use ripdpi_proxy_runtime_adapter::model::session::TargetAddr;
 
 pub(in crate::runtime::handshake) fn read_shadowsocks_request(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     first_byte: u8,
     state: &RuntimeState,
     resolver: impl FnMut(&str) -> Option<SocketAddr>,
@@ -19,7 +20,7 @@ pub(in crate::runtime::handshake) fn read_shadowsocks_request(
 }
 
 fn read_shadowsocks_request_inner(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     first_byte: u8,
     state: &RuntimeState,
     mut resolver: impl FnMut(&str) -> Option<SocketAddr>,

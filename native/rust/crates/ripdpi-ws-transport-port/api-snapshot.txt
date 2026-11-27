@@ -1,4 +1,42 @@
 pub mod ripdpi_ws_transport_port
+pub enum ripdpi_ws_transport_port::ClientPeer
+pub ripdpi_ws_transport_port::ClientPeer::Ip(core::net::socket_addr::SocketAddr)
+pub ripdpi_ws_transport_port::ClientPeer::LocalPrivate
+impl ripdpi_ws_transport_port::ClientPeer
+pub fn ripdpi_ws_transport_port::ClientPeer::ip(&self) -> core::option::Option<core::net::ip_addr::IpAddr>
+pub fn ripdpi_ws_transport_port::ClientPeer::is_local(&self) -> bool
+pub enum ripdpi_ws_transport_port::ClientStream
+pub ripdpi_ws_transport_port::ClientStream::Tcp(std::net::tcp::TcpStream)
+pub ripdpi_ws_transport_port::ClientStream::Unix(std::os::unix::net::stream::UnixStream)
+impl ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::as_tcp(&self) -> core::option::Option<&std::net::tcp::TcpStream>
+pub fn ripdpi_ws_transport_port::ClientStream::local_addr(&self) -> std::io::error::Result<core::option::Option<core::net::socket_addr::SocketAddr>>
+pub fn ripdpi_ws_transport_port::ClientStream::peer(&self) -> std::io::error::Result<ripdpi_ws_transport_port::ClientPeer>
+pub fn ripdpi_ws_transport_port::ClientStream::read_timeout(&self) -> std::io::error::Result<core::option::Option<core::time::Duration>>
+pub fn ripdpi_ws_transport_port::ClientStream::set_nonblocking(&self, bool) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::ClientStream::set_read_timeout(&self, core::option::Option<core::time::Duration>) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::ClientStream::set_write_timeout(&self, core::option::Option<core::time::Duration>) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::ClientStream::shutdown(&self, std::net::Shutdown) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::ClientStream::try_clone(&self) -> std::io::error::Result<Self>
+pub fn ripdpi_ws_transport_port::ClientStream::write_timeout(&self) -> std::io::error::Result<core::option::Option<core::time::Duration>>
+impl alloc::io::read::Read for &ripdpi_ws_transport_port::ClientStream
+pub fn &ripdpi_ws_transport_port::ClientStream::read(&mut self, &mut [u8]) -> std::io::error::Result<usize>
+impl alloc::io::read::Read for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::read(&mut self, &mut [u8]) -> std::io::error::Result<usize>
+impl core::convert::From<std::net::tcp::TcpStream> for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::from(std::net::tcp::TcpStream) -> Self
+impl core::convert::From<std::os::unix::net::stream::UnixStream> for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::from(std::os::unix::net::stream::UnixStream) -> Self
+impl core::io::write::Write for &ripdpi_ws_transport_port::ClientStream
+pub fn &ripdpi_ws_transport_port::ClientStream::flush(&mut self) -> std::io::error::Result<()>
+pub fn &ripdpi_ws_transport_port::ClientStream::write(&mut self, &[u8]) -> std::io::error::Result<usize>
+impl core::io::write::Write for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::flush(&mut self) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::ClientStream::write(&mut self, &[u8]) -> std::io::error::Result<usize>
+impl std::os::fd::owned::AsFd for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::as_fd(&self) -> std::os::fd::owned::BorrowedFd<'_>
+impl std::os::fd::raw::AsRawFd for ripdpi_ws_transport_port::ClientStream
+pub fn ripdpi_ws_transport_port::ClientStream::as_raw_fd(&self) -> std::os::fd::raw::RawFd
 pub enum ripdpi_ws_transport_port::MtprotoSeedClassification
 pub ripdpi_ws_transport_port::MtprotoSeedClassification::NotMtproto
 pub ripdpi_ws_transport_port::MtprotoSeedClassification::UnmappableDc
@@ -48,11 +86,11 @@ pub ripdpi_ws_transport_port::WsTunnelConfig::worker_route: core::option::Option
 pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_LAST_REVIEWED: &str
 pub const ripdpi_ws_transport_port::TELEGRAM_DC_IPV4_TABLE_SOURCE: &str
 pub trait ripdpi_ws_transport_port::PreparedWsTunnel
-pub fn ripdpi_ws_transport_port::PreparedWsTunnel::relay(alloc::boxed::Box<Self>, std::net::tcp::TcpStream, alloc::vec::Vec<u8>) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::PreparedWsTunnel::relay(alloc::boxed::Box<Self>, ripdpi_ws_transport_port::ClientStream, alloc::vec::Vec<u8>) -> std::io::error::Result<()>
 pub trait ripdpi_ws_transport_port::WsTransport: core::marker::Send + core::marker::Sync
 pub fn ripdpi_ws_transport_port::WsTransport::classify_mtproto_seed(&self, &[u8]) -> ripdpi_ws_transport_port::MtprotoSeedClassification
 pub fn ripdpi_ws_transport_port::WsTransport::open(&self, ripdpi_ws_transport_port::TelegramDc, &ripdpi_ws_transport_port::WsTunnelConfig, &dyn core::ops::function::Fn() -> bool) -> std::io::error::Result<alloc::boxed::Box<dyn ripdpi_ws_transport_port::PreparedWsTunnel>>
-pub fn ripdpi_ws_transport_port::WsTransport::relay(&self, std::net::tcp::TcpStream, ripdpi_ws_transport_port::TelegramDc, alloc::vec::Vec<u8>, &ripdpi_ws_transport_port::WsTunnelConfig) -> std::io::error::Result<()>
+pub fn ripdpi_ws_transport_port::WsTransport::relay(&self, ripdpi_ws_transport_port::ClientStream, ripdpi_ws_transport_port::TelegramDc, alloc::vec::Vec<u8>, &ripdpi_ws_transport_port::WsTunnelConfig) -> std::io::error::Result<()>
 pub fn ripdpi_ws_transport_port::classify_target(core::net::ip_addr::IpAddr) -> ripdpi_ws_transport_port::WsTunnelDecision
 pub fn ripdpi_ws_transport_port::dc_from_ip(core::net::ip_addr::Ipv4Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>
 pub fn ripdpi_ws_transport_port::dc_from_ipv6(core::net::ip_addr::Ipv6Addr) -> core::option::Option<ripdpi_ws_transport_port::TelegramDc>

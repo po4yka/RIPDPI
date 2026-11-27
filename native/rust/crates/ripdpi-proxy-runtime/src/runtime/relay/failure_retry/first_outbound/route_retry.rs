@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
@@ -102,7 +103,7 @@ pub(super) fn handle_first_write_failure(
 }
 
 pub(super) fn handle_first_response_failure(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     session_state: &mut FirstOutboundSession,
     retry_state: &mut RouteRetryState,
     context: FirstResponseFailureContext<'_>,
@@ -270,7 +271,8 @@ mod tests {
             RuntimeFailureAction::ResolverOverrideRecommended,
             "resolver override",
         );
-        let (mut client, _peer) = connected_pair();
+        let (client, _peer) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let mut session = FirstOutboundSession::new();
         let mut retry_state = RouteRetryState::default();
 
@@ -302,7 +304,8 @@ mod tests {
         let route = route();
         let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
         let failure = failure(RuntimeFailureClass::Unknown, RuntimeFailureAction::None, "response available");
-        let (mut client, mut peer) = connected_pair();
+        let (client, mut peer) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let mut session = FirstOutboundSession::new();
         let mut retry_state = RouteRetryState::default();
         peer.set_read_timeout(Some(Duration::from_secs(1))).expect("set peer timeout");
@@ -336,7 +339,8 @@ mod tests {
         let route = route();
         let target = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), 443);
         let failure = failure(RuntimeFailureClass::SilentDrop, RuntimeFailureAction::None, "silent drop");
-        let (mut client, _peer) = connected_pair();
+        let (client, _peer) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let mut session = FirstOutboundSession::new();
         let mut retry_state = RouteRetryState::default();
 
@@ -372,7 +376,8 @@ mod tests {
         let state = RuntimeState::test(config);
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind retry target");
         listener.set_nonblocking(true).expect("nonblocking target");
-        let (mut client, _peer) = connected_pair();
+        let (client, _peer) = connected_pair();
+        let mut client = ClientStream::Tcp(client);
         let mut session = FirstOutboundSession::new();
         let mut retry = RouteRetryState::default();
         let failure = failure(RuntimeFailureClass::TcpReset, RuntimeFailureAction::RetryWithMatchingGroup, "reset");

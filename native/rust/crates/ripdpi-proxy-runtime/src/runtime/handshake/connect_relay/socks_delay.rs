@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, SocketAddr, TcpStream};
 
@@ -12,7 +13,7 @@ use crate::runtime::state::RuntimeState;
 use crate::runtime::types::RuntimeTransportProtocol;
 
 pub(super) fn connect(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     state: &RuntimeState,
     target: SocketAddr,
     route: crate::runtime::types::RuntimeConnectionRoute,
@@ -51,13 +52,13 @@ pub(super) fn connect(
 }
 
 pub(super) fn connect_with(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     state: &RuntimeState,
     target: SocketAddr,
     route: crate::runtime::types::RuntimeConnectionRoute,
     host_hint: Option<&str>,
     reply: &SuccessReply,
-    mut read_payload: impl FnMut(&mut TcpStream, &TcpStream, usize) -> io::Result<FirstOutboundRead<Vec<u8>>>,
+    mut read_payload: impl FnMut(&mut ClientStream, &TcpStream, usize) -> io::Result<FirstOutboundRead<Vec<u8>>>,
 ) -> Result<DelayConnect, ConnectRelayError> {
     // Standard clients wait for CONNECT success before sending the payload.
     // The first SYN follows IP/default policy; payload policy gates application bytes.

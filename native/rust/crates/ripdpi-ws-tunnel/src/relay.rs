@@ -9,8 +9,8 @@ mod uplink;
 #[cfg(test)]
 mod tests;
 
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
@@ -38,7 +38,7 @@ use self::uplink::spawn_uplink_thread;
 /// `tungstenite::WebSocket::read()` automatically replies to Ping frames with
 /// Pong, so no explicit Ping/Pong handling is needed.
 pub fn ws_relay<S: Read + Write + Send + 'static>(
-    client: TcpStream,
+    client: ClientStream,
     mut ws: WebSocket<S>,
     seed_request: &[u8],
 ) -> io::Result<()> {

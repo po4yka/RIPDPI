@@ -6,6 +6,7 @@ mod observers;
 
 use copy_halves::{copy_inbound_half, copy_outbound_half};
 use freeze::FreezeDetector;
+use ripdpi_ws_transport_port::ClientStream;
 
 use crate::sync::{Arc, Mutex};
 use std::io;
@@ -37,16 +38,14 @@ pub(super) struct RelayOutboundContext {
     pub(super) group_index: usize,
 }
 
-pub(super) fn shutdown_relay_pair(upstream: &TcpStream, client: &TcpStream) {
-    for socket in [upstream, client] {
-        // Stop writes even when a peer FIN makes a combined shutdown fail.
-        let _ = socket.shutdown(Shutdown::Write);
-        let _ = socket.shutdown(Shutdown::Read);
-    }
+pub(super) fn shutdown_relay_pair(upstream: &TcpStream, client: &ClientStream) {
+    // Stop writes even when a peer FIN makes a combined shutdown fail.
+    let _ = (upstream.shutdown(Shutdown::Write), upstream.shutdown(Shutdown::Read));
+    let _ = (client.shutdown(Shutdown::Write), client.shutdown(Shutdown::Read));
 }
 
 pub(super) fn relay_streams(
-    client: TcpStream,
+    client: ClientStream,
     upstream: TcpStream,
     state: &RuntimeState,
     group_index: usize,
@@ -57,12 +56,12 @@ pub(super) fn relay_streams(
     let rotation_state = RelaySession::rotation_controller(settings.rotation_seed.clone());
     let pending_response = session_seed.take_pending_response();
     let session_state = session_seed.into_shared();
-    for socket in [&client, &upstream] {
-        let _ = (
-            socket.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)),
-            socket.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT)),
-        );
-    }
+    let _ = (
+        client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)),
+        client.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT)),
+        upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)),
+        upstream.set_write_timeout(Some(RELAY_WRITE_STALL_TIMEOUT)),
+    );
 
     fn clone_err(role: &'static str) -> impl FnOnce(io::Error) -> io::Error {
         move |e| io::Error::other(format!("clone {role} socket for relay: {e}"))
@@ -283,7 +282,8 @@ mod tests {
             (first, listener.accept().expect("accept").0)
         }
         let (mut upstream_reader, mut origin) = pair();
-        let (mut client_writer, mut app) = pair();
+        let (client_writer, mut app) = pair();
+        let mut client_writer = ClientStream::Tcp(client_writer);
         // A short idle timeout stands in for RELAY_IDLE_TIMEOUT; the client already sent FIN.
         upstream_reader.set_read_timeout(Some(Duration::from_millis(30))).expect("idle timeout");
         let peer_done = Arc::new(AtomicBool::new(true));
@@ -327,7 +327,8 @@ mod tests {
             (first, listener.accept().expect("accept").0)
         }
         let (mut upstream_reader, mut origin) = pair();
-        let (mut client_writer, mut app) = pair();
+        let (client_writer, mut app) = pair();
+        let mut client_writer = ClientStream::Tcp(client_writer);
         upstream_reader.set_read_timeout(Some(Duration::from_secs(5))).expect("idle timeout");
         // A TLS record that announces 16 KiB and stops after 100 bytes: a mid-record freeze.
         origin.write_all(&[0x17, 0x03, 0x03, 0x40, 0x00]).expect("record header");
@@ -379,6 +380,7 @@ mod tests {
         let (client, app) = pair();
         let (upstream, origin) = pair();
         let (mut feeder, mut stalled) = if stall_client { (origin, app) } else { (app, origin) };
+        let client = ClientStream::Tcp(client);
         let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
         let settings = RelayStreamSettings {
             group: state.relay_group(0).expect("relay group"),

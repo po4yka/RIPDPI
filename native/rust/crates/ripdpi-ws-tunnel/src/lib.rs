@@ -8,7 +8,7 @@ mod relay;
 pub mod transport;
 
 use std::io;
-use std::net::{SocketAddr, TcpStream};
+use std::net::SocketAddr;
 use std::time::Duration;
 
 pub use httpupgrade::{
@@ -19,8 +19,8 @@ pub use mtproto::{
     MtprotoTransportFamily, classify_mtproto_seed, decrypt_init_packet, extract_dc_from_init, redact_seed,
 };
 pub use ripdpi_ws_transport_port::{
-    CloudflareWorkerRoute, MtprotoSeedClassification, TelegramDc, TelegramDcClass, WorkerBearer, WsTunnelConfig,
-    WsTunnelDecision, classify_target, dc_from_ip, dc_from_ipv6, is_telegram_ip, ws_host, ws_url,
+    ClientStream, CloudflareWorkerRoute, MtprotoSeedClassification, TelegramDc, TelegramDcClass, WorkerBearer,
+    WsTunnelConfig, WsTunnelDecision, classify_target, dc_from_ip, dc_from_ipv6, is_telegram_ip, ws_host, ws_url,
 };
 pub use transport::{EarlyData, WsTransport, WsTransportConfig, WsTransportError, build_ws_request};
 
@@ -46,7 +46,7 @@ impl ripdpi_ws_transport_port::WsTransport for TelegramWsTransport {
 
     fn relay(
         &self,
-        client: TcpStream,
+        client: ClientStream,
         dc: TelegramDc,
         seed_request: Vec<u8>,
         config: &WsTunnelConfig,
@@ -58,7 +58,7 @@ impl ripdpi_ws_transport_port::WsTransport for TelegramWsTransport {
 struct PreparedTunnel(connect::WsStream);
 
 impl ripdpi_ws_transport_port::PreparedWsTunnel for PreparedTunnel {
-    fn relay(self: Box<Self>, client: TcpStream, seed_request: Vec<u8>) -> io::Result<()> {
+    fn relay(self: Box<Self>, client: ClientStream, seed_request: Vec<u8>) -> io::Result<()> {
         validate_seed(&seed_request)?;
         relay::ws_relay(client, self.0, &seed_request)
     }
@@ -80,7 +80,7 @@ fn validate_seed(seed_request: &[u8]) -> io::Result<()> {
 /// Any bytes after the first 64 are forwarded as the next WebSocket frames
 /// before the relay begins draining the client socket.
 pub fn relay_ws_tunnel(
-    client: TcpStream,
+    client: ClientStream,
     dc: TelegramDc,
     seed_request: Vec<u8>,
     config: &WsTunnelConfig,
@@ -89,7 +89,7 @@ pub fn relay_ws_tunnel(
 }
 
 fn relay_ws_tunnel_with<OpenWs, RelayWs, Ws>(
-    client: TcpStream,
+    client: ClientStream,
     dc: TelegramDc,
     seed_request: Vec<u8>,
     config: &WsTunnelConfig,
@@ -105,7 +105,7 @@ where
         Option<&str>,
         Option<&CloudflareWorkerRoute>,
     ) -> io::Result<Ws>,
-    RelayWs: FnOnce(TcpStream, Ws, &[u8]) -> io::Result<()>,
+    RelayWs: FnOnce(ClientStream, Ws, &[u8]) -> io::Result<()>,
 {
     validate_seed(&seed_request)?;
     let ws = open_ws_tunnel_with(dc, config, open_ws)?;
@@ -155,14 +155,14 @@ where
 mod tests {
     use super::*;
 
-    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
 
-    fn tcp_pair() -> (TcpStream, TcpStream) {
+    fn tcp_pair() -> (TcpStream, ClientStream) {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
         let addr = listener.local_addr().expect("listener addr");
         let client = TcpStream::connect(addr).expect("connect tcp pair");
         let (server, _) = listener.accept().expect("accept tcp pair");
-        (client, server)
+        (client, ClientStream::Tcp(server))
     }
 
     #[test]

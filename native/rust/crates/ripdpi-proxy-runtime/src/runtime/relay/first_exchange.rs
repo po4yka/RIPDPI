@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
@@ -116,7 +117,7 @@ pub(super) fn read_first_response(
     host: Option<&str>,
     upstream: &mut TcpStream,
     request: &[u8],
-    client: Option<&TcpStream>,
+    client: Option<&ClientStream>,
     mut reader: FirstResponseReader,
 ) -> io::Result<FirstResponse> {
     let _ = relay_platform::enable_recv_ttl(upstream);

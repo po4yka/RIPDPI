@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
@@ -14,7 +15,7 @@ pub(super) enum Readiness {
 
 pub(super) fn wait_for_readiness(
     state: &RuntimeState,
-    client: Option<&TcpStream>,
+    client: Option<&ClientStream>,
     upstream: &TcpStream,
     deadline: Option<Instant>,
 ) -> io::Result<Readiness> {

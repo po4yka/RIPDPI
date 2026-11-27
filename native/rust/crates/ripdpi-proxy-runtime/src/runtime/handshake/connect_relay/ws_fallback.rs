@@ -1,3 +1,4 @@
+use ripdpi_ws_transport_port::ClientStream;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
@@ -7,7 +8,7 @@ use super::ConnectRelayError;
 use super::reply::SuccessReply;
 
 pub(super) fn run_ws_fallback_after_desync<WriteSuccessReply, RunWsTunnel, RunWsTunnelWithSeed>(
-    client: &mut TcpStream,
+    client: &mut ClientStream,
     target: SocketAddr,
     state: &RuntimeState,
     reply: &SuccessReply,
@@ -17,9 +18,9 @@ pub(super) fn run_ws_fallback_after_desync<WriteSuccessReply, RunWsTunnel, RunWs
     run_ws_tunnel_with_seed_fn: &mut RunWsTunnelWithSeed,
 ) -> Result<(), ConnectRelayError>
 where
-    WriteSuccessReply: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
-    RunWsTunnel: FnMut(TcpStream, &RuntimeState) -> WsTunnelResult,
-    RunWsTunnelWithSeed: FnMut(TcpStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
+    WriteSuccessReply: FnMut(&mut ClientStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
+    RunWsTunnel: FnMut(ClientStream, &RuntimeState) -> WsTunnelResult,
+    RunWsTunnelWithSeed: FnMut(ClientStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
 {
     let Some(dc) = should_ws_tunnel_fallback(target, state) else {
         return Err(err);

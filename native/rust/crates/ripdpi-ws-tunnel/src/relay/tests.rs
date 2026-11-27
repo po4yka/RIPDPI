@@ -1,20 +1,21 @@
 use super::*;
 
 use std::io::{self, Read, Write};
-use std::net::{Ipv4Addr, Shutdown, TcpListener};
+use std::net::{Ipv4Addr, Shutdown, TcpListener, TcpStream};
+use std::os::unix::net::UnixStream;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use tungstenite::protocol::Message;
 
-fn tcp_pair() -> (TcpStream, TcpStream) {
+fn tcp_pair() -> (TcpStream, ClientStream) {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
     let addr = listener.local_addr().expect("tcp listener addr");
     let client = TcpStream::connect(addr).expect("connect tcp pair");
     let (server, _) = listener.accept().expect("accept tcp pair");
     client.set_read_timeout(Some(Duration::from_secs(1))).expect("set client timeout");
     server.set_read_timeout(Some(Duration::from_secs(1))).expect("set server timeout");
-    (client, server)
+    (client, ClientStream::Tcp(server))
 }
 
 fn websocket_pair() -> (WebSocket<TcpStream>, WebSocket<TcpStream>) {
@@ -107,6 +108,31 @@ fn ws_relay_forwards_init_uplink_and_downlink_frames() {
     assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == b"uplink"[..]));
 
     peer.send(Message::Ping(vec![1, 2, 3].into())).expect("send ping");
+    peer.send(Message::Binary(b"downlink".to_vec().into())).expect("send downlink");
+    peer.close(None).expect("send close");
+
+    let mut downlink = [0u8; 8];
+    local_app.read_exact(&mut downlink).expect("read downlink");
+    assert_eq!(&downlink, b"downlink");
+
+    relay_thread.join().expect("join relay thread").expect("relay result");
+}
+
+#[test]
+fn ws_relay_forwards_frames_for_a_unix_client() {
+    let (mut local_app, relay_side) = UnixStream::pair().expect("unix pair");
+    local_app.set_read_timeout(Some(Duration::from_secs(1))).expect("set app timeout");
+    let (ws, mut peer) = websocket_pair();
+    let seed_request = vec![0xAB; 64];
+
+    let relayed_seed = seed_request.clone();
+    let relay_thread = thread::spawn(move || ws_relay(ClientStream::Unix(relay_side), ws, &relayed_seed));
+
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == seed_request[..]));
+
+    local_app.write_all(b"uplink").expect("write uplink");
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == b"uplink"[..]));
+
     peer.send(Message::Binary(b"downlink".to_vec().into())).expect("send downlink");
     peer.close(None).expect("send close");
 

@@ -27,7 +27,7 @@ fn is_local_address(mut addr: SocketAddr) -> bool {
 #[derive(Default)]
 struct ActiveSocketRegistryState {
     next_id: u64,
-    sockets: BTreeMap<u64, TcpStream>,
+    sockets: BTreeMap<u64, ClientStream>,
 }
 
 #[derive(Clone, Default)]
@@ -36,8 +36,7 @@ pub(in crate::runtime) struct ActiveSocketRegistry {
 }
 
 impl ActiveSocketRegistry {
-    fn register(&self, socket: &TcpStream) -> io::Result<ActiveSocketGuard> {
-        let owned = socket.try_clone()?;
+    fn register(&self, owned: ClientStream) -> io::Result<ActiveSocketGuard> {
         let mut state = self.inner.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         let id = state.next_id;
         state.next_id = state.next_id.checked_add(1).ok_or_else(|| io::Error::other("active socket id exhausted"))?;
@@ -118,8 +117,14 @@ impl RuntimeState {
     pub(in crate::runtime) fn acquire_client_slot(&self, client_capacity: usize) -> Option<ClientSlotGuard> {
         ClientSlotGuard::acquire(self.active_clients.clone(), client_capacity)
     }
+    pub(in crate::runtime) fn register_active_client_socket(
+        &self,
+        socket: &ClientStream,
+    ) -> io::Result<ActiveSocketGuard> {
+        self.active_tcp_sockets.register(socket.try_clone()?)
+    }
     pub(in crate::runtime) fn register_active_tcp_socket(&self, socket: &TcpStream) -> io::Result<ActiveSocketGuard> {
-        self.active_tcp_sockets.register(socket)
+        self.active_tcp_sockets.register(ClientStream::Tcp(socket.try_clone()?))
     }
     /// Keeps the upstream half cancellable while a connection handler owns it.
     /// The registry stores only duplicated descriptors, never endpoint data.
@@ -127,7 +132,7 @@ impl RuntimeState {
         &self,
         socket: &TcpStream,
     ) -> io::Result<ActiveSocketGuard> {
-        self.active_upstream_tcp_sockets.register(socket)
+        self.active_upstream_tcp_sockets.register(ClientStream::Tcp(socket.try_clone()?))
     }
     pub(in crate::runtime) fn shutdown_active_tcp_sockets(&self) {
         self.active_tcp_sockets.shutdown_all();

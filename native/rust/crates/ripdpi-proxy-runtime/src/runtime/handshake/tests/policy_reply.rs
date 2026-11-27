@@ -10,7 +10,7 @@ fn assert_policy_reply(config: RuntimeConfig, self_target: bool) {
     let (mut client, server) = connected_pair();
     client.set_read_timeout(Some(Duration::from_secs(1))).expect("bound reply read");
     let target = if self_target {
-        server.local_addr().expect("proxy endpoint")
+        server.local_addr().expect("proxy endpoint").expect("tcp endpoint")
     } else {
         origin.local_addr().expect("origin endpoint")
     };
@@ -36,7 +36,11 @@ fn assert_http_policy_reply(config: &RuntimeConfig, self_target: bool) {
         origin.set_nonblocking(true).expect("nonblocking origin");
         let (mut client, server) = connected_pair();
         client.set_read_timeout(Some(Duration::from_secs(1))).expect("bound reply read");
-        let target = if self_target { server.local_addr() } else { origin.local_addr() }.expect("target");
+        let target = if self_target {
+            server.local_addr().expect("proxy endpoint").expect("tcp endpoint")
+        } else {
+            origin.local_addr().expect("origin endpoint")
+        };
         write!(client, "CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n").expect("request");
         let error = super::super::handle_client(server, &runtime_state(config)).expect_err("policy denial");
         assert_eq!(error.kind(), ErrorKind::PermissionDenied);
