@@ -24,6 +24,7 @@ internal data class TargetGroupCounts(
 )
 
 private const val NoValue = "none"
+private const val HttpStatusOk = 200
 
 private val MatrixStallReasons = setOf("read_timeout", "cancelled")
 private val FreezeOutcomes = setOf("tcp_freeze_after_threshold", "connection_freeze", "verified_download_timeout")
@@ -56,7 +57,7 @@ internal fun ProbeResult.responseClass(): ResponseClass? {
 
         outcome == "verified_download_failed" -> {
             val status = detail("httpStatusCodeReadings")?.substringBefore('|')?.toIntOrNull()
-            if (status != null && status != 200) ResponseClass.ServerResponse else ResponseClass.Other
+            if (status != null && status != HttpStatusOk) ResponseClass.ServerResponse else ResponseClass.Other
         }
 
         probeType == "selective_availability" || probeType == "throughput_window" -> {

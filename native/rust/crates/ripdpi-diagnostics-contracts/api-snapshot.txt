@@ -1097,11 +1097,13 @@ pub ripdpi_diagnostics_contracts::types::ThroughputObservationFact::window_bytes
 pub struct ripdpi_diagnostics_contracts::types::ThroughputTarget
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::ThroughputTarget::destination_asn: core::option::Option<u32>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::is_control: bool
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::runs: usize
+pub ripdpi_diagnostics_contracts::types::ThroughputTarget::target_class: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::upload_body_bytes: core::option::Option<usize>
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>
@@ -1195,6 +1197,7 @@ pub const ripdpi_diagnostics_contracts::types::TRANSFER_VOLUME_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::TRANSFER_VOLUME_SHORT_ID: &str
 pub const ripdpi_diagnostics_contracts::types::VERIFIED_DOWNLOAD_PROFILE_ID: &str
 pub const ripdpi_diagnostics_contracts::types::VERIFIED_UPLOAD_PROFILE_ID: &str
+pub fn ripdpi_diagnostics_contracts::types::valid_target_class_and_asn(core::option::Option<&str>, core::option::Option<u32>) -> bool
 pub mod ripdpi_diagnostics_contracts::util
 pub enum ripdpi_diagnostics_contracts::util::DnsAnswerOverlap
 pub ripdpi_diagnostics_contracts::util::DnsAnswerOverlap::CompatibleDivergence
@@ -2245,11 +2248,13 @@ pub ripdpi_diagnostics_contracts::ThroughputObservationFact::window_bytes: usize
 pub struct ripdpi_diagnostics_contracts::ThroughputTarget
 pub ripdpi_diagnostics_contracts::ThroughputTarget::connect_ip: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::connect_ips: alloc::vec::Vec<alloc::string::String>
+pub ripdpi_diagnostics_contracts::ThroughputTarget::destination_asn: core::option::Option<u32>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::id: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::is_control: bool
 pub ripdpi_diagnostics_contracts::ThroughputTarget::label: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::port: core::option::Option<u16>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::runs: usize
+pub ripdpi_diagnostics_contracts::ThroughputTarget::target_class: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::upload_body_bytes: core::option::Option<usize>
 pub ripdpi_diagnostics_contracts::ThroughputTarget::url: alloc::string::String
 pub ripdpi_diagnostics_contracts::ThroughputTarget::verification: core::option::Option<ripdpi_diagnostics_contracts::types::DownloadVerification>

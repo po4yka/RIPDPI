@@ -95,11 +95,19 @@ class TargetClassFreezeReportTest {
             ).targetGroupSummaryLines()
         assertEquals(
             listOf(
-                "targetGroup source=user_host class=none asn=none freeze=0 serverresponse=0 connectionreset=0 connectionclosed=0 complete=1 other=0",
-                "targetGroup source=legacy_no_class class=none asn=none freeze=0 serverresponse=0 connectionreset=0 connectionclosed=0 complete=1 other=0",
-                "targetGroup source=volume_unattributed class=none asn=none freeze=1 serverresponse=0 connectionreset=0 connectionclosed=0 complete=0 other=0",
+                summaryLine("user_host", freeze = 0, complete = 1),
+                summaryLine("legacy_no_class", freeze = 0, complete = 1),
+                summaryLine("volume_unattributed", freeze = 1, complete = 0),
             ).sorted(),
             lines.sorted(),
         )
     }
+
+    private fun summaryLine(
+        source: String,
+        freeze: Int,
+        complete: Int,
+    ): String =
+        "targetGroup source=$source class=none asn=none freeze=$freeze serverresponse=0 " +
+            "connectionreset=0 connectionclosed=0 complete=$complete other=0"
 }
