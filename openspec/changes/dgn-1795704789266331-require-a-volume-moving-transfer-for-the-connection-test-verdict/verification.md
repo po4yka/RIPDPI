@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1795704789266331
 change: dgn-1795704789266331-require-a-volume-moving-transfer-for-the-connection-test-verdict
-commit_sha: null
-local: required
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
+local: passed
 local_evidence: 'Local run on 2026-11-27, arm64-only native staging: :app:testGithubDebugUnitTest --tests ''*nboarding*'' --tests ''*ScreenCatalog*'' passed with 0 failures, including OnboardingModeValidationRunnerTest volume cases (verified, stalled with byte count, rejected, second control, no control, noDomain) and OnboardingStepsScreenTest checklist rows; :core:service StrictPayloadSocksTest new cases (stalled body reports receivedBytes 1 and timedOut, full wrong-digest body reports 32768 and timedOut false) passed; the pre-existing case ''second independent control can prove the same relay when first control fails'' fails identically on clean origin/main and is unrelated. staticAnalysis exit 0; comment ratchet (both modes), locale parity, architecture-delta and just task-check exit 0.'
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: 'CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37.'
 device: required
 device_evidence: null
 artifact: not_applicable

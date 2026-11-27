@@ -2,7 +2,7 @@
 id: DGN-1795705002630350
 title: Locate the stalling hop of a user-built relay chain with a large transfer
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: low
 owner: Diagnostics engineer
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795705002630350-locate-the-stalling-hop-of-a-user-built-relay-chain-with-a-large-transfer
 created: 2026-11-26
 updated: 2026-11-27
+status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
 ---
 
 ## Goal

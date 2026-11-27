@@ -2,7 +2,7 @@
 id: DGN-1795704974460888
 title: Split selective-availability targets into domestic, foreign datacenter and CDN classes
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: Diagnostics engineer
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1795704974460888-split-selective-availability-targets-into-domestic-foreign-datacenter-and-cdn-classes
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
+status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
 ---
 
 ## Goal

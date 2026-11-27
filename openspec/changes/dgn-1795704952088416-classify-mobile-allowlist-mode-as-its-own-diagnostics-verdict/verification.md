@@ -1,11 +1,11 @@
 ---
 task_id: DGN-1795704952088416
 change: dgn-1795704952088416-classify-mobile-allowlist-mode-as-its-own-diagnostics-verdict
-commit_sha: null
-local: required
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
+local: passed
 local_evidence: Full classification and monitor-engine Rust suites (407 tests), core diagnostics (1900) and app (4003) unit suites passed before review fixes, apart from one load-timing failure each in untouched code that passed on rerun; after review fixes the eight allowlist rule tests, the engine report test, the matrix, importer, governance and session-detail tests, Clippy, ktlint, detekt, Rust API snapshots, comment ratchet, locale parity and translation export passed.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: 'CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37.'
 device: required
 device_evidence: null
 artifact: not_applicable
