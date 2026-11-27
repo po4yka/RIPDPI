@@ -4,9 +4,11 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorSaveFlow
-import com.poyka.ripdpi.ui.screens.relayeditor.activateExplicitly
+import com.poyka.ripdpi.ui.screens.relayeditor.activateAsNewServer
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +49,7 @@ class AnyTlsProfileViewModel
     @Inject
     constructor(
         private val relayActivator: RelayProfileActivator,
+        private val relayArtifacts: ConnectionRelayArtifactRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(AnyTlsProfileUiState(editor = AnyTlsProfileEditorState.initial()))
         val uiState: StateFlow<AnyTlsProfileUiState> = _uiState.asStateFlow()
@@ -72,7 +75,8 @@ class AnyTlsProfileViewModel
             val profile = _uiState.value.editor.toProfile() ?: return
             if (_uiState.value.saving || saveFlow.completed) return
             _uiState.update { it.copy(saving = true, errorMessage = null) }
-            saveFlow.save({ relayActivator.activateExplicitly(profile) }) { activated ->
+            val save = suspend { relayActivator.activateAsNewServer(profile, RelayKindAnyTls, relayArtifacts) }
+            saveFlow.save(save) { activated ->
                 val error = R.string.relay_editor_activation_failed.takeUnless { activated }
                 _uiState.update { it.copy(saving = false, errorMessage = error) }
             }

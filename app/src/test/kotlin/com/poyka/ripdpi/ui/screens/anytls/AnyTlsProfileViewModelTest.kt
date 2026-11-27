@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.anytls
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayProfileStore
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
 import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -38,16 +38,18 @@ class AnyTlsProfileViewModelTest {
         profileStore: RelayProfileStore,
         credentialStore: RelayCredentialStore,
         settings: AppSettingsRepository,
-    ): AnyTlsProfileViewModel =
-        AnyTlsProfileViewModel(
-            RelayProfileActivator(
-                com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
-                    profileStore,
-                    credentialStore,
-                    settings,
-                ),
-            ),
+    ): AnyTlsProfileViewModel {
+        val mutations =
+            com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                profileStore,
+                credentialStore,
+                settings,
+            )
+        return AnyTlsProfileViewModel(
+            RelayProfileActivator(mutations),
+            ConnectionRelayArtifactRepository(settings, profileStore, credentialStore, mutations),
         )
+    }
 
     @Test
     fun `saving a complete anytls editor activates the native relay`() =
@@ -78,11 +80,12 @@ class AnyTlsProfileViewModelTest {
             assertEquals(443, snapshot.relayServerPort)
             assertTrue("AnyTLS carries UDP traffic", snapshot.relayUdpEnabled)
 
-            val profile = profileStore.load(DefaultRelayProfileId)
+            assertEquals("anytls", snapshot.relayProfileId)
+            val profile = profileStore.load("anytls")
             assertEquals(RelayKindAnyTls, profile?.kind)
             assertTrue(profile?.udpEnabled ?: false)
 
-            val credentials = credentialStore.load(DefaultRelayProfileId)
+            val credentials = credentialStore.load("anytls")
             assertEquals(passwordFixture, credentials?.anyTlsPassword)
         }
 

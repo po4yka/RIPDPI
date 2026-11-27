@@ -265,11 +265,12 @@ class SshProfileViewModelTest {
             assertEquals(22, snapshot.relayServerPort)
             assertFalse("SSH is direct-tcpip / TCP-only", snapshot.relayUdpEnabled)
 
-            val profile = profileStore.load(DefaultRelayProfileId)
+            assertEquals("ssh", snapshot.relayProfileId)
+            val profile = profileStore.load("ssh")
             assertEquals(RelayKindSsh, profile?.kind)
             assertFalse(profile?.udpEnabled ?: true)
 
-            val credentials = credentialStore.load(DefaultRelayProfileId)
+            val credentials = credentialStore.load("ssh")
             assertEquals("alice", credentials?.sshUsername)
             assertEquals(passwordFixture, credentials?.sshPassword)
         }

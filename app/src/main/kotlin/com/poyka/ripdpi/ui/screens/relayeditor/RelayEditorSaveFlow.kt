@@ -58,9 +58,17 @@ internal class RelayEditorSaveFlow(
     }
 }
 
-/** Applies [profile] as the active native relay, the same path the import confirmation uses. */
-internal suspend fun RelayProfileActivator.activateExplicitly(profile: ProxyProfile): Boolean =
-    activate(captureMutation(ProfileMutationOrigin.ExplicitActivation), profile)
+/** Saves [profile] as a new server under a fresh id and makes it the active native relay. */
+internal suspend fun RelayProfileActivator.activateAsNewServer(
+    profile: ProxyProfile,
+    kind: String,
+    relayArtifacts: ConnectionRelayArtifactRepository,
+): Boolean =
+    activate(
+        captureMutation(ProfileMutationOrigin.ExplicitActivation),
+        profile,
+        profileId = relayArtifacts.newProfileId(kind),
+    )
 
 /**
  * Loads the saved profile [profileId] for editing. Returns `null` after calling [onFailure] when the profile is

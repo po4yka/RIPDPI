@@ -71,11 +71,14 @@ class MieruProfileViewModelTest {
         )
 
     @Test
-    fun `saving a complete mieru editor activates the native relay`() =
+    fun `saving a new mieru server keeps the current server and activates the new one`() =
         runTest {
             val profileStore = FakeRelayProfileStore()
             val credentialStore = FakeRelayCredentialStore()
             val settings = FakeAppSettingsRepository()
+            val current =
+                RelayProfileRecord(id = DefaultRelayProfileId, kind = RelayKindMieru, server = "current.example")
+            profileStore.save(current)
             val viewModel = viewModel(profileStore, credentialStore, settings)
 
             viewModel.onFieldChanged(MieruEditorField.SERVER, "mieru.example.com")
@@ -101,11 +104,13 @@ class MieruProfileViewModelTest {
             assertEquals(RelayMieruProtocolTcp, snapshot.relayMieruProtocol)
             assertEquals(RelayMieruMultiplexingMiddle, snapshot.relayMieruMultiplexing)
 
-            val profile = profileStore.load(DefaultRelayProfileId)
-            assertEquals(RelayKindMieru, profile?.kind)
+            assertEquals(current, profileStore.load(DefaultRelayProfileId))
+            assertEquals("mieru", snapshot.relayProfileId)
+            val profile = profileStore.load("mieru")
+            assertEquals("mieru.example.com", profile?.server)
             assertFalse(profile?.udpEnabled ?: true)
 
-            val credentials = credentialStore.load(DefaultRelayProfileId)
+            val credentials = credentialStore.load("mieru")
             assertEquals(usernameFixture, credentials?.mieruUsername)
             assertEquals(passwordFixture, credentials?.mieruPassword)
         }

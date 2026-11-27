@@ -15,7 +15,7 @@ import com.poyka.ripdpi.services.SshHostKeyObserver
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorSaveFlow
-import com.poyka.ripdpi.ui.screens.relayeditor.activateExplicitly
+import com.poyka.ripdpi.ui.screens.relayeditor.activateAsNewServer
 import com.poyka.ripdpi.ui.screens.relayeditor.loadRelayDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -280,7 +280,7 @@ class SshProfileViewModel
                 }
 
                 original == null -> {
-                    relayActivator.activateExplicitly(profile)
+                    relayActivator.activateAsNewServer(profile, RelayKindSsh, relayArtifacts)
                 }
 
                 else -> {
