@@ -41,6 +41,8 @@ import com.poyka.ripdpi.debug.PacketSmokePrepareState
 import com.poyka.ripdpi.debug.PacketSmokePrepareStateFileName
 import com.poyka.ripdpi.debug.PacketSmokeProbeResultFileName
 import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
+import com.poyka.ripdpi.proto.AppSettings
+import org.json.JSONObject
 import org.junit.Assume.assumeTrue
 import org.junit.rules.TestRule
 import org.junit.runner.Description
@@ -523,6 +525,41 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
         )
         setDetectionCheckDnsRouteThroughProxy(false)
     }
+}
+
+/** Resolves through the DoH server that `xray-provider-peer` serves behind its own Xray inbounds. */
+fun AppSettings.Builder.useXrayPeerDns(
+    bootstrapIp: String,
+    manifest: JSONObject,
+) {
+    val dnsHttpsPort = manifest.getInt("dnsHttpsPort").also { require(it in 1..65_535) }
+    val certificate = manifest.getString("qualityCertificate")
+    val dnsTlsRoots =
+        (listOf("-----BEGIN CERTIFICATE-----") + certificate.chunked(64) + "-----END CERTIFICATE-----")
+            .joinToString("\n", postfix = "\n")
+    setDnsMode(DnsModeEncrypted)
+    setDnsProviderId(DnsProviderCustom)
+    setDnsIp(bootstrapIp)
+    setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
+    setEncryptedDnsHost("fixture.test")
+    setEncryptedDnsPort(dnsHttpsPort)
+    setEncryptedDnsTlsServerName("fixture.test")
+    clearEncryptedDnsBootstrapIps()
+    addEncryptedDnsBootstrapIps(bootstrapIp)
+    setEncryptedDnsDohUrl("https://fixture.test:$dnsHttpsPort/dns-query")
+    setEncryptedDnsDnscryptProviderName("")
+    setEncryptedDnsDnscryptPublicKey("")
+    setEncryptedDnsTlsRootsPem(dnsTlsRoots)
+    clearEncryptedDnsOdohProxyUrl()
+    clearEncryptedDnsOdohProxyOperatorId()
+    clearEncryptedDnsOdohTargetHost()
+    clearEncryptedDnsOdohTargetPath()
+    clearEncryptedDnsOdohTargetOperatorId()
+    clearEncryptedDnsOdohConfigSource()
+    clearEncryptedDnsOdohConfigsHex()
+    clearEncryptedDnsOdohConfigsRetrievedAtSecs()
+    clearEncryptedDnsOdohConfigsTtlSecs()
+    setDetectionCheckDnsRouteThroughProxy(false)
 }
 
 suspend fun AppSettingsRepository.applyPacketSmokePlainDns(

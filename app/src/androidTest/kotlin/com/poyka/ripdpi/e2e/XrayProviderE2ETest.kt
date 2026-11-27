@@ -24,9 +24,6 @@ import com.poyka.ripdpi.core.XrayRuntimeOwner
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
-import com.poyka.ripdpi.data.DnsModeEncrypted
-import com.poyka.ripdpi.data.DnsProviderCustom
-import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseAuthorityPersistence
 import com.poyka.ripdpi.data.PauseIntentAuthority
@@ -314,11 +311,6 @@ class XrayProviderE2ETest {
         ensureVpnConsentGranted(context)
         manifest = readControl("manifest")
         udpBridge = TestUdpBridge.fromArguments()
-        val dnsHttpsPort = manifest.getInt("dnsHttpsPort").also { require(it in 1..65_535) }
-        val certificate = manifest.getString("qualityCertificate")
-        val dnsTlsRoots =
-            (listOf("-----BEGIN CERTIFICATE-----") + certificate.chunked(64) + "-----END CERTIFICATE-----")
-                .joinToString("\n", postfix = "\n")
         runBlocking {
             settings.update {
                 ripdpiMode = Mode.VPN.preferenceValue
@@ -332,29 +324,7 @@ class XrayProviderE2ETest {
                 desyncHttps = false
                 desyncUdp = false
                 setStrategyChains(emptyList(), emptyList())
-                setDnsMode(DnsModeEncrypted)
-                setDnsProviderId(DnsProviderCustom)
-                setDnsIp(fixtureHost)
-                setEncryptedDnsProtocol(EncryptedDnsProtocolDoh)
-                setEncryptedDnsHost("fixture.test")
-                setEncryptedDnsPort(dnsHttpsPort)
-                setEncryptedDnsTlsServerName("fixture.test")
-                clearEncryptedDnsBootstrapIps()
-                addEncryptedDnsBootstrapIps(fixtureHost)
-                setEncryptedDnsDohUrl("https://fixture.test:$dnsHttpsPort/dns-query")
-                setEncryptedDnsDnscryptProviderName("")
-                setEncryptedDnsDnscryptPublicKey("")
-                setEncryptedDnsTlsRootsPem(dnsTlsRoots)
-                clearEncryptedDnsOdohProxyUrl()
-                clearEncryptedDnsOdohProxyOperatorId()
-                clearEncryptedDnsOdohTargetHost()
-                clearEncryptedDnsOdohTargetPath()
-                clearEncryptedDnsOdohTargetOperatorId()
-                clearEncryptedDnsOdohConfigSource()
-                clearEncryptedDnsOdohConfigsHex()
-                clearEncryptedDnsOdohConfigsRetrievedAtSecs()
-                clearEncryptedDnsOdohConfigsTtlSecs()
-                setDetectionCheckDnsRouteThroughProxy(false)
+                useXrayPeerDns(fixtureHost, manifest)
             }
         }
     }

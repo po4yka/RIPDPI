@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.automation.AutomationServicePreset
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -53,6 +54,7 @@ import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val PeerDestination = "192.0.2.77"
+private const val PeerDnsAddress = "192.0.2.53"
 private const val ConnectMillis = 30_000L
 private const val JourneyMillis = 600_000L
 private const val MaxTaps = 3
@@ -112,6 +114,7 @@ class OwnServerJourneyE2ETest :
                 "vless://${manifest.getString("uuid")}@$host:${manifest.getInt("tcpPort")}" +
                     "?type=tcp&security=reality&sni=fixture.test&fp=firefox" +
                     "&pbk=${manifest.getString("publicKey")}&sid=ab12&flow=xtls-rprx-vision#Own%20VLESS"
+            runBlocking { settings.update { useXrayPeerDns(PeerDnsAddress, manifest) } }
             step("A new user skips setup and pastes a VLESS link from the clipboard") {
                 skipOnboarding()
                 pasteFromClipboard(link)
@@ -130,6 +133,7 @@ class OwnServerJourneyE2ETest :
             }
             step("Status shows the VLESS connection, then the user disconnects") {
                 awaitServerName("Own VLESS")
+                assertNoDnsWarning()
                 disconnect()
             }
             step("Proxy only routes a SOCKS connection through the same server") {
@@ -150,6 +154,7 @@ class OwnServerJourneyE2ETest :
                     }.getOrNull()
                 }
                 awaitServerName("Own VLESS")
+                assertNoDnsWarning()
                 disconnect()
             }
         }
@@ -238,6 +243,13 @@ class OwnServerJourneyE2ETest :
         composeRule.clickTag(RipDpiTestTags.StatusAddServer)
         composeRule.waitForTag(RipDpiTestTags.ConnectionAddServerSheet)
         composeRule.clickTag(RipDpiTestTags.ConnectionRelayAddServerPaste)
+    }
+
+    private fun assertNoDnsWarning() {
+        val warning = context.getString(R.string.status_connection_actuator_state_degraded, "DNS")
+        check(!composeRule.exists(hasText(warning))) {
+            "Status shows $warning: ${state.telemetry.value.tunnelTelemetry.lastDnsError}"
+        }
     }
 
     private fun awaitServerName(name: String) =
