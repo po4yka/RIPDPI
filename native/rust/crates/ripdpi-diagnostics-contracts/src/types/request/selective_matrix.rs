@@ -82,7 +82,7 @@ impl SelectiveMatrixConfig {
                 || target.last_verified_at.as_ref().is_some_and(|v| v.len() > 64)
                 || target.connect_ips.len() > 16
                 || target.connect_ips.iter().any(|ip| ip.parse::<std::net::IpAddr>().is_err())
-                || !valid_class_and_asn(target)
+                || !valid_target_class_and_asn(target.target_class.as_deref(), target.destination_asn)
             {
                 return Err("invalid_matrix_target");
             }
@@ -94,8 +94,8 @@ impl SelectiveMatrixConfig {
     }
 }
 
-fn valid_class_and_asn(target: &SelectiveMatrixTarget) -> bool {
-    match (target.target_class.as_deref(), target.destination_asn) {
+pub fn valid_target_class_and_asn(target_class: Option<&str>, destination_asn: Option<u32>) -> bool {
+    match (target_class, destination_asn) {
         (None, None) => true,
         (Some("domestic_hosting" | "foreign_datacenter" | "cdn"), Some(asn)) => is_public_asn(asn),
         _ => false,

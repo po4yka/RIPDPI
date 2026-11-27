@@ -26,11 +26,18 @@ class TargetClassFreezeReportTest {
         outcome: String,
         leg: String,
         status: String = "200",
+        targetClass: String? = null,
+        asn: Long? = null,
     ) = ProbeResult(
         "throughput_window",
         "Short response",
         outcome,
-        listOf(ProbeDetail("transferVolumeLeg", leg), ProbeDetail("httpStatusCodeReadings", status)),
+        listOfNotNull(
+            ProbeDetail("transferVolumeLeg", leg),
+            ProbeDetail("httpStatusCodeReadings", status),
+            targetClass?.let { ProbeDetail("targetClass", it) },
+            asn?.let { ProbeDetail("destinationAsn", it.toString()) },
+        ),
     )
 
     private fun incomplete(reason: String) =
@@ -56,35 +63,26 @@ class TargetClassFreezeReportTest {
     }
 
     @Test
-    fun `freeze and volume results group by class and destination AS in one report`() {
-        val ovh =
-            SelectiveMatrixTarget(
-                "ovh",
-                "OVH",
-                "https://proof.ovh.net/robots.txt",
-                "global",
-                "ovhcloud",
-                "",
-                "",
-                targetClass = "foreign_datacenter",
-                destinationAsn = 16276,
-            )
+    fun `freeze and declared volume results group by class and destination AS in one report`() {
         val rows =
             listOf(
                 matrix("matrix_target_body_incomplete", "foreign_datacenter", 16276, "read_timeout"),
                 matrix("matrix_target_available", "foreign_datacenter", 16276),
                 matrix("matrix_target_available", "domestic_hosting", 50340),
-                volume("verified_download_timeout", "long"),
-                volume("verified_download_complete", "short"),
-            ).groupByTargetClassAndAs(volumeTarget = ovh)
-        val foreign = rows.single { it.group == TargetGroup("foreign_datacenter", 16276) }
-        assertEquals(2, foreign.counts[ResponseClass.Freeze])
-        assertEquals(2, foreign.counts[ResponseClass.Complete])
+                volume("verified_download_timeout", "long", targetClass = "foreign_datacenter", asn = 16276),
+                volume("verified_download_complete", "short", targetClass = "foreign_datacenter", asn = 16276),
+            ).groupByTargetClassAndAs()
+        val catalog = rows.single { it.group == TargetGroup("foreign_datacenter", 16276) }
+        assertEquals(1, catalog.counts[ResponseClass.Freeze])
+        assertEquals(1, catalog.counts[ResponseClass.Complete])
+        val declared = rows.single { it.group == TargetGroup("foreign_datacenter", 16276, GroupSource.VolumeDeclared) }
+        assertEquals(1, declared.counts[ResponseClass.Freeze])
+        assertEquals(1, declared.counts[ResponseClass.Complete])
         assertEquals(
             1,
             rows.single { it.group == TargetGroup("domestic_hosting", 50340) }.counts[ResponseClass.Complete],
         )
-        assertEquals(2, rows.size)
+        assertEquals(3, rows.size)
     }
 
     @Test

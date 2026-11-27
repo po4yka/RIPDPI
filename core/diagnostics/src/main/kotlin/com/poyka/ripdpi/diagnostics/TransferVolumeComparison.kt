@@ -15,12 +15,19 @@ data class TransferVolumeComparisonInput(
     val connectIp: String = "",
     val short: VerifiedDownloadInput = VerifiedDownloadInput(),
     val long: VerifiedDownloadInput = VerifiedDownloadInput(),
+    val targetClass: String? = null,
+    val destinationAsn: String = "",
 ) {
     fun isValid(): Boolean {
         val address = NumericIp.parseAddress(connectIp) ?: return false
         val ip = InetAddress.getByAddress(address.bytes)
         val validPin = !ip.isAnyLocalAddress && !ip.isMulticastAddress && ip.hostAddress != "255.255.255.255"
-        return validPin && hasComparablePaths() && hasValidProofs()
+        return validPin && hasComparablePaths() && hasValidProofs() && hasValidDeclaredClass()
+    }
+
+    private fun hasValidDeclaredClass(): Boolean {
+        val asn = destinationAsn.trim().toLongOrNull()
+        return (asn != null || destinationAsn.isBlank()) && isValidTargetClassAndAsn(targetClass, asn)
     }
 
     private fun hasComparablePaths(): Boolean {
@@ -39,9 +46,15 @@ data class TransferVolumeComparisonInput(
 
     internal fun toTargets(): List<ThroughputTarget> {
         require(isValid()) { "Transfer volume comparison requires two verified objects on one pinned HTTPS origin" }
+        val pin = connectIp
+        val declaredClass = targetClass
+        val asn = destinationAsn.trim().toLongOrNull()
+
+        fun ThroughputTarget.declared(id: String) =
+            copy(id = id, connectIp = pin, targetClass = declaredClass, destinationAsn = asn)
         return listOf(
-            short.toTarget("Short response").copy(id = ShortTargetId, connectIp = connectIp),
-            long.toTarget("Long response").copy(id = LongTargetId, connectIp = connectIp),
+            short.toTarget("Short response").declared(ShortTargetId),
+            long.toTarget("Long response").declared(LongTargetId),
         )
     }
 }
@@ -69,12 +82,21 @@ internal fun List<ThroughputTarget>.isValidTransferVolumeComparison(): Boolean {
     val longInput = long.volumeInputOrNull()
     val input =
         if (pin != null && shortInput != null && longInput != null) {
-            TransferVolumeComparisonInput(pin, shortInput, longInput)
+            TransferVolumeComparisonInput(
+                pin,
+                shortInput,
+                longInput,
+                short.targetClass,
+                short.destinationAsn?.toString().orEmpty(),
+            )
         } else {
             null
         }
-    return pin == long.connectIp && input?.isValid() == true
+    return pin == long.connectIp && short.hasSameDeclaredClassAs(long) && input?.isValid() == true
 }
+
+private fun ThroughputTarget.hasSameDeclaredClassAs(other: ThroughputTarget): Boolean =
+    targetClass == other.targetClass && destinationAsn == other.destinationAsn
 
 private fun ThroughputTarget.volumeInputOrNull(): VerifiedDownloadInput? {
     val proof = verification?.takeIf { it.echComparisonIp == null } ?: return null

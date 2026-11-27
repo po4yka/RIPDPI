@@ -240,6 +240,8 @@ mod tests {
     fn throughput_failure_details_include_stage_and_protocol_context() {
         let target = ThroughputTarget {
             upload_body_bytes: None,
+            target_class: None,
+            destination_asn: None,
             verification: None,
             id: "bad-url".to_string(),
             label: "Bad URL".to_string(),
@@ -348,6 +350,8 @@ mod tests {
     fn local_target(port: u16, window_bytes: usize, runs: usize) -> ThroughputTarget {
         ThroughputTarget {
             upload_body_bytes: None,
+            target_class: None,
+            destination_asn: None,
             verification: None,
             id: "body-completion".into(),
             label: "Body completion".into(),

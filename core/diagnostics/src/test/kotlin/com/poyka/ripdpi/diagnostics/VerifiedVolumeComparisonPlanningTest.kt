@@ -85,6 +85,27 @@ class VerifiedVolumeComparisonPlanningTest {
     }
 
     @Test
+    fun `declared class and AS are a valid pair and travel on both targets`() {
+        val declared = input.copy(targetClass = TargetClassCdn, destinationAsn = "13335")
+        assertTrue(declared.isValid())
+        assertTrue(declared.toTargets().all { it.targetClass == TargetClassCdn && it.destinationAsn == 13_335L })
+        assertTrue(declared.toTargets().isValidTransferVolumeComparison())
+        assertTrue(input.toTargets().all { it.targetClass == null && it.destinationAsn == null })
+        val (short, long) = declared.toTargets()
+        assertFalse(listOf(short, long.copy(destinationAsn = 15_169L)).isValidTransferVolumeComparison())
+        listOf(
+            input.copy(targetClass = TargetClassCdn),
+            input.copy(destinationAsn = "13335"),
+            declared.copy(targetClass = "other"),
+            declared.copy(destinationAsn = "0"),
+            declared.copy(destinationAsn = "23456"),
+            declared.copy(destinationAsn = "64496"),
+            declared.copy(destinationAsn = "4200000000"),
+            declared.copy(destinationAsn = "AS13335"),
+        ).forEach { invalid -> assertFalse(invalid.toString(), invalid.isValid()) }
+    }
+
+    @Test
     fun `only a manual RAW scan of the fixed pair is admitted`() {
         val prepared = intent.withTransferVolumeComparison(input)
         val (short, long) = prepared.throughputTargets

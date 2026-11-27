@@ -2279,6 +2279,12 @@
     <string name="diagnostics_volume_transfer_short">استجابة قصيرة</string>
     <string name="diagnostics_volume_transfer_long">استجابة طويلة</string>
     <string name="diagnostics_volume_transfer_input_error">أدخل عنوان IP واحدًا ورابطَي HTTPS مختلفين على المضيف والمنفذ نفسيهما. تحقق من الأحجام وقيم تجزئة SHA-256.</string>
+    <string name="diagnostics_volume_transfer_class">فئة الهدف المعلنة (اختياري)</string>
+    <string name="diagnostics_volume_transfer_class_none">بدون</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">استضافة محلية</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">مركز بيانات أجنبي</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">رقم AS للوجهة (اختياري، مع الفئة)</string>
     <string name="diagnostics_control_passed">نجح اختبار الضبط</string>
     <string name="diagnostics_control_failed">فشل اختبار الضبط</string>
     <string name="diagnostics_control_unknown">اختبار الضبط: لا بيانات</string>

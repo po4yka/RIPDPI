@@ -223,6 +223,8 @@ fn target(port: u16) -> ThroughputTarget {
         window_bytes: 3,
         runs: 1,
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: Some(DownloadVerification {
             expected_body_bytes: 2,
             sha256: HASH.into(),

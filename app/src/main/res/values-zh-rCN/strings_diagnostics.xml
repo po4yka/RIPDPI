@@ -2070,6 +2070,12 @@
     <string name="diagnostics_volume_transfer_short">短响应</string>
     <string name="diagnostics_volume_transfer_long">长响应</string>
     <string name="diagnostics_volume_transfer_input_error">输入一个 IP 地址和两个不同的 HTTPS 网址，且主机和端口相同。检查大小和 SHA-256 哈希值。</string>
+    <string name="diagnostics_volume_transfer_class">声明的目标类别（可选）</string>
+    <string name="diagnostics_volume_transfer_class_none">无</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">境内托管</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">境外数据中心</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">目标 AS 编号（可选，需与类别一同填写）</string>
     <string name="diagnostics_control_passed">对照检查通过</string>
     <string name="diagnostics_control_failed">对照检查失败</string>
     <string name="diagnostics_control_unknown">对照检查：无数据</string>

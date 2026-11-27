@@ -28,6 +28,8 @@ fn throughput_window_keeps_plain_http_targets_plain() {
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "plain-http-fixture".to_string(),
         label: "Plain HTTP fixture".to_string(),
@@ -67,6 +69,8 @@ fn throughput_body_goodput_counts_only_bytes_after_first_read() {
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "timed-body".into(),
         label: "Timed body".into(),
@@ -110,6 +114,8 @@ fn throughput_window_uses_http11_alpn_with_h2_capable_peer() {
     let server = H2PreferringHttp1Server::spawn();
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "h2-capable-fixture".to_string(),
         label: "H2-capable fixture".to_string(),
@@ -143,6 +149,8 @@ fn throughput_window_attributes_tls_handshake_failure() {
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "tls-failure-fixture".to_string(),
         label: "TLS failure fixture".to_string(),
@@ -179,6 +187,8 @@ fn evidence_throughput_complete_short_body_is_insufficient_not_failed() {
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "early-eof-fixture".to_string(),
         label: "Early EOF fixture".to_string(),
@@ -214,6 +224,8 @@ fn transfer_chunked_counts_payload_not_framing() {
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "chunked".into(),
         label: "Chunked".into(),
@@ -331,6 +343,8 @@ fn response_fixture(response: &'static [u8], window_bytes: usize) -> super::Thro
     });
     let target = ThroughputTarget {
         upload_body_bytes: None,
+        target_class: None,
+        destination_asn: None,
         verification: None,
         id: "response".into(),
         label: "Response".into(),

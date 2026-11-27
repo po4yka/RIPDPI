@@ -26,6 +26,12 @@ pub(super) fn run(
     let mut details: Vec<_> = fields.into_iter().map(|(key, value)| ProbeDetail { key: key.into(), value }).collect();
     if let Some(leg) = target.transfer_volume_leg() {
         details.push(ProbeDetail { key: "transferVolumeLeg".into(), value: leg.into() });
+        if let Some(class) = &target.target_class {
+            details.push(ProbeDetail { key: "targetClass".into(), value: class.clone() });
+        }
+        if let Some(asn) = target.destination_asn {
+            details.push(ProbeDetail { key: "destinationAsn".into(), value: asn.to_string() });
+        }
     }
     if let Some(measurement) = sample.measurement
         && let Ok(value) = (TransferEvidence { version: 1, runs: vec![measurement] }).to_json()

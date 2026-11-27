@@ -176,6 +176,8 @@ data class ThroughputTarget(
     val runs: Int = 2,
     val verification: DownloadVerification? = null,
     val uploadBodyBytes: Int? = null,
+    val targetClass: String? = null,
+    val destinationAsn: Long? = null,
 )
 
 @Serializable
