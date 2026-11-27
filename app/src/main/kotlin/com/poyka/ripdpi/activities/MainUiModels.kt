@@ -171,6 +171,7 @@ internal data class MainUiInputs(
     val reconnectState: RunningReconnectState = RunningReconnectState.Idle,
     val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
     val activeExit: com.poyka.ripdpi.ui.screens.connection.ActiveExit? = null,
+    val serverNames: Map<String, String> = emptyMap(),
 )
 
 internal data class MainUiInputsBase(

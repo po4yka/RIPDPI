@@ -8,6 +8,7 @@ import com.poyka.ripdpi.AppStartupReadinessState
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ReadyAppStartupReadiness
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.FailureClass
@@ -20,6 +21,11 @@ import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RuntimeConfigurationApplication
+import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
+import com.poyka.ripdpi.data.RuntimeConfigurationDns
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -68,6 +74,7 @@ import com.poyka.ripdpi.ui.screens.status.assertArabic
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.connectedServerOf
 import com.poyka.ripdpi.ui.screens.status.homeOutcome
+import com.poyka.ripdpi.ui.screens.status.runningRelayServerName
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -382,18 +389,49 @@ class MainViewModelTest {
             ServiceTelemetrySnapshot(
                 awgTelemetry = NativeRuntimeSnapshot(source = "awg", upstreamRttMs = 37),
             )
-        val exit = ActiveExit("Home", "AmneziaWG")
-
         assertEquals(
             StatusConnectedServer("Home", 37),
-            connectedServerOf(exit, ConnectionState.Connected, telemetry),
+            connectedServerOf("Home", ConnectionState.Connected, telemetry),
         )
         assertEquals(
             StatusConnectedServer("Home", null),
-            connectedServerOf(exit, ConnectionState.Connected, ServiceTelemetrySnapshot()),
+            connectedServerOf("Home", ConnectionState.Connected, ServiceTelemetrySnapshot()),
         )
-        assertNull(connectedServerOf(exit, ConnectionState.Connecting, telemetry))
+        assertNull(connectedServerOf("Home", ConnectionState.Connecting, telemetry))
         assertNull(connectedServerOf(null, ConnectionState.Connected, telemetry))
+    }
+
+    @Test
+    fun `status names a running native relay as the server list does`() {
+        val names = mapOf("imported-1" to "Own VLESS")
+
+        assertEquals("Own VLESS", runningRelayServerName(runningNative("vless_reality", "imported-1"), names))
+        assertEquals("manual", runningRelayServerName(runningNative("hysteria2", "manual"), names))
+        assertNull(runningRelayServerName(runningNative("warp", "default"), names))
+        assertNull(runningRelayServerName(mapOf(Mode.VPN to RuntimeConfigurationApplication.Unknown), names))
+    }
+
+    private fun runningNative(
+        relayKind: String,
+        profileId: String,
+    ): Map<Mode, RuntimeConfigurationApplication> {
+        val selection = RuntimeConfigurationSelection("native", relayKind = relayKind, profileId = profileId)
+        return mapOf(
+            Mode.VPN to
+                RuntimeConfigurationApplication.Applied(
+                    AppliedRuntimeConfiguration(
+                        runtimeId = "runtime",
+                        revision = 1,
+                        appliedAt = 1,
+                        mode = Mode.VPN,
+                        requestedSelection = selection,
+                        effectiveSelection = selection,
+                        dns = RuntimeConfigurationDns("plain", "system"),
+                        strategy = RuntimeConfigurationStrategy(false),
+                        reason = RuntimeConfigurationApplyReason.InitialStart,
+                    ),
+                ),
+        )
     }
 
     @Test

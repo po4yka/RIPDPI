@@ -91,6 +91,8 @@ internal class MainUiStateOwner(
             inputs.copy(reconnectState = reconnect)
         }.combine(serviceDependencies.externalProviders.activeExit) { inputs, exit ->
             inputs.copy(activeExit = exit)
+        }.combine(serviceDependencies.externalProviders.serverNames) { inputs, names ->
+            inputs.copy(serverNames = names)
         }.combine(localeState) { inputs, _ ->
             val settings = inputs.settings
             val (status, activeMode) = inputs.statusAndMode

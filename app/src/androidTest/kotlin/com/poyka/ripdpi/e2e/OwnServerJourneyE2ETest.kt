@@ -7,6 +7,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import androidx.compose.ui.test.ComposeUiTestConfig
+import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
@@ -128,7 +129,7 @@ class OwnServerJourneyE2ETest :
                 }
             }
             step("Status shows the VLESS connection, then the user disconnects") {
-                awaitStatusText("VLESS")
+                awaitServerName("Own VLESS")
                 disconnect()
             }
             step("Proxy only routes a SOCKS connection through the same server") {
@@ -148,7 +149,7 @@ class OwnServerJourneyE2ETest :
                             .decodeToString()
                     }.getOrNull()
                 }
-                awaitStatusText("VLESS")
+                awaitServerName("Own VLESS")
                 disconnect()
             }
         }
@@ -239,10 +240,9 @@ class OwnServerJourneyE2ETest :
         composeRule.clickTag(RipDpiTestTags.ConnectionRelayAddServerPaste)
     }
 
-    private fun awaitStatusText(text: String) =
-        composeRule.waitWithTree("Status never showed $text", ConnectMillis) {
-            composeRule.tagExists(RipDpiTestTags.screen(Route.Status)) &&
-                composeRule.exists(hasText(text, substring = true))
+    private fun awaitServerName(name: String) =
+        composeRule.waitWithTree("Status never named $name", ConnectMillis) {
+            composeRule.exists(hasTestTag(RipDpiTestTags.StatusServerMetric) and hasAnyDescendant(hasText(name)))
         }
 
     private fun disconnect() {
