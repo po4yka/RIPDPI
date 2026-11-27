@@ -56,7 +56,13 @@ private class OnboardingStateProvider : PreviewParameterProvider<OnboardingUiSta
             testState(OnboardingValidationState.StartingMode(Mode.VPN)),
             testState(OnboardingValidationState.CheckingDns(Mode.VPN)),
             testState(OnboardingValidationState.RunningTrafficCheck(Mode.VPN)),
-            testState(OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "System DNS")),
+            testState(
+                OnboardingValidationState.Success(
+                    mode = Mode.VPN,
+                    dnsSummary = "System DNS",
+                    volumeTested = true,
+                ),
+            ),
             testState(
                 OnboardingValidationState.Failed(
                     reason = PreviewFailureReason,
@@ -88,7 +94,13 @@ private class OnboardingStateProvider : PreviewParameterProvider<OnboardingUiSta
             // The completion step for each exit: a skipped test, a passed test, and a failed test.
             completionState(OnboardingValidationState.Idle),
             completionState(OnboardingValidationState.Idle, mode = Mode.Proxy),
-            completionState(OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "System DNS")),
+            completionState(
+                OnboardingValidationState.Success(
+                    mode = Mode.VPN,
+                    dnsSummary = "System DNS",
+                    volumeTested = true,
+                ),
+            ),
             completionState(
                 OnboardingValidationState.Failed(
                     reason = PreviewFailureReason,

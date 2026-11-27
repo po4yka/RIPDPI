@@ -22,6 +22,7 @@
     <string name="onboarding_validation_failed">सत्यापन विफल: %1$s</string>
     <string name="onboarding_validation_failed_generic">चयनित मोड को सत्यापित नहीं किया जा सका।</string>
     <string name="onboarding_validation_failed_volume">परीक्षण स्थानांतरण %1$d बाइट के बाद रुक गया।</string>
+    <string name="onboarding_validation_failed_volume_rejected">परीक्षण फ़ाइल सही-सलामत नहीं पहुँची।</string>
     <string name="onboarding_validation_notifications_required">सूचनाओं की अनुमति दें ताकि RIPDPI सत्यापन सेवा की स्थिति दिखा सके।</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN अनुमति अस्वीकार कर दी गई, इसलिए RIPDPI VPN मोड को सत्यापित नहीं कर सका।</string>
     <string name="onboarding_chip_no_account">कोई अकाउंट नहीं</string>
@@ -131,7 +132,7 @@
     <string name="onboarding_done_dns">DNS सर्वर</string>
     <string name="onboarding_done_test">कनेक्शन परीक्षण</string>
     <string name="onboarding_done_test_passed">सफल</string>
-    <string name="onboarding_done_test_volume_untested">उत्तीर्ण, डेटा मात्रा का परीक्षण नहीं हुआ</string>
+    <string name="onboarding_done_test_volume_untested">कनेक्ट है, डेटा मात्रा का परीक्षण नहीं हुआ</string>
     <string name="onboarding_done_test_not_run">नहीं चलाया गया</string>
     <string name="onboarding_done_test_failed">विफल</string>
 </resources>

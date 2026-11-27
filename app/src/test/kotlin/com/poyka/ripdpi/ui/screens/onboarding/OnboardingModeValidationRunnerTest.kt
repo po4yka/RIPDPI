@@ -352,6 +352,7 @@ class OnboardingModeValidationRunnerTest {
         probes: List<PayloadProbeControl>?,
         transfer: OnboardingVolumeTransfer,
         socks: FakeSocksListener,
+        settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
     ): OnboardingValidationResult {
         val groups = FakeProxyGroupRepository()
         val failover =
@@ -383,6 +384,7 @@ class OnboardingModeValidationRunnerTest {
             serviceStateStore = store,
             serviceController = RunningServiceController(store),
             registry = registryWithTunnelRoute(socks.route()),
+            settings = settings,
             groups = groups,
             applied = applied,
             volumeTransfer = transfer,
@@ -428,7 +430,7 @@ class OnboardingModeValidationRunnerTest {
         }
 
     @Test
-    fun `a transfer with a mismatching hash fails the volume step`() =
+    fun `a full body that fails verification is rejected without a byte count`() =
         runTest {
             FakeSocksListener().use { socks ->
                 val result =
@@ -444,7 +446,83 @@ class OnboardingModeValidationRunnerTest {
                     )
                 val failure = result as OnboardingValidationResult.Failed
                 assertEquals(OnboardingValidationStep.Volume, failure.failedStep)
-                assertEquals(LargeControlBytes.toLong(), failure.transferredBytes)
+                assertEquals(null, failure.transferredBytes)
+                assertEquals("The test file did not arrive intact.", failure.reason)
+            }
+        }
+
+    @Test
+    fun `a refused connection before any body is rejected rather than stalled`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(
+                            policyControl("a.example", MinControlBytes),
+                            policyControl("b.example", LargeControlBytes),
+                        ),
+                        { _, _, _ -> CandidateHttpPayloadEvidence(false, 1L, receivedBytes = 0L) },
+                        socks,
+                    )
+                val failure = result as OnboardingValidationResult.Failed
+                assertEquals(null, failure.transferredBytes)
+            }
+        }
+
+    @Test
+    fun `the second control verifies after the first fails`() =
+        runTest {
+            val contacted = mutableListOf<String>()
+            val small = policyControl("a.example", MinControlBytes)
+            val large = policyControl("b.example", LargeControlBytes)
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(listOf(small, large), { _, control, _ ->
+                        contacted += control.url
+                        if (control == large) {
+                            CandidateHttpPayloadEvidence(false, 1L, timedOut = true, receivedBytes = StalledBytes)
+                        } else {
+                            CandidateHttpPayloadEvidence(true, 1L, receivedBytes = control.expectedBytes.toLong())
+                        }
+                    }, socks)
+                assertEquals(true, (result as OnboardingValidationResult.Success).volumeTested)
+                assertEquals(listOf(large.url, small.url), contacted)
+            }
+        }
+
+    @Test
+    fun `a stall on one control outranks a rejection on the other and keeps the larger byte count`() =
+        runTest {
+            val small = policyControl("a.example", MinControlBytes)
+            val large = policyControl("b.example", LargeControlBytes)
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(listOf(small, large), { _, control, _ ->
+                        if (control == large) {
+                            CandidateHttpPayloadEvidence(false, 1L, receivedBytes = StalledBytes)
+                        } else {
+                            CandidateHttpPayloadEvidence(false, 1L, receivedBytes = control.expectedBytes.toLong())
+                        }
+                    }, socks)
+                assertEquals(StalledBytes, (result as OnboardingValidationResult.Failed).transferredBytes)
+            }
+        }
+
+    @Test
+    fun `names resolved locally report volume not tested without contacting a control`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(
+                            policyControl("a.example", MinControlBytes),
+                            policyControl("b.example", LargeControlBytes),
+                        ),
+                        { _, _, _ -> error("the control host cannot be resolved inside the tunnel") },
+                        socks,
+                        FakeAppSettingsRepository().apply { update { setNoDomain(true) } },
+                    )
+                assertEquals(false, (result as OnboardingValidationResult.Success).volumeTested)
             }
         }
 

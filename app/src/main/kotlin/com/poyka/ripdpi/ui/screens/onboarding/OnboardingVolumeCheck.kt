@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.TcpFreezeThresholdBytes
 import com.poyka.ripdpi.data.runningConfiguration
 import com.poyka.ripdpi.services.CandidateHttpPayloadEvidence
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
@@ -23,6 +22,8 @@ sealed interface OnboardingVolumeOutcome {
     data object NotTested : OnboardingVolumeOutcome
 
     data object Verified : OnboardingVolumeOutcome
+
+    data object Rejected : OnboardingVolumeOutcome
 
     data class Stalled(
         val receivedBytes: Long,
@@ -60,25 +61,36 @@ class OnboardingVolumeCheck
             mode: Mode,
             route: LocalSocksRoute,
         ): OnboardingVolumeOutcome {
-            val selected = if (route.resolveNamesLocally) null else volumeControl(mode)
-            val evidence =
-                selected?.let { (control, timeoutMillis) ->
-                    val endpoint =
-                        RelayProbeEndpoint(
-                            route.host,
-                            route.port,
-                            route.credentials?.let { DiagnosticsProxyCredentials(it.username, it.password) },
-                        )
-                    transfer.transfer(endpoint, control, timeoutMillis)
-                }
-            return when {
-                evidence == null -> OnboardingVolumeOutcome.NotTested
-                evidence.succeeded -> OnboardingVolumeOutcome.Verified
-                else -> OnboardingVolumeOutcome.Stalled(evidence.receivedBytes ?: 0L)
-            }
+            val plan = if (route.resolveNamesLocally) null else volumePlan(mode)
+            return plan?.let { (controls, timeoutMillis) ->
+                val endpoint =
+                    RelayProbeEndpoint(
+                        route.host,
+                        route.port,
+                        route.credentials?.let { DiagnosticsProxyCredentials(it.username, it.password) },
+                    )
+                transferAll(endpoint, controls, timeoutMillis)
+            } ?: OnboardingVolumeOutcome.NotTested
         }
 
-        private suspend fun volumeControl(mode: Mode): Pair<PayloadProbeControl, Long>? {
+        private suspend fun transferAll(
+            endpoint: RelayProbeEndpoint,
+            controls: List<PayloadProbeControl>,
+            timeoutMillis: Long,
+        ): OnboardingVolumeOutcome {
+            var stalledBytes: Long? = null
+            for (control in controls) {
+                val evidence = transfer.transfer(endpoint, control, timeoutMillis)
+                if (evidence.succeeded) return OnboardingVolumeOutcome.Verified
+                val received = evidence.receivedBytes ?: 0L
+                if (evidence.timedOut || received in 1 until control.expectedBytes) {
+                    stalledBytes = maxOf(stalledBytes ?: 0L, received)
+                }
+            }
+            return stalledBytes?.let { OnboardingVolumeOutcome.Stalled(it) } ?: OnboardingVolumeOutcome.Rejected
+        }
+
+        private suspend fun volumePlan(mode: Mode): Pair<List<PayloadProbeControl>, Long>? {
             val groupId =
                 applied.applications.value[mode]
                     ?.runningConfiguration()
@@ -92,11 +104,9 @@ class OnboardingVolumeCheck
                         ?.failover
                         ?.payloadPolicy
                 }
-            return policy
-                ?.probes
-                ?.filter { it.expectedBytes > TcpFreezeThresholdBytes }
-                ?.maxByOrNull { it.expectedBytes }
-                ?.let { it to policy.timeoutSeconds * MillisecondsPerSecond }
+            return policy?.let { found ->
+                found.probes.sortedByDescending { it.expectedBytes } to found.timeoutSeconds * MillisecondsPerSecond
+            }
         }
     }
 

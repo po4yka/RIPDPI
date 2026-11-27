@@ -170,7 +170,12 @@ class RipDpiScreenCatalogScreenshotTest {
         captureOnboardingScreen(
             OnboardingUiState(
                 currentPage = OnboardingCompletionPageIndex,
-                validationState = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = ""),
+                validationState =
+                    OnboardingValidationState.Success(
+                        mode = Mode.VPN,
+                        dnsSummary = "",
+                        volumeTested = true,
+                    ),
             ),
         )
     }
@@ -243,7 +248,11 @@ class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun onboardingValidationSuccessScreen() {
         captureOnboardingValidationScreen(
-            OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Encrypted DNS · AdGuard (DoH)"),
+            OnboardingValidationState.Success(
+                mode = Mode.VPN,
+                dnsSummary = "Encrypted DNS · AdGuard (DoH)",
+                volumeTested = true,
+            ),
         )
     }
 

@@ -282,7 +282,12 @@ class OnboardingScreenTest {
         renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingTestPageIndex,
-                validationState = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
+                validationState =
+                    OnboardingValidationState.Success(
+                        mode = Mode.VPN,
+                        dnsSummary = "Test DNS",
+                        volumeTested = true,
+                    ),
             ),
         )
 
@@ -324,7 +329,11 @@ class OnboardingScreenTest {
                         OnboardingUiState(
                             currentPage = OnboardingTestPageIndex,
                             validationState =
-                                OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
+                                OnboardingValidationState.Success(
+                                    mode = Mode.VPN,
+                                    dnsSummary = "Test DNS",
+                                    volumeTested = true,
+                                ),
                         ),
                     actions = OnboardingScreenActions(onBack = { navigatedBack = true }),
                 )

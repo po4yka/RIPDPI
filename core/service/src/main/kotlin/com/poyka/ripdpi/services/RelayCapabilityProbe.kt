@@ -242,18 +242,21 @@ internal class OkHttpRelayTcpProbe(
                                 }
 
                                 else -> {
+                                    var bodyTimedOut = false
                                     val complete =
                                         try {
                                             expectedPayload?.let { control ->
                                                 consumeVerifiedPayload(response, control) { received = it.toLong() }
                                             } ?: consumeBoundedPayload(response)
-                                        } catch (_: IOException) {
+                                        } catch (error: IOException) {
+                                            bodyTimedOut = error is java.io.InterruptedIOException
                                             false
                                         }
                                     RelayTcpProbeResult(
                                         complete,
                                         response.code,
                                         if (complete) null else RelayProbeFailure.TcpConnect,
+                                        timedOut = bodyTimedOut,
                                         receivedBytes = received.takeIf { counting },
                                     )
                                 }
