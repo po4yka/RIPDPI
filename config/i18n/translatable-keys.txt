@@ -3433,6 +3433,7 @@ app:onboarding_done_test
 app:onboarding_done_test_failed
 app:onboarding_done_test_not_run
 app:onboarding_done_test_passed
+app:onboarding_done_test_volume_untested
 app:onboarding_done_title
 app:onboarding_guarantee_header_local
 app:onboarding_guarantee_header_privacy
@@ -3485,6 +3486,8 @@ app:onboarding_test_use_proxy
 app:onboarding_test_use_vpn
 app:onboarding_validation_failed
 app:onboarding_validation_failed_generic
+app:onboarding_validation_failed_volume
+app:onboarding_validation_failed_volume_rejected
 app:onboarding_validation_notifications_required
 app:onboarding_validation_vpn_permission_denied
 app:onboarding_welcome_body
