@@ -1,0 +1,11 @@
+{
+  "change": "svc-1795615846684850-suppress-route-issue-after-passed-connection-test",
+  "evidence_summary": "Route-issue fix verified by telemetry adapter tests, on device (Pixel 8 Pro audit pattern reproduced, no Route issue) and in main CI run 46009834608 on d9aa00b99f.",
+  "execution_sha256": "799d6da1ce60d53921de3a1a43282819ef8ca0e1ca7c6b9fc7784671e4ee0ff8",
+  "issue_sha256": "af5d67a877514e6d67a38fd6fc4bd724619eeec5af39298c73422e99bf906749",
+  "outcome": "done",
+  "prepared_at": "2026-11-27T14:33:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1795615846684850"
+}

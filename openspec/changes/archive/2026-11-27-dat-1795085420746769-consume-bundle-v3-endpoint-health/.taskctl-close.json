@@ -1,0 +1,11 @@
+{
+  "change": "dat-1795085420746769-consume-bundle-v3-endpoint-health",
+  "evidence_summary": "Bundle v3 endpoint-health consumer verified by the owner-authorized Gradle run at dc1bc3d74 and main CI run 46009834608 on d9aa00b99f; no device behavior owned.",
+  "execution_sha256": "f245b36ced4d7aaa2d97185a073c3f9ed34fe3ede0ee62e95873306d53f6a0f1",
+  "issue_sha256": "ca59765ccea4a5e38883f10f4d0ed0a4d8eb4087603a47e5d93b893053a493bb",
+  "outcome": "done",
+  "prepared_at": "2026-11-27T14:33:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1795085420746769"
+}
