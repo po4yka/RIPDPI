@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher.Companion.keyIsDefined
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
@@ -111,7 +112,9 @@ class VpnProfileSearchFontScaleTest {
         text: String,
         ancestorTag: String = RipDpiTestTags.RelayProfileSearchSheet,
     ) = composeRule.onNode(
-        hasText(text) and hasAnyAncestor(hasTestTag(ancestorTag)),
+        hasText(text) and
+            hasAnyAncestor(hasTestTag(ancestorTag)) and
+            keyIsDefined(SemanticsActions.GetTextLayoutResult),
         useUnmergedTree = true,
     )
 

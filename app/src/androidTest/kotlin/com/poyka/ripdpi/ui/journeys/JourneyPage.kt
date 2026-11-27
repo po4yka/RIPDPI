@@ -9,9 +9,9 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
@@ -107,7 +107,8 @@ internal fun JourneyRule.waitWithTree(
     try {
         waitUntil(timeoutMillis, condition)
     } catch (error: ComposeTimeoutException) {
-        throw AssertionError("$what\n${onRoot(useUnmergedTree = true).printToString(maxDepth = 12)}", error)
+        val tree = onAllNodes(isRoot(), useUnmergedTree = true).printToString(maxDepth = 12)
+        throw AssertionError("$what\n$tree", error)
     }
 }
 

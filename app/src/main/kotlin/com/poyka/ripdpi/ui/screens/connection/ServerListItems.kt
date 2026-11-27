@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +13,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.testTag
+import androidx.compose.ui.text.AnnotatedString
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindMieru
@@ -118,7 +125,6 @@ internal fun AwgServerRow(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ServerRow(
     server: ServerKey,
@@ -143,13 +149,13 @@ private fun ServerRow(
     ) {
         Box(
             modifier =
-                Modifier
-                    .combinedClickable(
-                        onClickLabel = null,
-                        onLongClickLabel = actionsLabel,
-                        onLongClick = { showMenu = true },
-                        onClick = { onOpen?.invoke() ?: run { showMenu = true } },
-                    ).ripDpiTestTag(rowTestTag),
+                Modifier.serverRowClick(
+                    tag = rowTestTag,
+                    texts = listOfNotNull(name, detail, kindLabel).distinct(),
+                    actionsLabel = actionsLabel,
+                    onOpen = onOpen ?: { showMenu = true },
+                    onActions = { showMenu = true },
+                ),
         ) {
             SettingsRow(title = name, subtitle = detail, value = kindLabel, showChevron = onOpen != null)
             RipDpiContextMenu(
@@ -204,6 +210,28 @@ private fun ServerRow(
         )
     }
 }
+
+private fun Modifier.serverRowClick(
+    tag: String,
+    texts: List<String>,
+    actionsLabel: String,
+    onOpen: () -> Unit,
+    onActions: () -> Unit,
+): Modifier =
+    combinedClickable(onLongClickLabel = actionsLabel, onLongClick = onActions, onClick = onOpen)
+        .clearAndSetSemantics {
+            testTag = tag
+            set(SemanticsProperties.Text, texts.map(::AnnotatedString))
+            role = Role.Button
+            onClick {
+                onOpen()
+                true
+            }
+            onLongClick(actionsLabel) {
+                onActions()
+                true
+            }
+        }
 
 @Composable
 private fun serverMenuActions(

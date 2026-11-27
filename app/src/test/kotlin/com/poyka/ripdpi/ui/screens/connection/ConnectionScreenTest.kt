@@ -421,6 +421,7 @@ class ConnectionScreenTest {
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         val row = composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("relay"))
+        row.assertTextContains("Trojan", substring = true).assertHasClickAction()
 
         fun openMenu() = row.performScrollTo().performTouchInput { longClick() }
 
