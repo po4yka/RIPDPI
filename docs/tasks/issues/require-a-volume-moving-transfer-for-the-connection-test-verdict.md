@@ -2,7 +2,7 @@
 id: DGN-1795704789266331
 title: Require a volume-moving transfer for the connection test verdict
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795704789266331-require-a-volume-moving-transfer-for-the-connection-test-verdict
 created: 2026-11-26
 updated: 2026-11-27
+status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
 ---
 
 ## Goal

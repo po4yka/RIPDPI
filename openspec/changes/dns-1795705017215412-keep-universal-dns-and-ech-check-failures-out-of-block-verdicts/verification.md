@@ -1,11 +1,11 @@
 ---
 task_id: DNS-1795705017215412
 change: dns-1795705017215412-keep-universal-dns-and-ech-check-failures-out-of-block-verdicts
-commit_sha: null
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
 local: passed
-local_evidence: "cargo test -p ripdpi-diagnostics-dns --locked: new resolver_panel tests pass (104 passed, 1 failed); the 1 failure, dns::measurement_tests::encrypted_measurement_retains_numeric_ede_after_padding_restore (loopback WouldBlock), fails identically on origin/main without this change. cargo fmt --check exit 0."
-remote_ci: required
-remote_ci_evidence: null
+local_evidence: 'cargo test -p ripdpi-diagnostics-dns --locked: new resolver_panel tests pass (104 passed, 1 failed); the 1 failure, dns::measurement_tests::encrypted_measurement_retains_numeric_ede_after_padding_restore (loopback WouldBlock), fails identically on origin/main without this change. cargo fmt --check exit 0.'
+remote_ci: passed
+remote_ci_evidence: 'CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37.'
 device: not_applicable
 device_evidence: Host-only Rust survey classification; no Android runtime path consumes it.
 artifact: not_applicable
