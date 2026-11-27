@@ -656,7 +656,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
 
 For proxy and tunnel payloads, `schemaVersion` is normally bumped **only** on a
 genuinely breaking shape change — a field whose meaning changed, or a removed
-section — never for an additive field. Tunnel JNI flat-JSON schema `3` is the
+section — never for an additive field. Tunnel JNI flat-JSON schema `4` is the
 current fail-closed live Android adapter envelope; it does not supersede the
 standalone YAML schema `2`. Additive changes stay covered by §7.
 

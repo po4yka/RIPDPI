@@ -45,6 +45,29 @@ where
 }
 
 /// # Cancel safety:
+/// NOT cancel-safe: drop the stream after a partial exchange or a refusal.
+pub(crate) async fn associate_feedback_unix<S>(stream: &mut S) -> io::Result<ripdpi_socks5_core::udp_feedback::Nonce>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    stream.write_all(&[5, ripdpi_socks5_core::udp_feedback::COMMAND, 0, 1, 0, 0, 0, 0, 0, 0]).await?;
+    let mut reply = [0; 10];
+    stream.read_exact(&mut reply).await?;
+    if reply[0] != 5 || reply[2] != 0 || reply[3] != 1 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "SOCKS5: invalid private UDP reply"));
+    }
+    if reply[1] != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            format!("SOCKS5: private UDP association failed with REP={:#04x}", reply[1]),
+        ));
+    }
+    let mut preface = [0; ripdpi_socks5_core::udp_feedback::PREFACE_LEN];
+    stream.read_exact(&mut preface).await?;
+    ripdpi_socks5_core::udp_feedback::decode_preface(&preface)
+}
+
+/// # Cancel safety:
 /// NOT cancel-safe: a request and its reply are one non-repeatable control exchange.
 async fn request<S>(stream: &mut S, control_peer: IpAddr, source: Option<SocketAddr>) -> io::Result<Option<SocketAddr>>
 where

@@ -15,7 +15,6 @@ use std::net::SocketAddr;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 
-/// Where a proxy listens. The Unix variant carries no path, so the private socket path never reaches telemetry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ListenerAddress {
     Tcp(SocketAddr),

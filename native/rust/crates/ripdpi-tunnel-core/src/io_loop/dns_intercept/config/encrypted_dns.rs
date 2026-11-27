@@ -27,6 +27,12 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         return Ok(None);
     };
     let transport = mapdns_resolver_transport(config, mapdns);
+    if config.socks5.unix_path.is_some() && matches!(transport, EncryptedDnsTransport::Socks5 { .. }) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "encrypted DNS through the proxy requires a TCP upstream",
+        ));
+    }
     if protocol == EncryptedDnsProtocol::Doq && matches!(transport, EncryptedDnsTransport::Socks5 { .. }) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "DoQ over SOCKS5 is not supported"));
     }

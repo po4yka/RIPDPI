@@ -5,6 +5,9 @@ import com.poyka.ripdpi.core.codec.NativeProxyConfigSchemaVersion
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -87,9 +90,9 @@ class NativeConfigSchemaVersionTest {
             tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080}""")
         }
         val current =
-            tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080,"schemaVersion":3}""")
+            tunnelJson.decodeFromString(Tun2SocksConfig.serializer(), """{"socks5Port":1080,"schemaVersion":4}""")
 
-        assertEquals(3, Tun2SocksConfigSchemaVersion)
+        assertEquals(4, Tun2SocksConfigSchemaVersion)
         assertEquals(Tun2SocksConfigSchemaVersion, current.schemaVersion)
     }
 
@@ -97,7 +100,7 @@ class NativeConfigSchemaVersionTest {
     fun `tunnel payload emits schemaVersion on the wire`() {
         val encoded = tunnelJson.encodeToString(Tun2SocksConfig.serializer(), Tun2SocksConfig(socks5Port = 1080))
 
-        assertTrue("tunnel payload must carry schemaVersion", encoded.contains("\"schemaVersion\":3"))
+        assertTrue("tunnel payload must carry schemaVersion", encoded.contains("\"schemaVersion\":4"))
         assertTrue(
             "tunnel payload must default ICMP UID policy to false",
             encoded.contains("\"uidPolicyAllowIcmp\":false"),
@@ -105,9 +108,28 @@ class NativeConfigSchemaVersionTest {
     }
 
     @Test
+    fun `tunnel wire payload names exactly one upstream form`() {
+        val upstreamFields = setOf("socks5Address", "socks5Port", "socks5UnixPath")
+        val tcp = Json.parseToJsonElement(encodeTunnelConfig(Tun2SocksConfig(socks5Port = 1080))).jsonObject
+        val unix =
+            Json
+                .parseToJsonElement(
+                    encodeTunnelConfig(
+                        Tun2SocksConfig(socks5Address = null, socks5Port = null, socks5UnixPath = "/data/px-0123"),
+                    ),
+                ).jsonObject
+
+        assertEquals(setOf("socks5Address", "socks5Port"), tcp.keys intersect upstreamFields)
+        assertEquals("127.0.0.1", tcp.getValue("socks5Address").jsonPrimitive.content)
+        assertEquals(setOf("socks5UnixPath"), unix.keys intersect upstreamFields)
+        assertEquals("/data/px-0123", unix.getValue("socks5UnixPath").jsonPrimitive.content)
+        assertEquals(Tun2SocksConfigSchemaVersion, unix.getValue("schemaVersion").jsonPrimitive.int)
+    }
+
+    @Test
     fun `tunnel start rejects old and future schema versions before JNI`() =
         runTest {
-            for (version in listOf(2, 4)) {
+            for (version in listOf(2, 3, 5)) {
                 val bindings = FakeTun2SocksBindings()
                 val tunnel = Tun2SocksTunnel(bindings)
 
@@ -121,7 +143,7 @@ class NativeConfigSchemaVersionTest {
 
                 assertTrue(error is IllegalArgumentException)
                 assertEquals(
-                    "Unsupported tunnel native config schema version: $version; expected 3",
+                    "Unsupported tunnel native config schema version: $version; expected 4",
                     error?.message,
                 )
                 assertEquals(null, bindings.lastCreatePayload)

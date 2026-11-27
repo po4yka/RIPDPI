@@ -1,6 +1,7 @@
 use super::association_state::{OutboundDatagram, UdpAssociation};
 use super::event_handling::UdpEvent;
 use super::worker::spawn_udp_association;
+use crate::session::ProxyUpstream;
 use crate::session::udp::UdpMemoryBudget;
 use crate::session::{Auth, TargetAddr};
 use std::net::SocketAddr;
@@ -32,7 +33,7 @@ fn worker(
 ) -> (UdpAssociation, tokio::sync::mpsc::Receiver<UdpEvent>) {
     let (tx, rx) = tokio::sync::mpsc::channel(4);
     let association = spawn_udp_association(
-        proxy,
+        &ProxyUpstream::Tcp(proxy),
         Auth::NoAuth,
         "10.0.0.2:53001".parse().unwrap(),
         "203.0.113.9:53".parse().unwrap(),

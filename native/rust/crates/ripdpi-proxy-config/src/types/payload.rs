@@ -86,7 +86,6 @@ pub struct ProxySessionOverrides {
     pub listen_port_override: Option<i32>,
     #[serde(default)]
     pub auth_token: Option<String>,
-    /// Absolute path of the private Unix socket to listen on instead of a TCP port.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub listen_unix_path: Option<String>,
 }

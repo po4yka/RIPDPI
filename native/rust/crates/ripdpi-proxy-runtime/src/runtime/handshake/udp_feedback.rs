@@ -10,7 +10,6 @@ use crate::runtime::state::RuntimeState;
 pub(super) fn allowed(client: &ClientStream, state: &RuntimeState) -> bool {
     state.resolved_domain_targets_allowed()
         && match client.peer() {
-            // Without an error queue the association only lacks remote-error frames.
             Ok(ClientPeer::LocalPrivate) => true,
             Ok(peer) => udp_error_queue::supported() && peer.is_local(),
             Err(_) => false,

@@ -1,4 +1,5 @@
 use crate::io_loop::udp_assoc::UdpAssociations;
+use crate::session::ProxyUpstream;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -145,7 +146,7 @@ async fn association_worker_sends_datagram_queued_during_setup() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         dest,
@@ -198,7 +199,7 @@ fn silent_proxy_association(
 ) -> (UdpAssociation, tokio::sync::mpsc::Receiver<UdpEvent>) {
     let (udp_tx, udp_rx) = tokio::sync::mpsc::channel(4);
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         "10.0.0.2:53010".parse().expect("source address"),
         "203.0.113.20:443".parse().expect("destination address"),
@@ -247,7 +248,7 @@ async fn cancelled_worker_does_not_wait_on_a_full_event_channel() {
     udp_tx.try_send(UdpEvent::Closed { src, association_id: 0 }).expect("fill the event channel");
     let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         dest,
@@ -286,7 +287,7 @@ async fn mapdns_udp_response_uses_synthetic_source_tuple() {
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel(1);
     let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         resolved,
@@ -335,7 +336,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         "203.0.113.20:443".parse().expect("valid test addr"),
@@ -384,7 +385,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         "203.0.113.20:443".parse().expect("valid test addr"),
@@ -432,7 +433,7 @@ async fn handle_udp_event_removes_closed_association() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         "203.0.113.20:443".parse().expect("valid test addr"),
@@ -476,7 +477,7 @@ async fn handle_udp_event_ignores_stale_close() {
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let cancel = CancellationToken::new();
     let association = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src,
         "203.0.113.20:443".parse().expect("valid test addr"),
@@ -540,7 +541,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
     let mut next_id = 1;
 
     let _ = super::forward_udp_payload(
-        "127.0.0.1:1080".parse().expect("proxy"),
+        &ProxyUpstream::Tcp("127.0.0.1:1080".parse().expect("proxy")),
         &Auth::NoAuth,
         src,
         dst,
@@ -601,7 +602,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
     let mut next_id = 1;
 
     let _ = super::forward_udp_payload(
-        "127.0.0.1:1080".parse().expect("proxy"),
+        &ProxyUpstream::Tcp("127.0.0.1:1080".parse().expect("proxy")),
         &Auth::NoAuth,
         src,
         dst,
@@ -662,7 +663,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
     // Model a flow already owned by the transport that is being replaced.
     associations.get_mut(src).unwrap().attribution_ids.put(original_id.request(), original_id);
     let forwarded = super::forward_udp_payload(
-        "127.0.0.1:1080".parse().expect("proxy"),
+        &ProxyUpstream::Tcp("127.0.0.1:1080".parse().expect("proxy")),
         &Auth::NoAuth,
         src,
         dst,
@@ -878,7 +879,7 @@ async fn shutdown_cancels_all_associations() {
     let cancel = CancellationToken::new();
 
     let a1 = spawn_udp_association(
-        proxy_addr,
+        &ProxyUpstream::Tcp(proxy_addr),
         Auth::NoAuth,
         src1,
         "203.0.113.21:443".parse().expect("valid test addr"),
@@ -893,7 +894,7 @@ async fn shutdown_cancels_all_associations() {
 
     let proxy_addr2 = spawn_udp_associate_stub().await;
     let a2 = spawn_udp_association(
-        proxy_addr2,
+        &ProxyUpstream::Tcp(proxy_addr2),
         Auth::NoAuth,
         src2,
         "203.0.113.22:443".parse().expect("valid test addr"),

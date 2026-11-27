@@ -74,7 +74,7 @@ impl TunnelSessionHarness {
         stats.rx_packets.fetch_add(8, Ordering::Relaxed);
         stats.rx_bytes.fetch_add(80, Ordering::Relaxed);
 
-        session.telemetry.mark_started(format!("{}:{}", session.config.socks5.address, session.config.socks5.port));
+        session.telemetry.mark_started(super::lifecycle::upstream_label(&session.config));
 
         let worker_cancel = cancel.clone();
         let worker_telemetry = session.telemetry.clone();

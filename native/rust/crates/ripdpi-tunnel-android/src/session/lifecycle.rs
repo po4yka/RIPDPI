@@ -23,6 +23,8 @@ pub(crate) use create::create_session;
 pub(crate) use readiness::rollback_failed_tunnel_start;
 pub(crate) use start::start_session;
 pub(crate) use state::{ensure_tunnel_destroyable, ensure_tunnel_start_allowed, take_running_tunnel};
+#[cfg(test)]
+pub(crate) use telemetry::upstream_label;
 pub(crate) use validation::validate_tun_fd;
 
 pub(crate) fn stop_session(env: &mut Env<'_>, handle: jlong) {

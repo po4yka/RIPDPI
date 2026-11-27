@@ -1,4 +1,5 @@
 use crate::io_loop::udp_assoc::UdpAssociations;
+use crate::session::ProxyUpstream;
 use std::collections::{BinaryHeap, HashSet};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -53,7 +54,7 @@ async fn excess_destination_is_rejected_before_queueing_or_pinning() {
         let dst = SocketAddr::new(Ipv4Addr::from(ip).into(), 443);
         let registration = ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id;
         forward_udp_payload(
-            "127.0.0.1:1080".parse().unwrap(),
+            &ProxyUpstream::Tcp("127.0.0.1:1080".parse().unwrap()),
             &Auth::NoAuth,
             src,
             dst,

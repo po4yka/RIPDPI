@@ -20,9 +20,36 @@ pub(crate) fn wire_session_telemetry(stats: &Arc<Stats>, telemetry: &Arc<TunnelT
     }));
 }
 
+pub(crate) fn upstream_label(config: &ripdpi_tunnel_config::Config) -> String {
+    if config.socks5.unix_path.is_some() {
+        "unix".to_string()
+    } else {
+        format!("{}:{}", config.socks5.address, config.socks5.port)
+    }
+}
+
 pub(crate) fn mark_session_started(telemetry: &TunnelTelemetryState, config: &ripdpi_tunnel_config::Config) {
-    telemetry.mark_started(format!("{}:{}", config.socks5.address, config.socks5.port));
+    telemetry.mark_started(upstream_label(config));
     if config.mapdns.as_ref().is_some_and(|mapdns| mapdns.route_dns_through_socks5) {
         telemetry.mark_relay_dns_route("socks5", true);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use super::upstream_label;
+
+    #[test]
+    fn upstream_label_names_the_unix_form_without_its_path() {
+        let tcp =
+            ripdpi_tunnel_config::Config::from_str("schemaVersion: 2\nsocks5:\n  port: 1080\n  address: 127.0.0.1\n")
+                .expect("tcp config");
+        let unix = ripdpi_tunnel_config::Config::from_str("schemaVersion: 2\nsocks5:\n  unix-path: /data/px-0123\n")
+            .expect("unix config");
+
+        assert_eq!(upstream_label(&tcp), "127.0.0.1:1080");
+        assert_eq!(upstream_label(&unix), "unix");
     }
 }

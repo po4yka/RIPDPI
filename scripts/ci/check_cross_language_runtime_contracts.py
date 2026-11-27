@@ -82,7 +82,7 @@ REQUIRED_TRIGGER_TERMS = {
 
 REQUIRED_INVARIANT_TERMS = {
     "native-config-json": {
-        "jni flat-json schema 3",
+        "jni flat-json schema 4",
         "standalone yaml schema 2",
     },
 }

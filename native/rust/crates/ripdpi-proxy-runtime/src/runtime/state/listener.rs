@@ -2,11 +2,7 @@ use super::*;
 
 #[derive(Clone, Copy)]
 pub(super) enum ListenerBinding {
-    Tcp {
-        addr: SocketAddr,
-        ipv6_only: bool,
-    },
-    /// A private Unix listener has no IP address to match targets against.
+    Tcp { addr: SocketAddr, ipv6_only: bool },
     Unix,
 }
 

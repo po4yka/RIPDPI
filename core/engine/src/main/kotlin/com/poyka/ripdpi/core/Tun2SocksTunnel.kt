@@ -18,6 +18,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import javax.inject.Inject
@@ -423,15 +425,22 @@ const val defaultTun2SocksTunnelMtu: Int = 1500
 /**
  * Current tunnel native-config wire schema version. [Tun2SocksConfig] must
  * carry `schemaVersion`; missing and non-current versions are rejected. Version
- * 3 establishes fail-closed validation at both the Kotlin and live Android Rust
- * adapter boundaries; it is independent of the standalone YAML schema. See
+ * 4 makes the TCP upstream (address and port) and the Unix upstream (path)
+ * mutually exclusive; it is independent of the standalone YAML schema. See
  * `docs/architecture/CONFIG_CONTRACTS.md` §8.
  */
-const val Tun2SocksConfigSchemaVersion: Int = 3
+const val Tun2SocksConfigSchemaVersion: Int = 4
+
+private val upstreamWireFields = setOf("socks5Address", "socks5Port", "socks5UnixPath")
 
 internal fun encodeTunnelConfig(config: Tun2SocksConfig): String =
     insertWireFields(
-        RipDpiEncodeDefaultsJson.encodeToJsonElement(config).jsonObject,
+        JsonObject(
+            RipDpiEncodeDefaultsJson
+                .encodeToJsonElement(config)
+                .jsonObject
+                .filterNot { (field, value) -> field in upstreamWireFields && value is JsonNull },
+        ),
         PacketBackendWire.tunnelFields(config.packetBackendSocketPath),
     ) { it == "luaScriptBaseDir" }.toString()
 
@@ -442,8 +451,9 @@ data class Tun2SocksConfig(
     val multiQueue: Boolean = false,
     val tunnelIpv4: String? = null,
     val tunnelIpv6: String? = null,
-    val socks5Address: String = "127.0.0.1",
-    val socks5Port: Int,
+    val socks5Address: String? = "127.0.0.1",
+    val socks5Port: Int?,
+    val socks5UnixPath: String? = null,
     val socks5Udp: String? = "udp",
     val socks5UdpAddress: String? = null,
     val socks5Pipeline: Boolean? = null,

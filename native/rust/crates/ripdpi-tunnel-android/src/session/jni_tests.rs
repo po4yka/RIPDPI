@@ -168,7 +168,7 @@ fn decode_long_array(env: &mut Env<'_>, raw: jlongArray) -> Option<Vec<jlong>> {
 
 fn sample_payload_json() -> String {
     r#"{
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "tunnelName": "tun0",
         "tunnelMtu": 1500,
         "multiQueue": false,
@@ -253,9 +253,10 @@ fn exported_jni_requires_current_tunnel_schema_version() {
     let _serial = JNI_TEST_MUTEX.lock().expect("lock tunnel JNI tests");
 
     for (schema_version, expected_message) in [
-        (None, "Missing tunnel config schemaVersion; expected 3".to_string()),
-        (Some(2), "Unsupported tunnel config schemaVersion: 2; expected 3".to_string()),
-        (Some(4), "Unsupported tunnel config schemaVersion: 4; expected 3".to_string()),
+        (None, "Missing tunnel config schemaVersion; expected 4".to_string()),
+        (Some(2), "Unsupported tunnel config schemaVersion: 2; expected 4".to_string()),
+        (Some(3), "Unsupported tunnel config schemaVersion: 3; expected 4".to_string()),
+        (Some(5), "Unsupported tunnel config schemaVersion: 5; expected 4".to_string()),
     ] {
         with_env(|env| {
             let handle = jni_create(env, &sample_payload_with_schema_version(schema_version));
@@ -269,8 +270,8 @@ fn exported_jni_requires_current_tunnel_schema_version() {
     }
 
     with_env(|env| {
-        let handle = jni_create(env, &sample_payload_with_schema_version(Some(3)));
-        assert_ne!(handle, 0, "current v3 JNI payload must allocate a handle");
+        let handle = jni_create(env, &sample_payload_with_schema_version(Some(4)));
+        assert_ne!(handle, 0, "current v4 JNI payload must allocate a handle");
         assert_no_exception(env);
         jni_destroy(env, handle);
         assert_no_exception(env);

@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::task::Waker;
@@ -8,12 +7,12 @@ use tokio::io::{DuplexStream, duplex};
 
 use crate::Stats;
 use crate::io_loop::DUPLEX_BUF;
-use crate::session::{Auth, TargetAddr, TcpSession};
+use crate::session::{Auth, ProxyUpstream, TargetAddr, TcpSession};
 
 use super::{SessionDuplex, SessionLifecycle};
 
 pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
-    proxy_sockaddr: SocketAddr,
+    proxy_sockaddr: &ProxyUpstream,
     auth: &Auth,
     target: TargetAddr,
     protect_path: Option<&str>,
@@ -25,7 +24,7 @@ pub(in crate::io_loop::tcp_accept) fn create_session_duplex(
     let (smoltcp_side, session_side) = duplex(DUPLEX_BUF);
     let SessionLifecycle { cancel, bridge_waker } = lifecycle;
     let session_inst = TcpSession::with_stats(
-        proxy_sockaddr,
+        proxy_sockaddr.clone(),
         auth.clone(),
         target,
         protect_path.map(str::to_owned),

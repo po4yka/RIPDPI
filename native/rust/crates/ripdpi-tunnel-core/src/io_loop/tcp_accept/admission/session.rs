@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -10,7 +9,7 @@ use crate::dns_cache::DnsCache;
 use crate::io_loop::dns_intercept::DnsRequest;
 use crate::io_loop::packet::TcpFlowKey;
 use crate::io_loop::tcp_accept::PendingListener;
-use crate::session::{Auth, TargetAddr};
+use crate::session::{Auth, ProxyUpstream, TargetAddr};
 use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, SessionEntry, Stats};
 
@@ -25,7 +24,7 @@ pub(super) fn admit_session(
     socket_set: &mut SocketSet<'static>,
     sessions: &mut ActiveSessions,
     pending_listens: &mut HashMap<TcpFlowKey, PendingListener>,
-    proxy_sockaddr: SocketAddr,
+    proxy_sockaddr: &ProxyUpstream,
     auth: &Auth,
     protect_path: Option<&str>,
     connect_timeout: Duration,

@@ -6,11 +6,11 @@ Define how the VPN tunnel and the in-app path clients reach the native proxy in 
 
 ### Requirement: REQ-VPL-NO-LOOPBACK — No loopback listener for the tunnel-to-proxy hop
 
-In VPN mode with the native proxy provider, the app process MUST NOT own a listening TCP socket bound to a loopback or wildcard address for the tunnel-to-proxy hop.
+In VPN mode with the native proxy provider, when encrypted DNS is not routed through the proxy, the app process MUST NOT own a listening TCP socket bound to a loopback or wildcard address for the tunnel-to-proxy hop.
 
 #### Scenario: Native VPN session exposes no loopback listener
 
-- **GIVEN** VPN mode runs with the native proxy provider and no relay, WARP, or AmneziaWG upstream
+- **GIVEN** VPN mode runs with the native proxy provider, no relay, WARP, or AmneziaWG upstream, and no encrypted DNS routed through the proxy
 - **WHEN** a client enumerates the sockets of the app process
 - **THEN** no socket bound to a loopback or wildcard address accepts a TCP connection.
 
@@ -32,7 +32,7 @@ The listener socket MUST be a file in the app-private files directory with a new
 
 ### Requirement: REQ-VPL-TCP — TCP flows through the Unix listener
 
-The tunnel MUST carry each TCP flow to the proxy through the Unix listener with the same half-close behavior, per-app identity, and telemetry as the TCP listener path.
+The tunnel MUST carry each TCP flow to the proxy through the Unix listener with the same half-close behavior, per-app identity, and telemetry as the TCP listener path. A Unix stream cannot carry a reset, so a relay that the proxy aborts MUST reach the app as an end of stream; this is the one accepted difference from the TCP listener path, where the app receives a reset.
 
 #### Scenario: TCP round trip with half-close
 
@@ -60,6 +60,27 @@ The tunnel MUST carry UDP flows through the private UDP association on the Unix 
 
 - **WHEN** a client sends the standard UDP ASSOCIATE command on the Unix listener
 - **THEN** the proxy replies with "command not supported" and binds no UDP socket.
+
+#### Scenario: Proxy aborts a frozen relay
+
+- **GIVEN** a TCP flow runs through the Unix listener and the proxy detects a frozen upstream relay
+- **WHEN** the proxy aborts the client side
+- **THEN** the app observes the end of the stream and no further data.
+
+### Requirement: REQ-VPL-DNS-TCP — Proxied encrypted DNS keeps the TCP listener
+
+When encrypted DNS is routed through the proxy, the VPN session MUST use the loopback TCP listener with the session token, as before this change, because the encrypted DNS client cannot dial a Unix socket. The tunnel MUST refuse to start with a Unix upstream and proxied encrypted DNS together. Plain DNS that is routed through the proxy uses the tunnel flows and works with the Unix upstream.
+
+#### Scenario: Encrypted DNS routed through the proxy
+
+- **GIVEN** the DNS plan routes encrypted DNS through the proxy
+- **WHEN** a VPN session starts with the native proxy provider
+- **THEN** the proxy binds the token-protected loopback TCP listener and the tunnel uses it.
+
+#### Scenario: Unix upstream with proxied encrypted DNS
+
+- **WHEN** the tunnel receives a config with a Unix upstream and proxied encrypted DNS
+- **THEN** the tunnel rejects the config and does not start.
 
 ### Requirement: REQ-VPL-AUTH — Authentication on the Unix listener
 

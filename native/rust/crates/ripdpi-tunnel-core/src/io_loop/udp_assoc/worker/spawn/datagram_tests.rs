@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -54,7 +55,7 @@ async fn association_worker_delivers_the_entire_large_reply_in_mtu_sized_fragmen
     let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let (tx, mut rx) = tokio::sync::mpsc::channel(4);
     let association = spawn_udp_association(
-        proxy,
+        &ProxyUpstream::Tcp(proxy),
         Auth::NoAuth,
         source,
         target,
@@ -121,7 +122,7 @@ async fn oversized_outer_frame_does_not_retire_an_existing_destination() {
     let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let (tx, mut rx) = tokio::sync::mpsc::channel(4);
     let association = spawn_udp_association(
-        proxy,
+        &ProxyUpstream::Tcp(proxy),
         Auth::NoAuth,
         source,
         target,

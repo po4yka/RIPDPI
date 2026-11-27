@@ -1,5 +1,5 @@
 {
- "total": 45583,
+ "total": 45581,
  "files": {
   ".claude/scripts/subagent-stop-audit-log.sh": 20,
   ".github/scripts/check-jni-symbols.sh": 24,
@@ -2963,7 +2963,7 @@
   "native/rust/crates/ripdpi-tunnel-core/src/session/socks5/tests.rs": 84,
   "native/rust/crates/ripdpi-tunnel-core/src/session/socks5/udp_associate.rs": 9,
   "native/rust/crates/ripdpi-tunnel-core/src/session/socks5/udp_frame.rs": 14,
-  "native/rust/crates/ripdpi-tunnel-core/src/session/tcp.rs": 73,
+  "native/rust/crates/ripdpi-tunnel-core/src/session/tcp.rs": 71,
   "native/rust/crates/ripdpi-tunnel-core/src/session/udp.rs": 137,
   "native/rust/crates/ripdpi-tunnel-core/src/session/udp/feedback_tests.rs": 1,
   "native/rust/crates/ripdpi-tunnel-core/src/session/udp/setup.rs": 1,

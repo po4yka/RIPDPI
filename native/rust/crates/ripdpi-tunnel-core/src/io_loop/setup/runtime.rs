@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -7,7 +7,7 @@ use ripdpi_tunnel_config::Config;
 use ripdpi_tunnel_intercept::egress::{RawTunPacketInjector, TunEgressInterceptor};
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, SynAckStrategy, TunIngressInterceptor};
 
-use crate::session::Auth;
+use crate::session::{Auth, ProxyUpstream};
 use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 
@@ -16,7 +16,7 @@ use super::super::state::LoopRuntime;
 
 pub(super) fn build_loop_runtime(
     config: &Config,
-    proxy_sockaddr: SocketAddr,
+    proxy_sockaddr: ProxyUpstream,
     auth: Auth,
     mapdns_runtime: Option<MapDnsRuntime>,
     split_dns_policy: Option<Arc<SplitDnsPolicy>>,

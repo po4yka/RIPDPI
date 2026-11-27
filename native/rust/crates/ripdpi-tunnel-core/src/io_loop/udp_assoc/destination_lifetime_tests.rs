@@ -1,4 +1,5 @@
 use crate::io_loop::udp_assoc::UdpAssociations;
+use crate::session::ProxyUpstream;
 use std::collections::BinaryHeap;
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
@@ -28,7 +29,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
     let cancel = CancellationToken::new();
     let (events, _events_rx) = tokio::sync::mpsc::channel(4);
     let association = spawn_udp_association(
-        proxy,
+        &ProxyUpstream::Tcp(proxy),
         Auth::NoAuth,
         src,
         resolved,
@@ -54,7 +55,7 @@ async fn idle_destination_releases_lease_without_retiring_active_peer() {
         let registration = ripdpi_flow_app_attribution::note_flow(17, src, dst).registration_id;
         assert!(
             forward_udp_payload(
-                proxy,
+                &ProxyUpstream::Tcp(proxy),
                 &Auth::NoAuth,
                 src,
                 dst,
@@ -127,7 +128,7 @@ async fn mapping_stays_leased_until_its_last_live_destination_expires() {
     let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let (events, _events_rx) = tokio::sync::mpsc::channel(1);
     let association = spawn_udp_association(
-        "127.0.0.1:9".parse().unwrap(),
+        &ProxyUpstream::Tcp("127.0.0.1:9".parse().unwrap()),
         Auth::NoAuth,
         src,
         resolved,

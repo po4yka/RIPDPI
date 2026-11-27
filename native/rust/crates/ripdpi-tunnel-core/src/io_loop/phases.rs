@@ -102,7 +102,7 @@ pub(in crate::io_loop) fn admit_tcp_sessions(state: &mut LoopState) {
         &mut state.sessions,
         &mut state.pending_listens,
         &mut state.tcp_admission_cursor,
-        state.runtime.proxy_sockaddr,
+        &state.runtime.proxy_sockaddr,
         &state.runtime.auth,
         state.runtime.protect_path.as_deref(),
         state.runtime.tcp_connect_timeout,
@@ -174,7 +174,7 @@ mod tests {
     use tokio::sync::mpsc;
     use tokio_util::sync::CancellationToken;
 
-    use crate::session::Auth;
+    use crate::session::{Auth, ProxyUpstream};
     use crate::{ActiveSessions, Stats, TunDevice};
     use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
     use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
@@ -375,7 +375,7 @@ mod tests {
             std::future::pending::<()>().await;
         });
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-        state.runtime.proxy_sockaddr = proxy_addr;
+        state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(proxy_addr);
         let packet = ipv4_udp_packet(55000, 443, b"quic");
 
         route_tun_packet(&packet, &mut state);
@@ -911,7 +911,7 @@ mod tests {
             stats,
             dns_cache: None,
             runtime: LoopRuntime {
-                proxy_sockaddr: "127.0.0.1:1080".parse::<SocketAddr>().expect("proxy address"),
+                proxy_sockaddr: ProxyUpstream::Tcp("127.0.0.1:1080".parse::<SocketAddr>().expect("proxy address")),
                 auth: Auth::NoAuth,
                 mapdns_runtime: None,
                 mapdns_classify: None,

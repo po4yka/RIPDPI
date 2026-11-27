@@ -1,9 +1,11 @@
 use std::net::SocketAddr;
 
 use proptest::prelude::*;
+
 use tokio_test::io::Builder;
 
 use super::*;
+use crate::session::ProxyUpstream;
 
 // -------------------------------------------------------------------------
 // NoAuth
@@ -58,15 +60,20 @@ async fn noauth_handshake_rejects_invalid_server_version() {
 #[test]
 fn app_scope_preserves_provider_credentials_and_external_proxy_identity() {
     let scope = "11111111-1111-4111-8111-111111111111";
+    let tcp = |addr: &str| ProxyUpstream::Tcp(addr.parse().unwrap());
+    let unix = ProxyUpstream::Unix("/data/px-0123".into());
     for (proxy, username, app_scope, expected_username) in [
-        ("127.0.0.1:1080", "xray-session", Some(scope), "xray-session"),
-        ("[::1]:1080", "xray-session", Some(scope), "xray-session"),
-        ("192.0.2.1:1080", "ripdpi", Some(scope), "ripdpi"),
-        ("127.0.0.1:1080", "ripdpi", None, "ripdpi"),
-        ("127.0.0.1:1080", "ripdpi", Some(scope), "vpn08:11111111-1111-4111-8111-111111111111"),
+        (tcp("127.0.0.1:1080"), "xray-session", Some(scope), "xray-session"),
+        (tcp("[::1]:1080"), "xray-session", Some(scope), "xray-session"),
+        (tcp("192.0.2.1:1080"), "ripdpi", Some(scope), "ripdpi"),
+        (tcp("127.0.0.1:1080"), "ripdpi", None, "ripdpi"),
+        (tcp("127.0.0.1:1080"), "ripdpi", Some(scope), "vpn08:11111111-1111-4111-8111-111111111111"),
+        (unix.clone(), "ripdpi", Some(scope), "vpn08:11111111-1111-4111-8111-111111111111"),
+        (unix.clone(), "ripdpi", None, "ripdpi"),
+        (unix, "xray-session", Some(scope), "xray-session"),
     ] {
         let auth = Auth::UserPass { username: username.into(), password: "fixture-token".into() };
-        let Auth::UserPass { username, password } = auth.with_app_scope(proxy.parse().unwrap(), app_scope) else {
+        let Auth::UserPass { username, password } = auth.with_app_scope(&proxy, app_scope) else {
             panic!("scoping must preserve authenticated SOCKS");
         };
         assert_eq!(username, expected_username);

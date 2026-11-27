@@ -4,14 +4,12 @@ use std::os::fd::{AsFd, AsRawFd, BorrowedFd, RawFd};
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-/// Client side of one proxy session: a TCP peer, or a peer on the private Unix listener.
 #[derive(Debug)]
 pub enum ClientStream {
     Tcp(TcpStream),
     Unix(UnixStream),
 }
 
-/// Who the client is, for the checks that used `peer_addr()`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClientPeer {
     Ip(SocketAddr),
@@ -19,7 +17,6 @@ pub enum ClientPeer {
 }
 
 impl ClientPeer {
-    /// True for a loopback IP peer and for `LocalPrivate`.
     #[must_use]
     pub fn is_local(&self) -> bool {
         match self {
@@ -28,7 +25,6 @@ impl ClientPeer {
         }
     }
 
-    /// The peer IP address, `None` for `LocalPrivate`.
     #[must_use]
     pub fn ip(&self) -> Option<IpAddr> {
         match self {
@@ -102,7 +98,6 @@ impl ClientStream {
         }
     }
 
-    /// The TCP stream, for TCP-only socket options.
     #[must_use]
     pub fn as_tcp(&self) -> Option<&TcpStream> {
         match self {

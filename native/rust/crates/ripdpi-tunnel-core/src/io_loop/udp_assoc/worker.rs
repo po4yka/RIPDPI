@@ -6,8 +6,8 @@ use std::time::Duration;
 use lru::LruCache;
 use tokio_util::sync::CancellationToken;
 
-use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
+use crate::session::{Auth, ProxyUpstream};
 
 mod remote_errors;
 mod replies;
@@ -31,7 +31,7 @@ use spawn::{UdpWorkerConfig, spawn_udp_worker};
 /// `connect_timeout`, and observes cancellation in every later send/receive.
 #[allow(clippy::too_many_arguments)]
 pub(super) fn spawn_udp_association(
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: Auth,
     src: SocketAddr,
     _dest: SocketAddr,
@@ -47,7 +47,7 @@ pub(super) fn spawn_udp_association(
     let (outbound, outbound_rx) = tokio::sync::mpsc::channel::<OutboundDatagram>(UDP_OUTBOUND_QUEUE_CAPACITY);
     let worker = spawn_udp_worker(
         UdpWorkerConfig {
-            proxy_addr,
+            proxy_addr: proxy_addr.clone(),
             auth,
             protect_path: protect_path.map(str::to_owned),
             src,

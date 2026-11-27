@@ -1,5 +1,3 @@
-//! Passes one descriptor over a connected Unix stream, as the byte `0x01` with `SCM_RIGHTS`.
-
 use std::io::{self, IoSlice, IoSliceMut};
 use std::mem::MaybeUninit;
 use std::os::fd::{BorrowedFd, OwnedFd};
@@ -12,8 +10,6 @@ use rustix::net::{
 };
 
 const MARKER: u8 = 0x01;
-// Room for the largest SCM_RIGHTS message any supported kernel accepts (XNU: 512), so an
-// extra descriptor is counted and refused instead of being cut off and left installed.
 const MAX_ANCILLARY_FDS: usize = 512;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -26,9 +22,6 @@ const SEND_FLAGS: SendFlags = SendFlags::NOSIGNAL;
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 const SEND_FLAGS: SendFlags = SendFlags::empty();
 
-/// Sends one byte with exactly one descriptor attached.
-///
-/// On a non-blocking stream a full buffer returns `WouldBlock` and nothing is sent.
 pub fn send_fd(stream: BorrowedFd<'_>, fd: BorrowedFd<'_>) -> io::Result<()> {
     let fds = [fd];
     let mut space = [MaybeUninit::uninit(); cmsg_space!(ScmRights(1))];
@@ -47,11 +40,6 @@ pub fn send_fd(stream: BorrowedFd<'_>, fd: BorrowedFd<'_>) -> io::Result<()> {
     }
 }
 
-/// Receives one byte and exactly one descriptor.
-///
-/// Closes every received descriptor and returns an error when the byte is not `0x01`, the
-/// count is not one, or the control data was truncated. Blocking and timeouts follow the
-/// socket; on a non-blocking stream an empty socket returns `WouldBlock` and consumes nothing.
 pub fn recv_fd(stream: BorrowedFd<'_>) -> io::Result<OwnedFd> {
     let mut marker = [0u8; 1];
     let mut space = [MaybeUninit::uninit(); cmsg_space!(ScmRights(MAX_ANCILLARY_FDS))];
@@ -64,7 +52,6 @@ pub fn recv_fd(stream: BorrowedFd<'_>) -> io::Result<OwnedFd> {
             Err(error) => return Err(error.into()),
         }
     };
-    // Dropping the descriptors on any error below closes them.
     let mut fds: Vec<OwnedFd> = Vec::new();
     for message in control.drain() {
         if let RecvAncillaryMessage::ScmRights(received_fds) = message {
@@ -86,7 +73,6 @@ pub fn recv_fd(stream: BorrowedFd<'_>) -> io::Result<OwnedFd> {
     Ok(fd)
 }
 
-/// True when `fd` is an `AF_UNIX` `SOCK_DGRAM` socket.
 pub fn is_unix_datagram(fd: BorrowedFd<'_>) -> io::Result<bool> {
     Ok(sockopt::socket_type(fd)? == SocketType::DGRAM && getsockname(fd)?.address_family() == AddressFamily::UNIX)
 }
@@ -100,7 +86,6 @@ mod tests {
     use super::*;
 
     fn closed_peer_observed(peer: &UnixDatagram) -> bool {
-        // A datagram socket reports a closed peer on the next send to it.
         (0..50).any(|_| {
             std::thread::sleep(std::time::Duration::from_millis(20));
             peer.send(b"x").is_err()

@@ -134,6 +134,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 tunnel_ipv6,
                 socks5_address,
                 socks5_port,
+                socks5_unix_path: None,
                 socks5_udp,
                 socks5_udp_address,
                 socks5_pipeline,
@@ -274,6 +275,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 tunnel_ipv6,
                 socks5_address,
                 socks5_port,
+                socks5_unix_path: None,
                 socks5_udp,
                 socks5_udp_address,
                 socks5_pipeline,
@@ -461,6 +463,45 @@ fn rejects_blank_socks5_address() {
     assert_eq!(err, "socks5Address must not be blank");
 }
 
+fn unix_payload(unix_path: &str) -> TunnelConfigPayload {
+    let mut payload = sample_payload();
+    payload.socks5_address = String::new();
+    payload.socks5_port = 0;
+    payload.socks5_unix_path = Some(unix_path.to_string());
+    payload
+}
+
+#[test]
+fn unix_upstream_maps_to_the_socks5_config_without_an_address() {
+    let config = config_from_payload(unix_payload("/data/px-0123")).expect("unix upstream");
+
+    assert_eq!(config.socks5.unix_path.as_deref(), Some("/data/px-0123"));
+    assert_eq!((config.socks5.address.as_str(), config.socks5.port), ("", 0));
+}
+
+#[test]
+fn rejects_unix_path_together_with_address_or_port_and_neither_form() {
+    let mut with_address = unix_payload("/data/px-0123");
+    with_address.socks5_address = "127.0.0.1".to_string();
+    let mut with_port = unix_payload("/data/px-0123");
+    with_port.socks5_port = 1080;
+    let mut neither = sample_payload();
+    neither.socks5_address = String::new();
+    neither.socks5_port = 0;
+    let long = unix_payload(&format!("/{}", "a".repeat(107)));
+
+    for (payload, field) in [
+        (with_address, "socks5.unix-path"),
+        (with_port, "socks5.unix-path"),
+        (unix_payload("relative"), "socks5.unix-path"),
+        (long, "socks5.unix-path"),
+        (neither, "socks5Address"),
+    ] {
+        let err = config_from_payload(payload).expect_err("invalid upstream");
+        assert!(err.contains(field), "{err}");
+    }
+}
+
 #[test]
 fn rejects_blank_tunnel_name() {
     let mut payload = sample_payload();
@@ -481,24 +522,24 @@ fn rejects_invalid_tunnel_json_payload() {
 #[test]
 fn tunnel_json_requires_current_schema_version() {
     let missing = parse_tunnel_config_json(r#"{"socks5Port":1080}"#).expect_err("missing schemaVersion");
-    assert_eq!(missing, "Missing tunnel config schemaVersion; expected 3");
+    assert_eq!(missing, "Missing tunnel config schemaVersion; expected 4");
 
-    for version in [2, 4] {
+    for version in [2, 3, 5] {
         let json = format!(r#"{{"socks5Port":1080,"schemaVersion":{version}}}"#);
         let error = parse_tunnel_config_json(&json).expect_err("unsupported schemaVersion");
-        assert_eq!(error, format!("Unsupported tunnel config schemaVersion: {version}; expected 3"));
+        assert_eq!(error, format!("Unsupported tunnel config schemaVersion: {version}; expected 4"));
     }
 
-    let current = parse_tunnel_config_json(r#"{"socks5Port":1080,"schemaVersion":3}"#);
+    let current = parse_tunnel_config_json(r#"{"socks5Port":1080,"schemaVersion":4}"#);
     assert!(current.is_ok(), "current schemaVersion should parse: {current:?}");
 }
 
 #[test]
 fn tunnel_json_rejects_duplicate_schema_and_behavior_fields() {
     for (json, field) in [
-        (r#"{"schemaVersion":2,"schemaVersion":3,"socks5Port":1080}"#, "schemaVersion"),
-        (r#"{"schemaVersion":3,"socks5Port":1080,"socks5Port":1081}"#, "socks5Port"),
-        (r#"{"schemaVersion":3,"socks5Port":1080,"uidPolicyMode":"allow","uidPolicyMode":"deny"}"#, "uidPolicyMode"),
+        (r#"{"schemaVersion":2,"schemaVersion":4,"socks5Port":1080}"#, "schemaVersion"),
+        (r#"{"schemaVersion":4,"socks5Port":1080,"socks5Port":1081}"#, "socks5Port"),
+        (r#"{"schemaVersion":4,"socks5Port":1080,"uidPolicyMode":"allow","uidPolicyMode":"deny"}"#, "uidPolicyMode"),
     ] {
         let error = parse_tunnel_config_json(json).expect_err("duplicate field");
         assert!(
@@ -515,15 +556,15 @@ fn tunnel_payload_validation_rejects_non_current_schema_version() {
 
     let error = config_from_payload(payload).expect_err("unsupported schemaVersion");
 
-    assert_eq!(error, "Unsupported tunnel config schemaVersion: 2; expected 3");
+    assert_eq!(error, "Unsupported tunnel config schemaVersion: 2; expected 4");
 }
 
 #[test]
 fn split_dns_policy_maps_ordered_v3_wire_payload_into_runtime_config() {
     let payload = parse_tunnel_config_json(
         r#"{
-            "schemaVersion":3,
-            "socks5Port":1080,
+            "schemaVersion":4,
+            "socks5Address":"127.0.0.1","socks5Port":1080,
             "mapdnsAddress":"198.18.0.53",
             "encryptedDnsProtocol":"dot",
             "encryptedDnsHost":"dns.example",
@@ -716,8 +757,8 @@ fn accepts_boundary_mtu_values() {
 fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
     let payload = parse_tunnel_config_json(
         r#"{
-              "schemaVersion": 3,
-              "socks5Port": 1080,
+              "schemaVersion": 4,
+              "socks5Address":"127.0.0.1","socks5Port": 1080,
               "mapdnsAddress": "198.18.0.53",
               "mapdnsPort": 53,
               "mapdnsNetwork": "198.18.0.0",
@@ -747,8 +788,10 @@ fn accepts_kotlin_defaulted_tunnel_fields_when_omitted() {
 
 #[test]
 fn parses_explicit_uid_policy_icmp_opt_in() {
-    let payload = parse_tunnel_config_json(r#"{"schemaVersion":3,"socks5Port":1080,"uidPolicyAllowIcmp":true}"#)
-        .expect("payload");
+    let payload = parse_tunnel_config_json(
+        r#"{"schemaVersion":4,"socks5Address":"127.0.0.1","socks5Port":1080,"uidPolicyAllowIcmp":true}"#,
+    )
+    .expect("payload");
 
     let config = config_from_payload(payload).expect("config");
 
@@ -806,7 +849,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
     use golden_test_support::{assert_contract_fixture, extract_field_paths};
 
     let payload_json = r#"{
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "tunnelName": "tun0",
         "tunnelMtu": 1500,
         "multiQueue": false,
@@ -814,6 +857,7 @@ fn tunnel_config_field_manifest_matches_contract_fixture() {
         "tunnelIpv6": "fd00::2",
         "socks5Address": "127.0.0.1",
         "socks5Port": 1080,
+        "socks5UnixPath": "/data/user/0/app/files/px-0123",
         "socks5Udp": "udp-relay",
         "socks5UdpAddress": "127.0.0.2",
         "socks5Pipeline": true,

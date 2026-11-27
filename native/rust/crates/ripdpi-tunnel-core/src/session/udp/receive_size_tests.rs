@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::ProxyUpstream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 /// # Cancel safety:
@@ -44,7 +45,7 @@ fn literal_frame(payload: &[u8]) -> Vec<u8> {
 async fn complete_exact_fit_frame_is_delivered() {
     let (proxy, cancel, peer) = scripted_proxy(vec![literal_frame(b"ok")]).await;
     let budget = UdpMemoryBudget::new(12, 1, DEFAULT_QUEUED_UDP_BYTES);
-    let session = UdpSession::connect_with_memory_budget(proxy, Auth::NoAuth, None, budget)
+    let session = UdpSession::connect_with_memory_budget(&ProxyUpstream::Tcp(proxy), Auth::NoAuth, None, budget)
         .await
         .expect("session")
         .with_recv_timeout(Duration::from_secs(2));
@@ -63,7 +64,7 @@ async fn production_receive_budget_preserves_a_reply_larger_than_tun_mtu() {
     let expected = vec![0x5a; 2000];
     let (proxy, cancel, peer) = scripted_proxy(vec![literal_frame(&expected)]).await;
     let budget = UdpMemoryBudget::for_tunnel_mtu(1500);
-    let session = UdpSession::connect_with_memory_budget(proxy, Auth::NoAuth, None, budget)
+    let session = UdpSession::connect_with_memory_budget(&ProxyUpstream::Tcp(proxy), Auth::NoAuth, None, budget)
         .await
         .expect("session")
         .with_recv_timeout(Duration::from_secs(2));
@@ -82,7 +83,7 @@ async fn oversized_frame_is_isolated_from_exact_fit_and_empty_replies() {
     let replies = vec![literal_frame(b"too large"), literal_frame(b"ok"), literal_frame(b"")];
     let (proxy, cancel, peer) = scripted_proxy(replies).await;
     let budget = UdpMemoryBudget::new(12, 1, DEFAULT_QUEUED_UDP_BYTES);
-    let session = UdpSession::connect_with_memory_budget(proxy, Auth::NoAuth, None, budget)
+    let session = UdpSession::connect_with_memory_budget(&ProxyUpstream::Tcp(proxy), Auth::NoAuth, None, budget)
         .await
         .expect("session")
         .with_recv_timeout(Duration::from_secs(2));

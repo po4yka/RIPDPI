@@ -8,13 +8,14 @@ pub(crate) fn validate_payload(payload: &TunnelConfigPayload) -> Result<(), Stri
             payload.schema_version
         ));
     }
-    if payload.socks5_address.trim().is_empty() {
+    let tcp_upstream = payload.socks5_unix_path.is_none();
+    if tcp_upstream && payload.socks5_address.trim().is_empty() {
         return Err("socks5Address must not be blank".to_string());
     }
     if payload.tunnel_name.trim().is_empty() {
         return Err("tunnelName must not be blank".to_string());
     }
-    if payload.socks5_port == 0 {
+    if tcp_upstream && payload.socks5_port == 0 {
         return Err("socks5Port must be non-zero".to_string());
     }
     if let Some(port) = payload.mapdns_port

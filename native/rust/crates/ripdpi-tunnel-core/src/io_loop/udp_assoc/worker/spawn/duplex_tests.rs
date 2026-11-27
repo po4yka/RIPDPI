@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use std::collections::HashSet;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, UdpSocket};
@@ -141,7 +142,7 @@ fn ready_udp_reply_progresses_while_the_outbound_queue_remains_ready() {
     let association = {
         let _entered = runtime.enter();
         spawn_udp_association(
-            proxy,
+            &ProxyUpstream::Tcp(proxy),
             Auth::NoAuth,
             source,
             target,

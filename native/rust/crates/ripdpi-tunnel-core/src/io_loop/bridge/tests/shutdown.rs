@@ -204,6 +204,7 @@ async fn assert_packet_failure_retires_session(tun: std::os::fd::OwnedFd, queue_
     let config = Arc::new(Config {
         tunnel: TunnelConfig::default(),
         socks5: Socks5Config {
+            unix_path: None,
             address: "127.0.0.1".into(),
             port: 1080,
             udp: None,

@@ -12,6 +12,7 @@ pub(super) fn tunnel_config_with_mapdns(
     ripdpi_tunnel_config::Config {
         tunnel: ripdpi_tunnel_config::TunnelConfig::default(),
         socks5: ripdpi_tunnel_config::Socks5Config {
+            unix_path: None,
             port: 1080,
             address: "127.0.0.1".to_string(),
             udp: None,

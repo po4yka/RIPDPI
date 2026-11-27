@@ -19,7 +19,6 @@ use ripdpi_proxy_runtime_adapter::model::session::{descriptor, udp_feedback};
 const TOKEN: &str = "session-token";
 const TIMEOUT: Duration = Duration::from_secs(5);
 
-/// Echoes every byte back and counts accepted connections.
 struct Upstream {
     addr: SocketAddr,
     accepted: Arc<AtomicUsize>,
@@ -278,7 +277,6 @@ fn runtime_stop_shuts_down_an_idle_unix_client() {
     }
 }
 
-/// Echoes every datagram back and counts them.
 struct UdpEcho {
     addr: SocketAddr,
     received: Arc<AtomicUsize>,
@@ -305,7 +303,6 @@ impl UdpEcho {
     }
 }
 
-/// A private UDP association: the control stream, and this side of the passed datagram socket.
 struct UdpClient {
     control: UnixStream,
     datagrams: UnixDatagram,
@@ -323,7 +320,6 @@ fn open_private_udp(path: &Path) -> UdpClient {
     control.read_exact(&mut preface).expect("feedback preface");
     let nonce = udp_feedback::decode_preface(&preface).expect("valid preface");
     let (datagrams, passed) = UnixDatagram::pair().expect("datagram pair");
-    // The client sizes both ends; macOS defaults are smaller than a maximum-size frame.
     for end in [&datagrams, &passed] {
         let socket = socket2::SockRef::from(end);
         socket.set_send_buffer_size(1 << 20).expect("send buffer");
@@ -348,7 +344,6 @@ impl UdpClient {
         self.datagrams.send(&frame).expect("send request frame");
     }
 
-    /// The echoed data of the next response frame, with the SOCKS5 header removed.
     fn recv_response(&self) -> Vec<u8> {
         let mut buf = vec![0_u8; 65_535];
         let n = self.datagrams.recv(&mut buf).expect("response frame");
@@ -416,8 +411,6 @@ fn unix_private_udp_survives_a_maximum_size_frame() {
     let udp = open_private_udp(&path);
     let data = vec![0xa5_u8; udp_feedback::MAX_WIRE_LEN - udp_feedback::HEADER_LEN - 10];
     udp.send_request(&udp.nonce, 1, echo.addr, &data);
-    // Linux loopback carries the datagram. macOS refuses a UDP datagram this large (EMSGSIZE), so the
-    // proxy drops the frame and nothing reaches the upstream.
     #[cfg(any(target_os = "linux", target_os = "android"))]
     assert_eq!(udp.recv_response(), data);
     #[cfg(not(any(target_os = "linux", target_os = "android")))]

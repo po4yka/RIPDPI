@@ -315,7 +315,6 @@ fn handle_socks5_udp_associate(
     let protect_path = state.handshake_protect_path();
     let feedback_nonce = private_udp.then(udp_feedback::new_nonce).transpose()?;
     if client.peer()? == ClientPeer::LocalPrivate {
-        // A Unix client has no UDP port to bind a relay for: only the private command, over a passed socket.
         let Some(nonce) = &feedback_nonce else { return udp_feedback::reject(&mut client) };
         let unspecified = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
         client.write_all(RuntimeState::encode_socks5_reply(0, unspecified).as_bytes())?;
@@ -355,7 +354,6 @@ fn handle_socks5_udp_associate(
     )
 }
 
-/// Receives the datagram socket a Unix client passes after the preface; anything else ends the session.
 fn receive_client_datagram_socket(client: &mut ClientStream, deadline: Instant) -> io::Result<OwnedFd> {
     let fd = by_deadline(client, deadline, |client| descriptor::recv_fd(client.as_fd()))?;
     if !descriptor::is_unix_datagram(fd.as_fd())? {

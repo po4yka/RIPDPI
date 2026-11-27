@@ -1,7 +1,8 @@
 use std::io;
-use std::net::SocketAddr;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+
+use crate::session::ProxyUpstream;
 
 /// Authentication method for SOCKS5 handshake.
 #[derive(Debug, Clone)]
@@ -12,11 +13,13 @@ pub enum Auth {
 
 impl Auth {
     /// Send owner scopes only to the native proxy, which reserves the `ripdpi` username.
-    pub(crate) fn with_app_scope(&self, proxy: SocketAddr, app_scope: Option<&str>) -> Self {
+    pub(crate) fn with_app_scope(&self, proxy: &ProxyUpstream, app_scope: Option<&str>) -> Self {
+        let local = match proxy {
+            ProxyUpstream::Tcp(addr) => addr.ip().to_canonical().is_loopback(),
+            ProxyUpstream::Unix(_) => true,
+        };
         match (self, app_scope) {
-            (Self::UserPass { username, password }, Some(scope))
-                if username == "ripdpi" && proxy.ip().to_canonical().is_loopback() =>
-            {
+            (Self::UserPass { username, password }, Some(scope)) if username == "ripdpi" && local => {
                 Self::UserPass { username: format!("vpn08:{scope}"), password: password.clone() }
             }
             _ => self.clone(),

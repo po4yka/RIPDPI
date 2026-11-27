@@ -111,7 +111,6 @@ pub(super) fn relay(
     };
     let _active = state.register_active_upstream_tcp_socket(&remote)?;
     super::connect_relay::write_remote_success_reply(client, &reply, &remote)?;
-    // `copy` is symmetric over both halves, so the upstream rides in the same enum.
     let mut remote = ClientStream::Tcp(remote);
     client.set_read_timeout(Some(Duration::from_millis(100)))?;
     remote.set_read_timeout(Some(Duration::from_millis(100)))?;

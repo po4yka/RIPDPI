@@ -1,14 +1,14 @@
 use serde::Deserialize;
 
 use crate::config::defaults::{
-    default_log_level, default_multi_queue, default_socks5_address, default_socks5_udp, default_task_stack_size,
-    default_tunnel_mtu, default_tunnel_name,
+    default_log_level, default_multi_queue, default_socks5_udp, default_task_stack_size, default_tunnel_mtu,
+    default_tunnel_name,
 };
 use crate::config::log_context::TunnelLogContext;
 
 pub(crate) use super::payload_split_dns::{SplitDnsDomainMatcherPayload, SplitDnsPolicyPayload, SplitDnsRulePayload};
 
-pub(crate) const TUNNEL_JNI_CONFIG_SCHEMA_VERSION: u32 = 3;
+pub(crate) const TUNNEL_JNI_CONFIG_SCHEMA_VERSION: u32 = 4;
 
 #[cfg(test)]
 mod sample;
@@ -28,9 +28,11 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) multi_queue: bool,
     pub(crate) tunnel_ipv4: Option<String>,
     pub(crate) tunnel_ipv6: Option<String>,
-    #[serde(default = "default_socks5_address")]
+    #[serde(default)]
     pub(crate) socks5_address: String,
+    #[serde(default)]
     pub(crate) socks5_port: u16,
+    pub(crate) socks5_unix_path: Option<String>,
     #[serde(default = "default_socks5_udp")]
     pub(crate) socks5_udp: Option<String>,
     pub(crate) socks5_udp_address: Option<String>,

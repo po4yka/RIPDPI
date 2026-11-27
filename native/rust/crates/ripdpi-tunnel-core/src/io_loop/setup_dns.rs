@@ -53,6 +53,7 @@ mod tests {
         let config = Config {
             tunnel: TunnelConfig::default(),
             socks5: Socks5Config {
+                unix_path: None,
                 address: "127.0.0.1".to_string(),
                 port: 1080,
                 udp: None,

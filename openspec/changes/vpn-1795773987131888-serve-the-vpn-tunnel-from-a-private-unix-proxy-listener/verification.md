@@ -24,6 +24,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-VPL-PRIVATE-PATH | VPN-1795774216970611 | `:core:service:testDebugUnitTest` and the proxy listener tests | Pending |
 | REQ-VPL-TCP | VPN-1795774213020254 | `cargo test -p ripdpi-tunnel-core --locked` | Pending |
 | REQ-VPL-UDP | VPN-1795774211939093 | `cargo test -p ripdpi-proxy-runtime --locked` and `cargo test -p ripdpi-tunnel-core --locked` | Pending |
+| REQ-VPL-DNS-TCP | VPN-1795774216970611 | `:core:service:testDebugUnitTest` and `cargo test -p ripdpi-tunnel-core --locked` | Pending |
 | REQ-VPL-AUTH | VPN-1795774210951595 | `cargo test -p ripdpi-proxy-runtime --locked` | Pending |
 | REQ-VPL-INAPP | VPN-1795774215813180 | Instrumented HTTPS test on the lowest and the current API level; `:app:testGithubDebugUnitTest` | Pending |
 | REQ-VPL-COMPAT | VPN-1795774216970611 | Proxy-mode and Xray-provider tests in `:core:service` and the emulator run | Pending |

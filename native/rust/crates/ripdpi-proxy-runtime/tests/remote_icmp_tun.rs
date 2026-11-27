@@ -51,6 +51,7 @@ impl RunningTunnel {
             socks5: Socks5Config {
                 address: "127.0.0.1".to_string(),
                 port,
+                unix_path: None,
                 udp: Some("udp".to_string()),
                 udp_address: None,
                 pipeline: None,

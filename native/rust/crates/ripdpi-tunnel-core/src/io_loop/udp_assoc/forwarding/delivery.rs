@@ -11,8 +11,8 @@ use tracing::debug;
 
 use crate::Stats;
 use crate::dns_cache::DnsCache;
-use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
+use crate::session::{Auth, ProxyUpstream};
 
 use super::super::association_removal::remove_association;
 use super::super::association_state::{OutboundDatagram, UdpAssociationKey, UdpDestination};
@@ -22,7 +22,7 @@ use super::ensure::ensure_udp_association;
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn deliver_udp_datagram(
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: &Auth,
     key: &UdpAssociationKey,
     destination: Arc<UdpDestination>,

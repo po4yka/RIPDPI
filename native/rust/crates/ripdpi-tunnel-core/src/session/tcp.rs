@@ -4,10 +4,11 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use tokio::net::TcpSocket;
+use tokio::net::{TcpSocket, UnixStream};
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
+use super::ProxyUpstream;
 use super::protect::protect_socket_if_available;
 use super::socks5::{Auth, TargetAddr};
 use crate::stats::{Stats, TcpConnectObservation};
@@ -22,7 +23,7 @@ const RELAY_DRAIN_GRACE: Duration = Duration::from_secs(1);
 /// issue CONNECT to the target, then bidirectionally relay bytes until
 /// one side closes or `cancel` is signalled.
 pub struct TcpSession {
-    proxy_addr: SocketAddr,
+    proxy_addr: ProxyUpstream,
     auth: Auth,
     target: TargetAddr,
     /// CLI UDS fallback path for `VpnService.protect()` when no JNI protect
@@ -40,7 +41,7 @@ pub struct TcpSession {
 
 impl TcpSession {
     #[cfg(test)]
-    pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
+    pub fn new(proxy_addr: ProxyUpstream, auth: Auth, target: TargetAddr) -> Self {
         Self {
             proxy_addr,
             auth,
@@ -66,7 +67,7 @@ impl TcpSession {
     /// production data-plane path protects it before `connect` — see
     /// [`Self::run`].
     pub fn with_stats(
-        proxy_addr: SocketAddr,
+        proxy_addr: ProxyUpstream,
         auth: Auth,
         target: TargetAddr,
         protect_path: Option<String>,
@@ -96,9 +97,8 @@ impl TcpSession {
     /// [`super::udp::UdpSession::connect_with_memory_budget`]. See
     /// `.claude/rules/vpnservice-protect-invariant.md`.
     ///
-    /// # Cancel safety
-    ///
-    /// Cancel-safe at the `cancel`-token boundary it exposes (see
+    /// # Cancel safety:
+    /// cancel-safe: at the `cancel`-token boundary it exposes (see
     /// [`Self::run_with_proxy`]); it forwards to `run_with_connector`. Dropping
     /// the returned future outright can still interrupt a non-cancellable
     /// buffer drain, so production callers signal `cancel` and join the task.
@@ -107,22 +107,25 @@ impl TcpSession {
         L: AsyncRead + AsyncWrite + Unpin,
     {
         let protect_path = self.protect_path.clone();
-        self.run_with_connector(local, cancel, move |addr: SocketAddr| async move {
-            // Create the socket, protect it, *then* connect — never connect an
-            // unprotected non-loopback socket into the VPN's own TUN.
-            let socket = match addr {
-                SocketAddr::V4(_) => TcpSocket::new_v4()?,
-                SocketAddr::V6(_) => TcpSocket::new_v6()?,
-            };
-            protect_socket_if_available(&socket, addr.ip(), protect_path.as_deref())?;
-            socket.connect(addr).await
-        })
-        .await
+        match &self.proxy_addr {
+            ProxyUpstream::Tcp(addr) => {
+                let addr = *addr;
+                self.run_with_connector(local, cancel, move || async move {
+                    let socket = match addr {
+                        SocketAddr::V4(_) => TcpSocket::new_v4()?,
+                        SocketAddr::V6(_) => TcpSocket::new_v6()?,
+                    };
+                    protect_socket_if_available(&socket, addr.ip(), protect_path.as_deref())?;
+                    socket.connect(addr).await
+                })
+                .await
+            }
+            ProxyUpstream::Unix(path) => self.run_with_connector(local, cancel, || UnixStream::connect(path)).await,
+        }
     }
 
-    /// # Cancel safety
-    ///
-    /// Cancel-safe at the `cancel`-token boundary. Connecting to the proxy and
+    /// # Cancel safety:
+    /// cancel-safe: at the `cancel`-token boundary. Connecting to the proxy and
     /// the SOCKS5 handshake/CONNECT run *before* the `cancel`-aware splice in
     /// [`Self::run_with_proxy`]; abandoning the future by drop during connect or
     /// handshake leaves only a half-open proxy socket that the drop closes — no
@@ -136,13 +139,13 @@ impl TcpSession {
     ) -> io::Result<()>
     where
         L: AsyncRead + AsyncWrite + Unpin,
-        C: FnOnce(SocketAddr) -> F,
+        C: FnOnce() -> F,
         F: Future<Output = io::Result<P>>,
         P: AsyncRead + AsyncWrite + Unpin,
     {
         debug!("tcp session connecting to proxy");
         let connect_result = tokio::select! {
-            result = tokio::time::timeout(self.connect_timeout, connect(self.proxy_addr)) => result,
+            result = tokio::time::timeout(self.connect_timeout, connect()) => result,
             _ = cancel.cancelled() => return Ok(()),
         };
         let mut proxy = connect_result.map_err(|_| timed_out("TCP proxy connect"))??;
@@ -150,9 +153,8 @@ impl TcpSession {
         self.run_with_proxy(local, cancel, &mut proxy).await
     }
 
-    /// # Cancel safety
-    ///
-    /// Cancel-safe at the `cancel` boundary. The SOCKS5 handshake + CONNECT run
+    /// # Cancel safety:
+    /// cancel-safe: at the `cancel` boundary. The SOCKS5 handshake + CONNECT run
     /// to completion before the relay loop, so a torn handshake cannot leak into
     /// the splice. During relay, [`splice_with_idle_timeout`] owns cancellation:
     /// it stops each direction only at a cancel-safe `read` boundary, drains any
@@ -632,13 +634,18 @@ mod tests {
 
         sim.client("client", async move {
             let proxy_addr = SocketAddr::new(turmoil::lookup("proxy"), 1080);
-            let session =
-                TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Domain("fixture.test".to_string(), 443));
+            let session = TcpSession::new(
+                ProxyUpstream::Tcp(proxy_addr),
+                Auth::NoAuth,
+                TargetAddr::Domain("fixture.test".to_string(), 443),
+            );
 
             turmoil::partition("client", "proxy");
             let (mut failed_local, _failed_peer) = tokio::io::duplex(128);
             let err = session
-                .run_with_connector(&mut failed_local, CancellationToken::new(), turmoil::net::TcpStream::connect)
+                .run_with_connector(&mut failed_local, CancellationToken::new(), || {
+                    turmoil::net::TcpStream::connect(proxy_addr)
+                })
                 .await
                 .expect_err("partitioned connect must fail");
             assert_eq!(err.kind(), io::ErrorKind::ConnectionRefused);
@@ -651,7 +658,9 @@ mod tests {
             peer.shutdown().await.unwrap();
 
             session
-                .run_with_connector(&mut local, CancellationToken::new(), turmoil::net::TcpStream::connect)
+                .run_with_connector(&mut local, CancellationToken::new(), || {
+                    turmoil::net::TcpStream::connect(proxy_addr)
+                })
                 .await
                 .expect("session should reconnect after partition repair");
 
@@ -687,7 +696,7 @@ mod tests {
         let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), manifest.socks5_port);
         let target =
             SocketAddr::new(manifest.fixture_ipv4.parse::<IpAddr>().expect("fixture ipv4"), manifest.tcp_echo_port);
-        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(target));
+        let session = TcpSession::new(ProxyUpstream::Tcp(proxy_addr), Auth::NoAuth, TargetAddr::Ip(target));
         let cancel = CancellationToken::new();
 
         let (mut local, mut peer) = tokio::io::duplex(1024);
@@ -730,7 +739,7 @@ mod tests {
         let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), manifest.socks5_port);
         let target =
             SocketAddr::new(manifest.fixture_ipv4.parse::<IpAddr>().expect("fixture ipv4"), manifest.tcp_echo_port);
-        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(target));
+        let session = TcpSession::new(ProxyUpstream::Tcp(proxy_addr), Auth::NoAuth, TargetAddr::Ip(target));
         let cancel = CancellationToken::new();
 
         let (mut local, mut peer) = tokio::io::duplex(1024);
@@ -755,7 +764,7 @@ mod tests {
     async fn cancellation_drains_the_already_read_tcp_chunk_before_shutdown() {
         const CHUNK: usize = 16 * 1024;
         let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1080);
-        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(proxy_addr));
+        let session = TcpSession::new(ProxyUpstream::Tcp(proxy_addr), Auth::NoAuth, TargetAddr::Ip(proxy_addr));
         let cancel = CancellationToken::new();
         let cancel_for_session = cancel.clone();
         let (mut local, mut local_peer) = tokio::io::duplex(CHUNK * 2);
@@ -840,6 +849,57 @@ mod tests {
         assert_eq!(echoed, payload);
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test drives a complete session and its spawned peer to completion.
+    #[tokio::test]
+    async fn unix_upstream_relays_a_request_with_half_close_under_the_app_scope() {
+        let scope = "11111111-1111-4111-8111-111111111111";
+        let _guard = crate::session::test_socket::UNIX_SOCKET_TEST_LOCK.lock().await;
+        let socket = crate::session::test_socket::TestSocketPath::new();
+        let listener = tokio::net::UnixListener::bind(socket.path()).expect("bind unix upstream");
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.expect("accept");
+            let mut greeting = [0; 3];
+            stream.read_exact(&mut greeting).await.unwrap();
+            assert_eq!(greeting, [5, 1, 2]);
+            stream.write_all(&[5, 2]).await.unwrap();
+            let mut len = [0; 2];
+            stream.read_exact(&mut len).await.unwrap();
+            let mut username = vec![0; usize::from(len[1])];
+            stream.read_exact(&mut username).await.unwrap();
+            stream.read_exact(&mut len[..1]).await.unwrap();
+            stream.read_exact(&mut vec![0; usize::from(len[0])]).await.unwrap();
+            stream.write_all(&[1, 0]).await.unwrap();
+            let mut connect = [0; 10];
+            stream.read_exact(&mut connect).await.unwrap();
+            assert_eq!(connect, [5, 1, 0, 1, 192, 0, 2, 7, 0x01, 0xbb]);
+            stream.write_all(&[5, 0, 0, 1, 0, 0, 0, 0, 0, 0]).await.unwrap();
+            let mut request = Vec::new();
+            stream.read_to_end(&mut request).await.unwrap();
+            stream.write_all(b"full response").await.unwrap();
+            stream.shutdown().await.unwrap();
+            (String::from_utf8(username).unwrap(), request)
+        });
+        let upstream = ProxyUpstream::Unix(socket.path().to_owned());
+        let auth = Auth::UserPass { username: "ripdpi".into(), password: "token".into() }
+            .with_app_scope(&upstream, Some(scope));
+        let target = TargetAddr::Ip("192.0.2.7:443".parse().unwrap());
+        let session = TcpSession::new(upstream, auth, target);
+        let (mut local, mut app) = duplex(1024);
+        let relay = tokio::spawn(async move { session.run(&mut local, CancellationToken::new()).await });
+
+        app.write_all(b"request bytes").await.unwrap();
+        app.shutdown().await.unwrap();
+        let mut response = Vec::new();
+        timeout(Duration::from_secs(2), app.read_to_end(&mut response)).await.expect("response end").unwrap();
+
+        assert_eq!(response, b"full response");
+        relay.await.unwrap().expect("session ends cleanly");
+        let (username, request) = server.await.unwrap();
+        assert_eq!(username, format!("vpn08:{scope}"));
+        assert_eq!(request, b"request bytes");
+    }
+
     #[tokio::test]
     async fn splice_with_idle_tcp_peer_keeps_local_side_open() {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind idle listener");
@@ -894,13 +954,13 @@ mod tests {
     #[tokio::test]
     async fn tcp_session_connect_path_enforces_configured_deadline() {
         let proxy_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1080);
-        let session = TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(proxy_addr))
+        let session = TcpSession::new(ProxyUpstream::Tcp(proxy_addr), Auth::NoAuth, TargetAddr::Ip(proxy_addr))
             .with_timeouts(Duration::from_millis(25), Duration::from_secs(1));
         let (mut local, _peer) = tokio::io::duplex(128);
 
         let result = timeout(
             Duration::from_secs(1),
-            session.run_with_connector(&mut local, CancellationToken::new(), |_| {
+            session.run_with_connector(&mut local, CancellationToken::new(), || {
                 std::future::pending::<io::Result<tokio::io::DuplexStream>>()
             }),
         )
@@ -961,14 +1021,19 @@ mod tests {
 
         sim.client("client", async move {
             let proxy_addr = SocketAddr::new(turmoil::lookup("proxy"), 1080);
-            let session =
-                TcpSession::new(proxy_addr, Auth::NoAuth, TargetAddr::Ip(SocketAddr::new(proxy_addr.ip(), 80)));
+            let session = TcpSession::new(
+                ProxyUpstream::Tcp(proxy_addr),
+                Auth::NoAuth,
+                TargetAddr::Ip(SocketAddr::new(proxy_addr.ip(), 80)),
+            );
             let (mut local, _peer) = tokio::io::duplex(128);
 
             turmoil::hold("client", "proxy");
             let held = tokio::time::timeout(
                 std::time::Duration::from_secs(1),
-                session.run_with_connector(&mut local, CancellationToken::new(), turmoil::net::TcpStream::connect),
+                session.run_with_connector(&mut local, CancellationToken::new(), || {
+                    turmoil::net::TcpStream::connect(proxy_addr)
+                }),
             )
             .await;
             assert!(held.is_err(), "held connect path should block deterministically");

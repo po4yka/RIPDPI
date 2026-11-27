@@ -10,10 +10,6 @@ pub(crate) const fn default_multi_queue() -> bool {
     false
 }
 
-pub(crate) fn default_socks5_address() -> String {
-    "127.0.0.1".to_string()
-}
-
 pub(crate) fn default_socks5_udp() -> Option<String> {
     Some("udp".to_string())
 }

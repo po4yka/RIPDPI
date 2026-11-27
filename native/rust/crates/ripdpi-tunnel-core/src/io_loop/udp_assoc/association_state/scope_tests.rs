@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
 use std::net::SocketAddr;
@@ -58,7 +59,7 @@ impl Fixture {
     ) {
         assert!(
             super::super::forward_udp_payload(
-                "127.0.0.1:9".parse().expect("loopback proxy"),
+                &ProxyUpstream::Tcp("127.0.0.1:9".parse().expect("loopback proxy")),
                 &Auth::UserPass { username: "control".into(), password: "session-token".into() },
                 src,
                 dst,

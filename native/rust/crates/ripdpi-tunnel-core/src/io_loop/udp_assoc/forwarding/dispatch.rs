@@ -9,9 +9,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Stats;
 use crate::dns_cache::DnsCache;
-use crate::session::Auth;
 use crate::session::TargetAddr;
 use crate::session::udp::UdpMemoryBudget;
+use crate::session::{Auth, ProxyUpstream};
 
 use super::super::association_state::{UdpAssociationKey, now_millis};
 use super::super::event_handling::UdpEvent;
@@ -23,7 +23,7 @@ use super::leases::{lease_udp_attribution, lease_udp_mapping, retire_previous_ud
 
 #[allow(clippy::too_many_arguments)]
 pub(in crate::io_loop) fn forward_udp_payload(
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: &Auth,
     src: SocketAddr,
     attribution_dst: SocketAddr,

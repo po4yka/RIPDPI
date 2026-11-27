@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UdpSocket;
 use tokio::sync::oneshot;
@@ -142,7 +143,7 @@ async fn exercise_policy_drop_owner(stun: bool) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let relay = UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let mut state = test_loop_state(Box::new(script.interceptor(stun)));
-    state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().unwrap());
     state.runtime.udp_idle_timeout = Duration::from_secs(30);
     state.runtime.webrtc_protection_enabled = stun;
     let request = FlowResolveRequest {

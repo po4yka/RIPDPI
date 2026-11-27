@@ -49,6 +49,7 @@
   "socks5Port",
   "socks5Udp",
   "socks5UdpAddress",
+  "socks5UnixPath",
   "splitDnsPolicy.bootstrapPins[]",
   "splitDnsPolicy.canonicalDigest",
   "splitDnsPolicy.coverageReason",

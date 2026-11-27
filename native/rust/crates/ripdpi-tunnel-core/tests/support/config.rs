@@ -37,6 +37,7 @@ pub fn test_tunnel_config_with_misc(
             pre_down_script: None,
         },
         socks5: Socks5Config {
+            unix_path: None,
             port: socks5_addr.port(),
             address: socks5_addr.ip().to_string(),
             udp: Some("udp".to_string()),

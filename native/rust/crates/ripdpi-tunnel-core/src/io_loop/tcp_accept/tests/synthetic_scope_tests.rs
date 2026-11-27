@@ -1,4 +1,5 @@
 use super::*;
+use crate::session::ProxyUpstream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 const APP_SCOPE: &str = "e1b35e2a-d892-456f-b073-0422d4c8a141";
@@ -100,7 +101,7 @@ async fn synthetic_tcp_keeps_original_owner_and_scoped_real_target_on_wire_fixtu
             &mut sessions,
             &mut listens,
             &mut cursor,
-            proxy,
+            &ProxyUpstream::Tcp(proxy),
             &auth,
             None,
             Duration::from_secs(1),

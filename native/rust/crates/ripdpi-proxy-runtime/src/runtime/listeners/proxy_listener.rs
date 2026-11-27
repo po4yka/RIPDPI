@@ -7,28 +7,24 @@ use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 use ripdpi_runtime_api::ListenerAddress;
 use ripdpi_ws_transport_port::ClientStream;
 
-/// The proxy's listening socket.
 #[derive(Debug)]
 pub enum ProxyListener {
     Tcp(TcpListener),
     Unix(UnixProxyListener),
 }
 
-/// A bound Unix listener that owns its socket file and removes it when dropped.
 pub struct UnixProxyListener {
     listener: UnixListener,
     path: PathBuf,
 }
 
 impl UnixProxyListener {
-    /// Fails when a file already exists at `path`; that file is left untouched.
     pub(super) fn bind(path: &Path) -> io::Result<Self> {
         let listener = listener_platform::bind_unix_listener(path)?;
         Ok(Self { listener, path: path.to_owned() })
     }
 }
 
-// A derived Debug would print the private socket path.
 impl std::fmt::Debug for UnixProxyListener {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("UnixProxyListener").finish_non_exhaustive()
@@ -48,7 +44,6 @@ impl From<TcpListener> for ProxyListener {
 }
 
 impl ProxyListener {
-    /// The TCP bind address; a Unix listener has none and reports `Unsupported`.
     pub fn local_addr(&self) -> io::Result<std::net::SocketAddr> {
         match self {
             Self::Tcp(listener) => listener.local_addr(),
@@ -70,7 +65,6 @@ impl ProxyListener {
         }
     }
 
-    /// The bound address and the IPv6-only option; a Unix listener has no IP address.
     pub(super) fn binding(&self) -> io::Result<(ListenerAddress, bool)> {
         match self {
             Self::Tcp(listener) => listener_platform::tcp_listener_binding(listener)

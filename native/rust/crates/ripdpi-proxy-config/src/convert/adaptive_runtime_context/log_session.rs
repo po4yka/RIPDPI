@@ -45,7 +45,6 @@ pub(crate) fn apply_session_overrides(
     Ok(())
 }
 
-/// `sun_path` holds 108 bytes including the terminating NUL.
 const MAX_UNIX_LISTEN_PATH_LEN: usize = 107;
 
 fn validate_unix_listen_path(

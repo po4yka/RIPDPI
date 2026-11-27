@@ -5,6 +5,7 @@ use std::net::{IpAddr, Ipv4Addr};
 use crate::Config;
 use crate::errors::ConfigError;
 use crate::raw::{RawConfig, SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION};
+use crate::socks5::Socks5Config;
 
 const MAX_ALLOCATION_SIZE: u32 = 16_777_216;
 const MAX_DNS_CACHE_SIZE: u32 = 65_536;
@@ -28,8 +29,7 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
     validate_tunnel_ip("tunnel.ipv4", config.tunnel.ipv4.as_deref(), true)?;
     validate_tunnel_ip("tunnel.ipv6", config.tunnel.ipv6.as_deref(), false)?;
 
-    non_blank("socks5.address", &config.socks5.address)?;
-    non_zero("socks5.port", u32::from(config.socks5.port))?;
+    validate_socks5_upstream(&config.socks5)?;
     match (&config.socks5.username, &config.socks5.password) {
         (Some(_), None) | (None, Some(_)) => return Err(ConfigError::MismatchedCredentials),
         (Some(username), Some(password)) => {
@@ -114,6 +114,20 @@ fn parse_ipv4(field: &'static str, value: &str) -> Result<Ipv4Addr, ConfigError>
     value
         .parse()
         .map_err(|err| ConfigError::InvalidValue { field, message: format!("'{value}' is not an IPv4 address: {err}") })
+}
+
+fn validate_socks5_upstream(socks5: &Socks5Config) -> Result<(), ConfigError> {
+    let Some(path) = socks5.unix_path.as_deref() else {
+        non_blank("socks5.address", &socks5.address)?;
+        return non_zero("socks5.port", u32::from(socks5.port));
+    };
+    if !socks5.address.is_empty() || socks5.port != 0 {
+        return invalid("socks5.unix-path", "excludes socks5.address and socks5.port");
+    }
+    if !path.starts_with('/') || path.len() >= 108 || path.contains('\0') {
+        return invalid("socks5.unix-path", "must be an absolute path shorter than 108 bytes without NUL");
+    }
+    Ok(())
 }
 
 fn non_blank(field: &'static str, value: &str) -> Result<(), ConfigError> {

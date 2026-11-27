@@ -1,4 +1,4 @@
-use super::{Auth, UdpSession};
+use super::{Auth, Control, UdpSession};
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -76,8 +76,9 @@ async fn loc09_unexpected_control_data_invalidates_all_clones() {
     let (session, mut control, _) = association().await;
     let other = session.clone();
     control.write_all(&[0x7f]).await.unwrap();
+    let Control::Tcp(stream) = &*session.control else { panic!("a loopback association has a TCP control") };
     let mut byte = [0];
-    let received = tokio::time::timeout(Duration::from_secs(1), session.control.peek(&mut byte))
+    let received = tokio::time::timeout(Duration::from_secs(1), stream.peek(&mut byte))
         .await
         .expect("control data must reach the association")
         .unwrap();

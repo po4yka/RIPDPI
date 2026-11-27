@@ -8,7 +8,7 @@ use tracing::debug;
 
 use super::remote_errors::PendingErrors;
 use crate::session::udp::{UdpMemoryBudget, UdpSessionEvent};
-use crate::session::{Auth, UdpSession};
+use crate::session::{Auth, ProxyUpstream, UdpSession};
 
 use super::super::super::packet::build_udp_response_fragments;
 use super::super::association_state::{OutboundDatagram, touch_udp_activity, udp_association_is_idle};
@@ -19,7 +19,7 @@ mod selection;
 use selection::{UdpWork, next_udp_work};
 
 pub(super) struct UdpWorkerConfig {
-    pub(super) proxy_addr: SocketAddr,
+    pub(super) proxy_addr: ProxyUpstream,
     pub(super) auth: Auth,
     pub(super) protect_path: Option<String>,
     pub(super) src: SocketAddr,
@@ -37,7 +37,7 @@ pub(super) struct UdpWorkerConfig {
 /// cancel-safe: setup owns its pending sockets. Cancellation or timeout drops
 /// the future and closes any partial control connection and relay socket.
 async fn connect_session(
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: &Auth,
     protect_path: Option<&str>,
     memory_budget: &UdpMemoryBudget,
@@ -95,7 +95,7 @@ pub(super) fn spawn_udp_worker(
         // that accepts but never answers is bounded by the connect timeout, and eviction or shutdown
         // stops it through `cancel`.
         let mut session = match connect_session(
-            proxy_addr,
+            &proxy_addr,
             &auth,
             protect_path.as_deref(),
             &memory_budget,
@@ -178,7 +178,7 @@ pub(super) fn spawn_udp_worker(
                         pending_errors.clear();
                         // One reconnect, with the same bounds as the first setup.
                         session = match connect_session(
-                            proxy_addr,
+                            &proxy_addr,
                             &auth,
                             protect_path.as_deref(),
                             &memory_budget,

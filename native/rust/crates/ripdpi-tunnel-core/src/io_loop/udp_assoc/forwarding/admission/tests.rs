@@ -3,6 +3,7 @@ use crate::io_loop::udp_assoc::UdpAssociations;
 use crate::io_loop::udp_assoc::shutdown::shutdown_udp_associations;
 use crate::io_loop::udp_assoc::worker::spawn_udp_association;
 use crate::session::Auth;
+use crate::session::ProxyUpstream;
 use crate::session::udp::UdpMemoryBudget;
 use tokio_util::sync::CancellationToken;
 
@@ -12,7 +13,7 @@ fn associations(src: SocketAddr) -> UdpAssociations {
     UdpAssociations::from([(
         src,
         spawn_udp_association(
-            "127.0.0.1:9".parse().unwrap(),
+            &ProxyUpstream::Tcp("127.0.0.1:9".parse().unwrap()),
             Auth::NoAuth,
             src,
             destination,

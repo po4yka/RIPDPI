@@ -3,8 +3,8 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
+use crate::session::{Auth, ProxyUpstream};
 
 use super::super::association_state::UdpAssociation;
 use super::super::event_handling::UdpEvent;
@@ -14,7 +14,7 @@ use super::super::worker::spawn_udp_association;
 pub(super) fn alloc_association(
     next_id: &mut u64,
     memory_budget: &UdpMemoryBudget,
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: Auth,
     src: SocketAddr,
     dest: SocketAddr,

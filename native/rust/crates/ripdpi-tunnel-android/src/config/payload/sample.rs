@@ -11,6 +11,7 @@ pub(crate) fn sample_payload() -> TunnelConfigPayload {
         tunnel_ipv6: None,
         socks5_address: "127.0.0.1".to_string(),
         socks5_port: 1080,
+        socks5_unix_path: None,
         socks5_udp: Some("udp".to_string()),
         socks5_udp_address: None,
         socks5_pipeline: None,

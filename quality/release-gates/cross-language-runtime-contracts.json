@@ -233,9 +233,9 @@
       ],
       "invariants": [
         "Kotlin-generated native config fixtures decode and re-encode through Rust without losing fields.",
-        "Proxy JSON schema 2, tunnel JNI flat-JSON schema 3, and relay schema 10 are required; missing, older, and future versions fail closed.",
+        "Proxy JSON schema 2, tunnel JNI flat-JSON schema 4, and relay schema 10 are required; missing, older, and future versions fail closed.",
         "The ripdpi-tunnel-config standalone YAML schema 2 remains a separate file-format contract and is not the tunnel JNI flat-JSON schema.",
-        "Tunnel JNI schema 3 accepts the additive validated splitDnsPolicy wire section, which compiles once before runtime routing; ordered first-match rules and redacted fallback telemetry remain source- and test-backed.",
+        "Tunnel JNI schema 4 accepts the additive validated splitDnsPolicy wire section, which compiles once before runtime routing; ordered first-match rules and redacted fallback telemetry remain source- and test-backed.",
         "Native config defaults and explicit nulls remain stable across command_line and ui payloads.",
         "Fixture scenarios cover TCP-heavy, UDP/QUIC, and relay-heavy config branches.",
         "Live Kotlin relay serializer output must reach the real Standard and Apps Script JNI decoders; current schema accepts, missing and non-current schemas reject."

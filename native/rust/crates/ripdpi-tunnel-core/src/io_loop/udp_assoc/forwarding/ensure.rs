@@ -9,8 +9,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::Stats;
 use crate::dns_cache::DnsCache;
-use crate::session::Auth;
 use crate::session::udp::UdpMemoryBudget;
+use crate::session::{Auth, ProxyUpstream};
 
 use super::super::association_state::UdpAssociationKey;
 use super::super::event_handling::UdpEvent;
@@ -24,7 +24,7 @@ pub(super) fn ensure_udp_association(
     eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
-    proxy_addr: SocketAddr,
+    proxy_addr: &ProxyUpstream,
     auth: &Auth,
     key: &UdpAssociationKey,
     resolved_dst: SocketAddr,

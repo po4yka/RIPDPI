@@ -1,12 +1,13 @@
 use super::super::super::udp_assoc::UdpEvent;
 use super::*;
+use crate::session::ProxyUpstream;
 
 /// # Cancel safety:
 /// cancel-safe: the only await is listener binding, before any association exists.
 async fn queued_error_state(port: u16) -> (LoopState, SocketAddr, u64, Vec<u8>) {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-    state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().unwrap());
     let config = ripdpi_tunnel_config::TunnelConfig { ipv4: Some("10.0.0.1/24".into()), ..Default::default() };
     state.runtime.udp_error_originator = super::super::super::udp_errors::UdpErrorOriginator::new(&config);
     let mut packet = Vec::new();
@@ -66,7 +67,7 @@ async fn reassembled_udp_never_supplies_a_fabricated_original_quote() {
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let src = SocketAddr::from(([10, 0, 0, 2], 53190));
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-    state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().unwrap());
     let config = ripdpi_tunnel_config::TunnelConfig { ipv4: Some("10.0.0.1/24".into()), ..Default::default() };
     state.runtime.udp_error_originator = super::super::super::udp_errors::UdpErrorOriginator::new(&config);
     let mut packet = Vec::new();

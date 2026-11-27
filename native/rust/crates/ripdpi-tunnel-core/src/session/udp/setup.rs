@@ -1,17 +1,26 @@
 use super::*;
-use crate::session::socks5::associate_feedback;
-use crate::session::socks5::{associate, handshake};
+use crate::session::socks5::{associate, associate_feedback, associate_feedback_unix, handshake};
+use ripdpi_socks5_core::descriptor::send_fd;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use std::os::fd::AsFd;
+use std::path::Path;
+use tokio::io::Interest;
 use tokio::net::TcpSocket;
+
+const UNIX_DATAGRAM_BUFFER: usize = 1 << 20;
 
 /// # Cancel safety:
 /// cancel-safe: cancellation drops both pending sockets, including a rejected private control.
 pub(super) async fn connect(
-    proxy: SocketAddr,
+    proxy: &ProxyUpstream,
     auth: Auth,
     protect_path: Option<&str>,
     memory_budget: UdpMemoryBudget,
 ) -> io::Result<UdpSession> {
+    let proxy = match proxy {
+        ProxyUpstream::Tcp(addr) => *addr,
+        ProxyUpstream::Unix(path) => return connect_unix(path, &auth, memory_budget).await,
+    };
     let mut ctrl = control(proxy, &auth, protect_path).await?;
     let mut early_udp = None;
     let mut feedback = None;
@@ -45,15 +54,53 @@ pub(super) async fn connect(
     };
     udp.connect(relay).await?;
     Ok(UdpSession {
-        control: Arc::new(ctrl),
+        control: Arc::new(Control::Tcp(ctrl)),
         invalidated: CancellationToken::new(),
-        udp: Arc::new(udp),
+        udp: Arc::new(Datagrams::Udp(udp)),
         memory_budget,
         recv_timeout: DEFAULT_RECV_TIMEOUT,
         feedback,
         #[cfg(test)]
         next_datagram_id: Arc::new(std::sync::atomic::AtomicU64::new(1)),
     })
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the pending control and both datagram ends; the proxy sees the control close.
+async fn connect_unix(path: &Path, auth: &Auth, memory_budget: UdpMemoryBudget) -> io::Result<UdpSession> {
+    let mut ctrl = UnixStream::connect(path).await?;
+    handshake(&mut ctrl, auth).await?;
+    let nonce = associate_feedback_unix(&mut ctrl).await?;
+    let (local, remote) = UnixDatagram::pair()?;
+    for end in [&local, &remote] {
+        let socket = socket2::SockRef::from(end);
+        let _ = socket.set_send_buffer_size(UNIX_DATAGRAM_BUFFER);
+        let _ = socket.set_recv_buffer_size(UNIX_DATAGRAM_BUFFER);
+    }
+    pass_datagram_socket(&ctrl, &remote).await?;
+    drop(remote);
+    Ok(UdpSession {
+        control: Arc::new(Control::Unix(ctrl)),
+        invalidated: CancellationToken::new(),
+        udp: Arc::new(Datagrams::Unix(local)),
+        memory_budget,
+        recv_timeout: DEFAULT_RECV_TIMEOUT,
+        feedback: Some(nonce),
+        #[cfg(test)]
+        next_datagram_id: Arc::new(std::sync::atomic::AtomicU64::new(1)),
+    })
+}
+
+/// # Cancel safety:
+/// cancel-safe: only the writability wait is cancellable; the descriptor goes out in one `sendmsg`.
+async fn pass_datagram_socket(control: &UnixStream, end: &UnixDatagram) -> io::Result<()> {
+    loop {
+        control.writable().await?;
+        match control.try_io(Interest::WRITABLE, || send_fd(control.as_fd(), end.as_fd())) {
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+            result => return result,
+        }
+    }
 }
 
 /// # Cancel safety:

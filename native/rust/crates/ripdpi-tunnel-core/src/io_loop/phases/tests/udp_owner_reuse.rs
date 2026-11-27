@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use ripdpi_flow_app_attribution::{
     FlowRegistrationId, FlowResolveRequest, evict_flow_if_current, note_flow, store_uid_and_scope_resolution,
     take_pending_request,
@@ -29,7 +30,7 @@ async fn observed_reused_tuple_rejects_old_replies_while_pending_or_denied() {
     for (port, denied) in [(55_661, false), (55_662, true)] {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("proxy listener");
         let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-        state.runtime.proxy_sockaddr = listener.local_addr().expect("proxy address");
+        state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().expect("proxy address"));
         state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
         let original = admit(&mut state, request(port, 443));
         let neighbor = admit(&mut state, request(port, 444));
@@ -160,7 +161,7 @@ async fn udp_uid_expiry_preserves_real_source_port_and_control_connection_for_sa
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let relay = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-    state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().unwrap());
     state.runtime.auth = Auth::UserPass { username: "ripdpi".into(), password: "refresh-test-token".into() };
     state.runtime.uid_policy = crate::uid_policy::UidFlowPolicy::enforcing(HashSet::from([10_123]));
     state.runtime.udp_idle_timeout = Duration::from_secs(30);

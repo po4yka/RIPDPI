@@ -153,6 +153,24 @@ fn active_split_dns_rejects_doq_over_socks_at_startup() {
 }
 
 #[test]
+fn encrypted_dns_through_the_proxy_is_refused_for_a_unix_upstream() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_bootstrap_ips = vec!["1.1.1.1".to_string()];
+    mapdns.encrypted_dns_doh_url = Some("https://dns.example.test/dns-query".to_string());
+    mapdns.route_dns_through_socks5 = true;
+    let mut config = tunnel_config_with_mapdns(Some(mapdns));
+    config.socks5.unix_path = Some("/data/px-0123".to_string());
+
+    let error = build_encrypted_dns_resolver(&config).expect_err("a Unix upstream cannot carry resolver traffic");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+    assert_eq!(error.to_string(), "encrypted DNS through the proxy requires a TCP upstream");
+
+    config.mapdns.as_mut().expect("mapdns").route_dns_through_socks5 = false;
+    assert!(build_encrypted_dns_resolver(&config).is_ok(), "direct resolver traffic does not use the proxy");
+}
+
+#[test]
 fn direct_doq_transport_is_selected_without_split_policy() {
     let mut mapdns = mapdns_config(16);
     mapdns.encrypted_dns_protocol = Some("doq".to_string());

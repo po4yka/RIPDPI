@@ -6,7 +6,7 @@ use smoltcp::wire::{IpAddress, IpListenEndpoint};
 
 use ripdpi_tunnel_config::Config;
 
-use crate::session::Auth;
+use crate::session::{Auth, ProxyUpstream};
 
 use super::packet::endpoint_to_socketaddr;
 
@@ -44,13 +44,16 @@ pub(super) fn make_auth(config: &Config) -> Auth {
     }
 }
 
-pub(super) fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
+pub(super) fn proxy_addr(config: &Config) -> io::Result<ProxyUpstream> {
+    if let Some(path) = &config.socks5.unix_path {
+        return Ok(ProxyUpstream::Unix(path.into()));
+    }
     let ip: IpAddr = config
         .socks5
         .address
         .parse()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid socks5.address"))?;
-    Ok(SocketAddr::new(ip, config.socks5.port))
+    Ok(ProxyUpstream::Tcp(SocketAddr::new(ip, config.socks5.port)))
 }
 
 #[cfg(test)]
@@ -60,6 +63,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
+    use crate::session::ProxyUpstream;
     use smoltcp::iface::{Interface, SocketSet};
     use smoltcp::socket::tcp::{self, Socket as TcpSocket};
     use smoltcp::time::Instant;
@@ -334,7 +338,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),
@@ -428,7 +432,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),
@@ -456,7 +460,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),
@@ -485,7 +489,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),
@@ -570,7 +574,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),
@@ -598,7 +602,7 @@ mod tests {
             &mut sessions,
             &mut pending_listens,
             &mut admission_cursor,
-            proxy_sockaddr,
+            &ProxyUpstream::Tcp(proxy_sockaddr),
             &auth,
             None,
             Duration::from_secs(1),

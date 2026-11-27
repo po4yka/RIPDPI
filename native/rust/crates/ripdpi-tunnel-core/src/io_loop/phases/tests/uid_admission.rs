@@ -1,4 +1,5 @@
 use crate::io_loop::tcp_accept::gc_stale_pending_listens;
+use crate::session::ProxyUpstream;
 
 use super::*;
 
@@ -46,7 +47,7 @@ async fn disarmed_slow_owner_fixture() {
     });
     let generation = ripdpi_flow_app_attribution::begin_attribution_session();
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-    state.runtime.proxy_sockaddr = proxy;
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(proxy);
     let packet = ipv4_udp_packet(55_649, 443, b"slow-owner");
 
     route_tun_packet(&packet, &mut state);

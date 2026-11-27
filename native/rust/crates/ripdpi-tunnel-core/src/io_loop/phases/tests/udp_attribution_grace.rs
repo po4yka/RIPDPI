@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::task::JoinSet;
@@ -92,7 +93,7 @@ async fn grace_fixture(case: Case) {
     let relay = UdpSocket::bind("127.0.0.1:0").await.unwrap();
     let _epoch = Epoch(ripdpi_flow_app_attribution::begin_attribution_session());
     let mut state = test_loop_state(Box::new(RecordingEgressHandler::new(false, Arc::new(Mutex::new(Vec::new())))));
-    state.runtime.proxy_sockaddr = listener.local_addr().unwrap();
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(listener.local_addr().unwrap());
     state.runtime.auth = Auth::UserPass { username: "control".into(), password: "grace-fixture-token".into() };
     let armed = matches!(case, Case::LargeArmed);
     if armed {

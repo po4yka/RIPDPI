@@ -1,11 +1,10 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use ripdpi_tunnel_intercept::egress::TunEgressPacketHandler;
 use ripdpi_tunnel_intercept::ingress::{RawSynAckPacketInjector, TunIngressInterceptor};
 
-use crate::session::Auth;
+use crate::session::{Auth, ProxyUpstream};
 use crate::split_dns::SplitDnsPolicy;
 use crate::uid_policy::UidFlowPolicy;
 
@@ -13,7 +12,7 @@ use super::super::dns_intercept::MapDnsRuntime;
 use super::LoopState;
 
 pub(in crate::io_loop) struct LoopRuntime {
-    pub(in crate::io_loop) proxy_sockaddr: SocketAddr,
+    pub(in crate::io_loop) proxy_sockaddr: ProxyUpstream,
     pub(in crate::io_loop) auth: Auth,
     pub(in crate::io_loop) mapdns_runtime: Option<MapDnsRuntime>,
     pub(in crate::io_loop) mapdns_classify: Option<(u32, u32, u16)>,

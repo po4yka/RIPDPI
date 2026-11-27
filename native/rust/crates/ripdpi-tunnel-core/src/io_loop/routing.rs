@@ -294,7 +294,7 @@ fn route_registered_udp_packet(
         dst,
     ) {
         let queued = forward_udp_payload(
-            state.runtime.proxy_sockaddr,
+            &state.runtime.proxy_sockaddr,
             &state.runtime.auth,
             src,
             dst,

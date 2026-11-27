@@ -1,3 +1,4 @@
+use crate::session::ProxyUpstream;
 use std::os::unix::net::UnixDatagram;
 use std::sync::Arc;
 use std::time::Duration;
@@ -88,7 +89,7 @@ async fn pending_uid_udp_fixture() {
         .expect("event wait");
     tokio::time::resume();
     let control = TcpListener::bind("127.0.0.1:0").await.expect("SOCKS control");
-    state.runtime.proxy_sockaddr = control.local_addr().expect("proxy address");
+    state.runtime.proxy_sockaddr = ProxyUpstream::Tcp(control.local_addr().expect("proxy address"));
     let relay = UdpSocket::bind("127.0.0.1:0").await.expect("SOCKS relay");
     let relay_port = relay.local_addr().expect("relay address").port().to_be_bytes();
     let mut peer = tokio::spawn(async move {

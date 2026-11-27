@@ -114,6 +114,41 @@ fn test_missing_socks5_address_is_err() {
     assert!(msg.contains("address") || msg.contains("socks5"), "error should mention address or socks5, got: {msg}");
 }
 
+fn socks5_yaml(upstream: &str) -> String {
+    format!("schemaVersion: 2\nsocks5:\n{upstream}")
+}
+
+#[test]
+fn unix_upstream_needs_neither_address_nor_port() {
+    let cfg = Config::from_str(&socks5_yaml("  unix-path: /data/px-0123\n")).expect("unix upstream");
+
+    assert_eq!(cfg.socks5.unix_path.as_deref(), Some("/data/px-0123"));
+}
+
+#[test]
+fn unix_upstream_rejects_a_second_upstream_form_a_relative_path_and_a_long_path() {
+    let long = format!("  unix-path: /{}\n", "a".repeat(107));
+    let just_fits = format!("  unix-path: /{}\n", "a".repeat(106));
+    for (upstream, ok) in [
+        ("  unix-path: /s\n  port: 1080\n".to_string(), false),
+        ("  unix-path: /s\n  address: 127.0.0.1\n".to_string(), false),
+        ("  unix-path: relative/s\n".to_string(), false),
+        (long, false),
+        ("  unix-path: \"/s\\0x\"\n".to_string(), false),
+        (just_fits, true),
+    ] {
+        let result = Config::from_str(&socks5_yaml(&upstream));
+        assert_eq!(result.is_ok(), ok, "{upstream:?}: {result:?}");
+    }
+}
+
+#[test]
+fn an_upstream_with_no_form_is_rejected() {
+    let err = Config::from_str(&socks5_yaml("  username: u\n  password: p\n")).expect_err("no upstream");
+
+    assert!(err.to_string().contains("socks5.address"), "{err}");
+}
+
 #[test]
 fn test_username_without_password_is_err() {
     let result = Config::from_str(USER_NO_PASS);

@@ -240,6 +240,5 @@ fn unix_private_udp_times_out_when_no_descriptor_arrives() {
     let error = worker.join().expect("worker").expect_err("silent client");
     assert_eq!(error.kind(), ErrorKind::TimedOut);
     assert!(started.elapsed() < super::super::HANDSHAKE_TIMEOUT + Duration::from_secs(2));
-    // The worker ended before an association started, so the control stream is closed.
     assert_eq!(client.read(&mut [0; 1]).expect("control closed"), 0);
 }

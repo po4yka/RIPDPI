@@ -4,10 +4,11 @@ use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::time::Duration;
 
-use tokio::net::{TcpStream, UdpSocket};
+use tokio::net::{TcpStream, UdpSocket, UnixDatagram, UnixStream};
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
+use super::ProxyUpstream;
 use super::protect::protect_socket_if_available;
 use super::socks5::{Auth, TargetAddr, decode_udp_target_frame, encode_udp_target_frame};
 #[cfg(test)]
@@ -111,6 +112,69 @@ impl Drop for PooledUdpBuffer {
     }
 }
 
+enum Control {
+    Tcp(TcpStream),
+    Unix(UnixStream),
+}
+
+impl Control {
+    fn try_read_probe(&self) -> io::Result<usize> {
+        let mut byte = [0; 1];
+        match self {
+            Self::Tcp(stream) => stream.try_read(&mut byte),
+            Self::Unix(stream) => stream.try_read(&mut byte),
+        }
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: readiness consumes no data.
+    async fn readable(&self) -> io::Result<()> {
+        match self {
+            Self::Tcp(stream) => stream.readable().await,
+            Self::Unix(stream) => stream.readable().await,
+        }
+    }
+}
+
+enum Datagrams {
+    Udp(UdpSocket),
+    Unix(UnixDatagram),
+}
+
+impl Datagrams {
+    /// # Cancel safety:
+    /// cancel-safe: a datagram send is message-atomic.
+    async fn send(&self, frame: &[u8]) -> io::Result<usize> {
+        match self {
+            Self::Udp(socket) => socket.send(frame).await,
+            Self::Unix(socket) => match socket.try_send(frame) {
+                Err(error)
+                    if error.kind() == io::ErrorKind::WouldBlock || error.raw_os_error() == Some(libc::ENOBUFS) =>
+                {
+                    Ok(frame.len())
+                }
+                result => result,
+            },
+        }
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: readiness consumes no data.
+    async fn readable(&self) -> io::Result<()> {
+        match self {
+            Self::Udp(socket) => socket.readable().await,
+            Self::Unix(socket) => socket.readable().await,
+        }
+    }
+
+    fn try_recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+        match self {
+            Self::Udp(socket) => socket.try_recv(buf),
+            Self::Unix(socket) => socket.try_recv(buf),
+        }
+    }
+}
+
 /// Persistent SOCKS5 UDP association.
 ///
 /// The TCP control connection and UDP relay socket stay open for the lifetime
@@ -118,9 +182,9 @@ impl Drop for PooledUdpBuffer {
 /// multiple replies over the same association.
 #[derive(Clone)]
 pub struct UdpSession {
-    control: Arc<TcpStream>,
+    control: Arc<Control>,
     invalidated: CancellationToken,
-    udp: Arc<UdpSocket>,
+    udp: Arc<Datagrams>,
     memory_budget: UdpMemoryBudget,
     recv_timeout: Duration,
     feedback: Option<ripdpi_socks5_core::udp_feedback::Nonce>,
@@ -148,7 +212,7 @@ impl UdpSession {
     /// both sockets, including a partial negotiation or rejected private attempt.
     pub async fn connect(proxy_addr: SocketAddr, auth: Auth, protect_path: Option<&str>) -> io::Result<Self> {
         Self::connect_with_memory_budget(
-            proxy_addr,
+            &ProxyUpstream::Tcp(proxy_addr),
             auth,
             protect_path,
             UdpMemoryBudget::new(MAX_UDP_DATAGRAM_LEN, 1, DEFAULT_QUEUED_UDP_BYTES),
@@ -159,7 +223,7 @@ impl UdpSession {
     /// # Cancel safety:
     /// cancel-safe: setup owns both sockets and drops them on cancellation.
     pub(crate) async fn connect_with_memory_budget(
-        proxy_addr: SocketAddr,
+        proxy_addr: &ProxyUpstream,
         auth: Auth,
         protect_path: Option<&str>,
         memory_budget: UdpMemoryBudget,
@@ -175,7 +239,7 @@ impl UdpSession {
 
     fn check_control(&self) -> io::Result<()> {
         if !self.invalidated.is_cancelled()
-            && self.control.try_read(&mut [0; 1]).is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock)
+            && self.control.try_read_probe().is_err_and(|error| error.kind() == io::ErrorKind::WouldBlock)
         {
             return Ok(());
         }
@@ -427,11 +491,15 @@ mod tests {
         let oversized = encode_udp_frame(target, &[0x5a; 400]);
         assert!(oversized.len() > budget.receive_pool.buffer_len);
         let replies = vec![oversized, encode_udp_frame(target, b"good")];
-        let session =
-            UdpSession::connect_with_memory_budget(spawn_scripted_relay(replies).await, Auth::NoAuth, None, budget)
-                .await
-                .expect("session connects")
-                .with_recv_timeout(Duration::from_secs(2));
+        let session = UdpSession::connect_with_memory_budget(
+            &ProxyUpstream::Tcp(spawn_scripted_relay(replies).await),
+            Auth::NoAuth,
+            None,
+            budget,
+        )
+        .await
+        .expect("session connects")
+        .with_recv_timeout(Duration::from_secs(2));
 
         session.send_to(target, b"ping").await.expect("send");
         let (payload, _) =
@@ -458,11 +526,13 @@ mod tests {
         let budget = UdpMemoryBudget::new(1500, 1, DEFAULT_QUEUED_UDP_BYTES);
         let (idle_proxy, _, _) = spawn_stub_proxy(0, false).await;
         let (busy_proxy, busy_echo, _) = spawn_stub_proxy(1, false).await;
-        let idle = UdpSession::connect_with_memory_budget(idle_proxy, Auth::NoAuth, None, budget.clone())
+        let idle =
+            UdpSession::connect_with_memory_budget(&ProxyUpstream::Tcp(idle_proxy), Auth::NoAuth, None, budget.clone())
+                .await
+                .expect("idle session");
+        let busy = UdpSession::connect_with_memory_budget(&ProxyUpstream::Tcp(busy_proxy), Auth::NoAuth, None, budget)
             .await
-            .expect("idle session");
-        let busy =
-            UdpSession::connect_with_memory_budget(busy_proxy, Auth::NoAuth, None, budget).await.expect("busy session");
+            .expect("busy session");
         let cancel = CancellationToken::new();
         let idle_cancel = cancel.clone();
         let idle_recv = tokio::spawn(async move { idle.recv_from(idle_cancel).await });
@@ -1343,3 +1413,6 @@ mod receive_size_tests;
 
 #[cfg(test)]
 mod feedback_tests;
+
+#[cfg(test)]
+mod unix_tests;
