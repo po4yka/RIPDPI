@@ -16,6 +16,7 @@ enum class OnboardingValidationStep {
     Tunnel,
     Dns,
     Connectivity,
+    Volume,
 }
 
 sealed interface OnboardingValidationState {
@@ -40,6 +41,7 @@ sealed interface OnboardingValidationState {
     data class Success(
         val mode: Mode,
         val dnsSummary: String,
+        val volumeTested: Boolean = true,
     ) : OnboardingValidationState
 
     data class Failed(
@@ -47,6 +49,7 @@ sealed interface OnboardingValidationState {
         val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
         val suggestedMode: Mode? = null,
         val failedStep: OnboardingValidationStep? = null,
+        val transferredBytes: Long? = null,
     ) : OnboardingValidationState
 }
 

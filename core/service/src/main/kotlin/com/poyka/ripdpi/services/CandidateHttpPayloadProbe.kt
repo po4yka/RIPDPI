@@ -37,6 +37,22 @@ class CandidateHttpPayloadProbe internal constructor(
         )
     }
 
+    suspend fun probeControl(
+        endpoint: RelayProbeEndpoint,
+        control: PayloadProbeControl,
+        timeoutMillis: Long,
+    ): CandidateHttpPayloadEvidence {
+        val started = nanoTime()
+        val result = strictProbe(control, timeoutMillis).probe(endpoint, control.url)
+        return CandidateHttpPayloadEvidence(
+            result.succeeded,
+            (nanoTime() - started) / NanosecondsPerMillisecond,
+            failureStage = result.failureStage,
+            timedOut = result.timedOut,
+            receivedBytes = result.receivedBytes,
+        )
+    }
+
     suspend fun probePayload(
         endpoint: RelayProbeEndpoint,
         policy: PayloadFailoverPolicy,
@@ -83,6 +99,7 @@ data class CandidateHttpPayloadEvidence(
     val failureStage: FieldFailureStage? = null,
     /** The last attempt failed by timeout rather than by a response or connection error. */
     val timedOut: Boolean = false,
+    val receivedBytes: Long? = null,
 )
 
 private const val CandidateHttpTimeoutMillis = 15_000L

@@ -258,9 +258,21 @@ internal fun OnboardingCompletionContent(
             value =
                 stringResource(
                     when (uiState.validationState) {
-                        is OnboardingValidationState.Success -> R.string.onboarding_done_test_passed
-                        is OnboardingValidationState.Failed -> R.string.onboarding_done_test_failed
-                        else -> R.string.onboarding_done_test_not_run
+                        is OnboardingValidationState.Success -> {
+                            if (uiState.validationState.volumeTested) {
+                                R.string.onboarding_done_test_passed
+                            } else {
+                                R.string.onboarding_done_test_volume_untested
+                            }
+                        }
+
+                        is OnboardingValidationState.Failed -> {
+                            R.string.onboarding_done_test_failed
+                        }
+
+                        else -> {
+                            R.string.onboarding_done_test_not_run
+                        }
                     },
                 ),
         )

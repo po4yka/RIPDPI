@@ -43,6 +43,7 @@
     <string name="onboarding_setup_validate_title">Tester la connexion</string>
     <string name="onboarding_step_progress">Étape %1$d sur %2$d</string>
     <string name="onboarding_validation_failed_generic">Le mode sélectionné n\'a pas pu être validé.</string>
+    <string name="onboarding_validation_failed_volume">Le transfert de test s\'est arrêté après %1$d octets.</string>
     <string name="onboarding_validation_notifications_required">Autorisez les notifications afin que RIPDPI puisse afficher l\'état du service de validation.</string>
     <string name="onboarding_validation_vpn_permission_denied">L\'autorisation VPN a été refusée, RIPDPI n\'a donc pas pu valider le mode VPN.</string>
     <string name="permissions_background_activity_body_xiaomi">Les appareils Xiaomi/MIUI peuvent empêcher RIPDPI de s\'exécuter en arrière-plan. Allez dans Paramètres &gt; Applications &gt; Gérer les applications &gt; RIPDPI, définissez Économiseur de batterie sur Aucune restriction et activez Démarrage automatique.</string>
@@ -138,6 +139,7 @@
     <string name="onboarding_done_dns">Serveur DNS</string>
     <string name="onboarding_done_test">Test de connexion</string>
     <string name="onboarding_done_test_passed">Réussi</string>
+    <string name="onboarding_done_test_volume_untested">Réussi, volume non testé</string>
     <string name="onboarding_done_test_not_run">Non effectué</string>
     <string name="onboarding_done_test_failed">Échoué</string>
 </resources>

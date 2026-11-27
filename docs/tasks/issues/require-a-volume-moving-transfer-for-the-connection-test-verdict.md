@@ -2,7 +2,7 @@
 id: DGN-1795704789266331
 title: Require a volume-moving transfer for the connection test verdict
 kind: feature
-status: backlog
+status: doing
 area: diagnostics
 priority: high
 owner: Diagnostics engineer
@@ -11,7 +11,7 @@ blocked_by: [SVC-1795615846684850, DAT-1795085420746769]
 spec_mode: required
 openspec_change: dgn-1795704789266331-require-a-volume-moving-transfer-for-the-connection-test-verdict
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 ---
 
 ## Goal

@@ -21,6 +21,7 @@
     <string name="onboarding_step_progress">Шаг %1$d из %2$d</string>
     <string name="onboarding_validation_failed">Проверка не удалась: %1$s</string>
     <string name="onboarding_validation_failed_generic">Не удалось подтвердить работу выбранного режима.</string>
+    <string name="onboarding_validation_failed_volume">Тестовая передача остановилась после %1$d байт.</string>
     <string name="onboarding_validation_notifications_required">Разрешите уведомления, чтобы RIPDPI показывал статус сервиса проверки.</string>
     <string name="onboarding_validation_vpn_permission_denied">Разрешение VPN было отклонено, поэтому RIPDPI не смог подтвердить режим VPN.</string>
     <string name="permissions_vpn_title">Разрешение VPN</string>
@@ -131,6 +132,7 @@
     <string name="onboarding_done_dns">DNS-сервер</string>
     <string name="onboarding_done_test">Проверка соединения</string>
     <string name="onboarding_done_test_passed">Пройдена</string>
+    <string name="onboarding_done_test_volume_untested">Пройдена, объём не проверен</string>
     <string name="onboarding_done_test_not_run">Не запускалась</string>
     <string name="onboarding_done_test_failed">Не пройдена</string>
 </resources>
