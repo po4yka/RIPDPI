@@ -2,7 +2,7 @@
 id: DAT-1795085420746769
 title: Consume ripdpi-bundle v3 and feed endpoint health into failover
 kind: feature
-status: review
+status: done
 area: data
 priority: high
 owner: Android data engineer
@@ -11,8 +11,11 @@ blocked_by: [DGN-1795085357320979]
 spec_mode: required
 openspec_change: dat-1795085420746769-consume-bundle-v3-endpoint-health
 created: 2026-11-19
-updated: 2026-11-19
+updated: 2026-11-27
 status_detail: Review findings fixed with regression tests; owner Gradle run pending
+closed_at: "2026-11-27T14:33:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Bundle v3 endpoint-health consumer verified by the owner-authorized Gradle run at dc1bc3d74 and main CI run 46009834608 on d9aa00b99f; no device behavior owned.
 ---
 
 ## Goal

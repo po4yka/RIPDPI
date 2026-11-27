@@ -2,7 +2,7 @@
 id: SVC-1795615846684850
 title: Stop showing Route issue right after a passed connection test
 kind: bug
-status: review
+status: done
 area: service
 priority: high
 owner: route-issue
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: svc-1795615846684850-suppress-route-issue-after-passed-connection-test
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-27
+closed_at: "2026-11-27T14:33:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Route-issue fix verified by telemetry adapter tests, on device (Pixel 8 Pro audit pattern reproduced, no Route issue) and in main CI run 46009834608 on d9aa00b99f.
 ---
 
 ## Goal
