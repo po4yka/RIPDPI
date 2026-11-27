@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "OwnServerJourneyE2ETest passes on the RIPDPI_Pool_1 emulator for VLESS (VPN and Proxy only) and AmneziaWG from a clean install with real clipboard paste; runs build/acceptance/own-server-20261126205013 and own-server-20261127103521; just ci-gates exit 0 at 0b2b9d03bc.",
+  "execution_sha256": "ba0281bee4eaf49dde11422aa4945f9cb96ee187ae394adde05cacb89c0ddcfb",
+  "issue_sha256": "fd7c25a99c3596d3ae36cdccc7f67cb482f6daa4fd182abc665e73f21996c505",
+  "outcome": "done",
+  "prepared_at": "2026-11-27T07:14:08Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TST-1795615863005942"
+}

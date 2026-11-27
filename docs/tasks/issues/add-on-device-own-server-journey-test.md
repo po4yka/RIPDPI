@@ -2,7 +2,7 @@
 id: TST-1795615863005942
 title: Add an on-device own-server journey test
 kind: chore
-status: review
+status: done
 area: testing
 priority: medium
 owner: unassigned
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-25
-updated: 2026-11-26
+updated: 2026-11-27
 spec_reason: test-only
+closed_at: "2026-11-27T07:14:08Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: OwnServerJourneyE2ETest passes on the RIPDPI_Pool_1 emulator for VLESS (VPN and Proxy only) and AmneziaWG from a clean install with real clipboard paste; runs build/acceptance/own-server-20261126205013 and own-server-20261127103521; just ci-gates exit 0 at 0b2b9d03bc.
 ---
 
 ## Goal
