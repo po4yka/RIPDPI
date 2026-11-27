@@ -21,6 +21,7 @@
     <string name="onboarding_step_progress">الخطوة %1$d من %2$d</string>
     <string name="onboarding_validation_failed">فشل التحقُّق: %1$s</string>
     <string name="onboarding_validation_failed_generic">تعذَّر التحقُّق من الوضع المحدَّد.</string>
+    <string name="onboarding_validation_failed_volume">توقف نقل الاختبار بعد %1$d بايت.</string>
     <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من عرض حالة خدمة التحقُّق.</string>
     <string name="onboarding_validation_vpn_permission_denied">تمَّ رفض إذن VPN، لذا تعذَّر على RIPDPI التحقُّق من وضع VPN.</string>
     <string name="permissions_vpn_title">إذن VPN</string>
@@ -141,6 +142,7 @@
     <string name="onboarding_done_dns">خادم DNS</string>
     <string name="onboarding_done_test">اختبار الاتصال</string>
     <string name="onboarding_done_test_passed">ناجح</string>
+    <string name="onboarding_done_test_volume_untested">نجح، لم يُختبر حجم البيانات</string>
     <string name="onboarding_done_test_not_run">لم يُنفَّذ</string>
     <string name="onboarding_done_test_failed">فاشل</string>
 </resources>

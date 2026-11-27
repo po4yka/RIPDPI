@@ -120,7 +120,7 @@ internal fun onboardingSceneState(
             proxy = uiState.selectedMode == Mode.Proxy,
             dns = dns,
         )
-    val stages = OnboardingValidationStep.entries.size
+    val stages = OnboardingValidationStep.Connectivity.ordinal + 1
     return when (val test = uiState.validationState.takeIf { statesTest } ?: OnboardingValidationState.Idle) {
         OnboardingValidationState.Idle -> {
             choices
@@ -146,7 +146,7 @@ internal fun onboardingSceneState(
         }
 
         is OnboardingValidationState.Failed -> {
-            val at = (test.failedStep ?: OnboardingValidationStep.Tunnel).ordinal
+            val at = (test.failedStep ?: OnboardingValidationStep.Tunnel).ordinal.coerceAtMost(stages - 1)
             choices.copy(failedAt = at, stage = at)
         }
     }

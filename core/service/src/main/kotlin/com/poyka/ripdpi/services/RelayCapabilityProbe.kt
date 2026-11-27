@@ -73,6 +73,7 @@ internal data class RelayTcpProbeResult(
     val failureStage: FieldFailureStage? = null,
     /** The request hit its call, connect or read timeout. */
     val timedOut: Boolean = false,
+    val receivedBytes: Long? = null,
 ) {
     /** No HTTP response arrived: a connection error or a timeout, which a lossy path can cause once. */
     val transient: Boolean get() = !succeeded && statusCode == null && failure == RelayProbeFailure.TcpConnect
@@ -227,6 +228,8 @@ internal class OkHttpRelayTcpProbe(
                     .get()
                     .build(),
             )
+        var received = 0L
+        val counting = expectedPayload != null
         return coroutineScope {
             val reader =
                 async(Dispatchers.IO) {
@@ -241,8 +244,9 @@ internal class OkHttpRelayTcpProbe(
                                 else -> {
                                     val complete =
                                         try {
-                                            expectedPayload?.let { consumeVerifiedPayload(response, it) }
-                                                ?: consumeBoundedPayload(response)
+                                            expectedPayload?.let { control ->
+                                                consumeVerifiedPayload(response, control) { received = it.toLong() }
+                                            } ?: consumeBoundedPayload(response)
                                         } catch (_: IOException) {
                                             false
                                         }
@@ -250,15 +254,16 @@ internal class OkHttpRelayTcpProbe(
                                         complete,
                                         response.code,
                                         if (complete) null else RelayProbeFailure.TcpConnect,
+                                        receivedBytes = received.takeIf { counting },
                                     )
                                 }
                             }
                         }
                     } catch (error: java.io.InterruptedIOException) {
                         // OkHttp reports its call timeout as a bare InterruptedIOException("timeout").
-                        tcpConnectFailure(error, timedOut = true)
+                        tcpConnectFailure(error, timedOut = true).copy(receivedBytes = received.takeIf { counting })
                     } catch (error: IOException) {
-                        tcpConnectFailure(error, timedOut = false)
+                        tcpConnectFailure(error, timedOut = false).copy(receivedBytes = received.takeIf { counting })
                     }
                 }
             try {
@@ -287,6 +292,7 @@ internal fun consumeVerifiedPayload(
     expected: PayloadProbeControl,
     onBodyReadStarted: () -> Unit = {},
     onBodyReadFinished: () -> Unit = {},
+    onBytesRead: (Int) -> Unit = {},
 ): Boolean {
     val identityEncoding = response.header("Content-Encoding")?.equals("identity", ignoreCase = true) != false
     val validHeaders =
@@ -303,6 +309,7 @@ internal fun consumeVerifiedPayload(
             if (count == -1) break
             if (received == 0 && count > 0) onBodyReadStarted()
             received += count
+            onBytesRead(received)
             digest.update(buffer, 0, count)
         }
         onBodyReadFinished()

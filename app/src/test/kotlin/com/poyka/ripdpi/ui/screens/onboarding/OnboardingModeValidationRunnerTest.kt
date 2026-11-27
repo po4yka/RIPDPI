@@ -2,12 +2,22 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.FakeAppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.activities.FakeStringResolver
+import com.poyka.ripdpi.activities.runningOn
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbeControl
+import com.poyka.ripdpi.data.ProxyGroup
+import com.poyka.ripdpi.data.ProxyGroupType
+import com.poyka.ripdpi.data.RuntimeConfigurationSelection
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.proxyimport.FakeProxyGroupRepository
+import com.poyka.ripdpi.services.CandidateHttpPayloadEvidence
 import com.poyka.ripdpi.services.DefaultServiceRuntimeRegistry
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
@@ -42,6 +52,10 @@ import kotlin.concurrent.thread
 private const val FixtureTunnelUsername = "tunnel-user"
 private const val FixtureTunnelPassword = "tunnel-pass"
 private const val AddressTypeDomain: Byte = 3
+private const val Sha256HexLength = 64
+private const val MinControlBytes = 32_768
+private const val LargeControlBytes = 262_144
+private const val StalledBytes = 20_480L
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class OnboardingModeValidationRunnerTest {
@@ -71,6 +85,11 @@ class OnboardingModeValidationRunnerTest {
                             io = ioDispatcher,
                             main = UnconfinedTestDispatcher(testScheduler),
                         ),
+                    volumeCheck =
+                        OnboardingVolumeCheck(
+                            FakeProxyGroupRepository(),
+                            FakeAppliedRuntimeConfigurationSource(),
+                        ) { _, _, _ -> error("volume probe not expected") },
                 )
 
             try {
@@ -303,6 +322,10 @@ class OnboardingModeValidationRunnerTest {
         registry: ServiceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
         tlsClientFactory: OwnedTlsClientFactory = RecordingOwnedTlsClientFactory(),
         settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        groups: FakeProxyGroupRepository = FakeProxyGroupRepository(),
+        applied: FakeAppliedRuntimeConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+        volumeTransfer: OnboardingVolumeTransfer =
+            OnboardingVolumeTransfer { _, _, _ -> error("volume probe not expected") },
     ): DefaultOnboardingModeValidationRunner =
         DefaultOnboardingModeValidationRunner(
             appSettingsRepository = settings,
@@ -317,7 +340,122 @@ class OnboardingModeValidationRunnerTest {
                     io = UnconfinedTestDispatcher(),
                     main = UnconfinedTestDispatcher(),
                 ),
+            volumeCheck = OnboardingVolumeCheck(groups, applied, volumeTransfer),
         )
+
+    private fun policyControl(
+        host: String,
+        bytes: Int,
+    ) = PayloadProbeControl("https://$host/payload.bin", bytes, "a".repeat(Sha256HexLength))
+
+    private suspend fun volumeFixture(
+        probes: List<PayloadProbeControl>?,
+        transfer: OnboardingVolumeTransfer,
+        socks: FakeSocksListener,
+    ): OnboardingValidationResult {
+        val groups = FakeProxyGroupRepository()
+        val failover =
+            probes?.let {
+                SelectorFailover(
+                    probeUrl = "https://probe.example/204",
+                    intervalSeconds = 60,
+                    toleranceMs = 50,
+                    payloadPolicy =
+                        PayloadFailoverPolicy(
+                            schemaVersion = 2,
+                            selectorTag = "select",
+                            probes = it,
+                            intervalSeconds = 60,
+                            timeoutSeconds = 10,
+                            failureThreshold = 2,
+                            recoveryThreshold = 2,
+                            cooldownSeconds = 60,
+                            maxBackoffSeconds = 120,
+                        ),
+                )
+            }
+        groups.add(ProxyGroup("g", "g", ProxyGroupType.SUBSCRIPTION, 0, true, failover = failover))
+        val applied = FakeAppliedRuntimeConfigurationSource()
+        applied.applications.value =
+            runningOn(RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "m"))
+        val store = FakeServiceStateStore()
+        return validationRunner(
+            serviceStateStore = store,
+            serviceController = RunningServiceController(store),
+            registry = registryWithTunnelRoute(socks.route()),
+            groups = groups,
+            applied = applied,
+            volumeTransfer = transfer,
+        ).validate(Mode.VPN) { }
+    }
+
+    @Test
+    fun `a verified transfer of the largest control passes with volume tested`() =
+        runTest {
+            val contacted = mutableListOf<String>()
+            val small = policyControl("a.example", MinControlBytes)
+            val large = policyControl("b.example", LargeControlBytes)
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(listOf(small, large), { _, control, _ ->
+                        contacted += control.url
+                        CandidateHttpPayloadEvidence(true, 1L, receivedBytes = control.expectedBytes.toLong())
+                    }, socks)
+                assertEquals(true, (result as OnboardingValidationResult.Success).volumeTested)
+                assertEquals(listOf(large.url), contacted)
+            }
+        }
+
+    @Test
+    fun `a stalled transfer fails the volume step and records the byte count`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(
+                            policyControl("a.example", MinControlBytes),
+                            policyControl("b.example", LargeControlBytes),
+                        ),
+                        { _, _, _ ->
+                            CandidateHttpPayloadEvidence(false, 1L, timedOut = true, receivedBytes = StalledBytes)
+                        },
+                        socks,
+                    )
+                val failure = result as OnboardingValidationResult.Failed
+                assertEquals(OnboardingValidationStep.Volume, failure.failedStep)
+                assertEquals(StalledBytes, failure.transferredBytes)
+            }
+        }
+
+    @Test
+    fun `a transfer with a mismatching hash fails the volume step`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result =
+                    volumeFixture(
+                        listOf(
+                            policyControl("a.example", MinControlBytes),
+                            policyControl("b.example", LargeControlBytes),
+                        ),
+                        { _, control, _ ->
+                            CandidateHttpPayloadEvidence(false, 1L, receivedBytes = control.expectedBytes.toLong())
+                        },
+                        socks,
+                    )
+                val failure = result as OnboardingValidationResult.Failed
+                assertEquals(OnboardingValidationStep.Volume, failure.failedStep)
+                assertEquals(LargeControlBytes.toLong(), failure.transferredBytes)
+            }
+        }
+
+    @Test
+    fun `a group without a payload control reports volume not tested`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val result = volumeFixture(null, { _, _, _ -> error("no control published") }, socks)
+                assertEquals(false, (result as OnboardingValidationResult.Success).volumeTested)
+            }
+        }
 
     private suspend fun FakeAppSettingsRepository.useLanListener(socks: FakeSocksListener) {
         val route = socks.route()

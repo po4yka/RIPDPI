@@ -67,6 +67,7 @@ private const val ProxyProbeUsername = "onboarding"
 sealed interface OnboardingValidationResult {
     data class Success(
         val dnsSummary: String,
+        val volumeTested: Boolean = true,
     ) : OnboardingValidationResult
 
     data class Failed(
@@ -74,6 +75,7 @@ sealed interface OnboardingValidationResult {
         val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
         val suggestedMode: Mode? = null,
         val failedStep: OnboardingValidationStep? = null,
+        val transferredBytes: Long? = null,
     ) : OnboardingValidationResult
 }
 
@@ -102,6 +104,7 @@ class DefaultOnboardingModeValidationRunner
         private val tlsClientFactory: OwnedTlsClientFactory,
         private val stringResolver: StringResolver,
         private val dispatchers: AppCoroutineDispatchers,
+        private val volumeCheck: OnboardingVolumeCheck,
     ) : OnboardingModeValidationRunner {
         private var ownedValidationReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt? = null
         private var ownedValidationMode: Mode? = null
@@ -117,6 +120,7 @@ class DefaultOnboardingModeValidationRunner
                 runDnsProbe(mode, route)
                 onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
                 runConnectivityProbe(route)
+                val volumeTested = runVolumeProbe(mode, route)
                 val dns = appSettingsRepository.snapshot().activeDnsSettings()
                 OnboardingValidationResult.Success(
                     dnsSummary =
@@ -126,6 +130,7 @@ class DefaultOnboardingModeValidationRunner
                             dns.encryptedDnsProtocol,
                             dns.dnsIp,
                         ),
+                    volumeTested = volumeTested,
                 )
             } catch (e: OnboardingProbeException) {
                 Logger.w(e, tag = LogTags.UI) { "Onboarding validation ${e.step} probe failed for $mode" }
@@ -136,6 +141,7 @@ class DefaultOnboardingModeValidationRunner
                     // Reply 4 can also mean an unreachable host, so a DNS failure keeps the mode switch too.
                     suggestedMode = mode.alternateOrNull(),
                     failedStep = e.step,
+                    transferredBytes = e.transferredBytes,
                 )
             } catch (e: TimeoutCancellationException) {
                 Logger.w(e, tag = LogTags.UI) { "Onboarding validation timed out for $mode" }
@@ -387,6 +393,32 @@ class DefaultOnboardingModeValidationRunner
             }.getOrElse { e -> throwProbeFailure(e) }
         }
 
+        private suspend fun runVolumeProbe(
+            mode: Mode,
+            route: LocalSocksRoute,
+        ): Boolean =
+            when (val outcome = volumeCheck.run(mode, route)) {
+                OnboardingVolumeOutcome.NotTested -> {
+                    false
+                }
+
+                OnboardingVolumeOutcome.Verified -> {
+                    true
+                }
+
+                is OnboardingVolumeOutcome.Stalled -> {
+                    throw OnboardingProbeException(
+                        step = OnboardingValidationStep.Volume,
+                        reasonMessage =
+                            stringResolver.getString(
+                                R.string.onboarding_validation_failed_volume,
+                                outcome.receivedBytes,
+                            ),
+                        transferredBytes = outcome.receivedBytes,
+                    )
+                }
+            }
+
         private fun throwProbeFailure(e: Throwable): Nothing {
             if (e is CancellationException) throw e
             val message =
@@ -412,6 +444,7 @@ private class OnboardingProbeException(
     val step: OnboardingValidationStep,
     val reasonMessage: String,
     cause: Throwable? = null,
+    val transferredBytes: Long? = null,
 ) : RuntimeException(reasonMessage, cause)
 
 private class ImmediateServiceStartRejected(

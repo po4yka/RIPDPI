@@ -80,6 +80,8 @@ data class PayloadProbeControl(
     override fun toString() = "PayloadProbeControl([REDACTED])"
 }
 
+const val TcpFreezeThresholdBytes = 16_384
+
 private const val MinIntervalSeconds = 30
 private const val MaxTimingSeconds = 3_600
 private const val MinBackoffSeconds = 60

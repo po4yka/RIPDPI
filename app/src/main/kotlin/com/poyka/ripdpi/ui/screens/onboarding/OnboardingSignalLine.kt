@@ -100,7 +100,7 @@ internal fun onboardingSignal(
                     when (validationState.failedStep) {
                         OnboardingValidationStep.Tunnel -> TunnelStageAt
                         OnboardingValidationStep.Dns, null -> DnsStageAt
-                        OnboardingValidationStep.Connectivity -> ConnectivityStageAt
+                        OnboardingValidationStep.Connectivity, OnboardingValidationStep.Volume -> ConnectivityStageAt
                     },
             )
         }
