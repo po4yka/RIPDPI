@@ -44,6 +44,7 @@
     <string name="onboarding_step_progress">Paso %1$d de %2$d</string>
     <string name="onboarding_validation_failed_generic">No se pudo validar el modo seleccionado.</string>
     <string name="onboarding_validation_failed_volume">La transferencia de prueba se detuvo tras %1$d bytes.</string>
+    <string name="onboarding_validation_failed_volume_hop">La transferencia de prueba se detuvo en el salto %1$d de la cadena tras %2$d bytes.</string>
     <string name="onboarding_validation_failed_volume_rejected">El archivo de prueba no llegó intacto.</string>
     <string name="onboarding_validation_notifications_required">Permite las notificaciones para que RIPDPI pueda mostrar el estado del servicio de validación.</string>
     <string name="onboarding_validation_vpn_permission_denied">Se denegó el permiso VPN, por lo que RIPDPI no pudo validar el modo VPN.</string>

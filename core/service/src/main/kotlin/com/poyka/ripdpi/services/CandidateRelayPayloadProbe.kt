@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.PayloadFailoverPolicy
+import com.poyka.ripdpi.data.PayloadProbeControl
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
@@ -47,7 +48,8 @@ class CandidateRelayPayloadProbe internal constructor(
     private val httpProbe: CandidateHttpPayloadProbe,
     private val environment: suspend () -> CandidateRelayProbeEnvironment,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-) : CandidateRelayMeasurements {
+) : CandidateRelayMeasurements,
+    RelayHopVolumeMeasurement {
     private val runtimeScope = CoroutineScope(SupervisorJob() + dispatcher)
     private val mutex = Mutex()
     private var pending: CandidateSession? = null
@@ -102,6 +104,20 @@ class CandidateRelayPayloadProbe internal constructor(
         ) { endpoint ->
             httpProbe.probePayload(endpoint, policy)
         }
+
+    override suspend fun measureVolume(
+        profile: RelayProfileRecord,
+        credentials: RelayCredentialRecord,
+        control: PayloadProbeControl,
+        timeoutMillis: Long,
+    ): RelayVolumeMeasurement {
+        var receivedBytes: Long? = null
+        val measurement =
+            measureUsing(profile, credentials, timeoutMillis + VolumeDeadlineSlackMillis) { endpoint ->
+                httpProbe.probeControl(endpoint, control, timeoutMillis).also { receivedBytes = it.receivedBytes }
+            }
+        return RelayVolumeMeasurement(measurement, receivedBytes)
+    }
 
     private suspend fun measureUsing(
         profile: RelayProfileRecord,
@@ -313,5 +329,6 @@ class CandidateRelayPayloadProbe internal constructor(
 private const val HttpDeadlineMillis = 30_000L
 private const val ReadyDeadlineMillis = 5_000L
 private const val CleanupDeadlineMillis = 5_000L
+private const val VolumeDeadlineSlackMillis = 5_000L
 
 private const val MillisecondsPerSecond = 1_000L

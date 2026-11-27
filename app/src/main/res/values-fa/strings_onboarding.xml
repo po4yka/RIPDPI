@@ -12,6 +12,7 @@
     <string name="onboarding_continue">ادامه</string>
     <string name="onboarding_validation_failed_generic">حالت انتخاب‌شده قابل اعتبارسنجی نبود.</string>
     <string name="onboarding_validation_failed_volume">انتقال آزمایشی پس از %1$d بایت متوقف شد.</string>
+    <string name="onboarding_validation_failed_volume_hop">انتقال آزمایشی در گام %1$d زنجیره پس از %2$d بایت متوقف شد.</string>
     <string name="onboarding_validation_failed_volume_rejected">فایل آزمایشی سالم نرسید.</string>
     <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند وضعیت سرویس اعتبارسنجی را نشان دهد.</string>
     <string name="permissions_background_activity_title">فعالیت پس‌زمینه</string>

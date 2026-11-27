@@ -44,6 +44,7 @@
     <string name="onboarding_step_progress">Schritt %1$d von %2$d</string>
     <string name="onboarding_validation_failed_generic">Der gewählte Modus konnte nicht validiert werden.</string>
     <string name="onboarding_validation_failed_volume">Die Testübertragung wurde nach %1$d Byte abgebrochen.</string>
+    <string name="onboarding_validation_failed_volume_hop">Die Testübertragung wurde an Kettenglied %1$d nach %2$d Byte abgebrochen.</string>
     <string name="onboarding_validation_failed_volume_rejected">Die Testdatei ist nicht unversehrt angekommen.</string>
     <string name="onboarding_validation_notifications_required">Erlauben Sie Benachrichtigungen, damit RIPDPI den Status des Validierungsdienstes anzeigen kann.</string>
     <string name="onboarding_validation_vpn_permission_denied">Die VPN-Berechtigung wurde verweigert, daher konnte RIPDPI den VPN-Modus nicht validieren.</string>

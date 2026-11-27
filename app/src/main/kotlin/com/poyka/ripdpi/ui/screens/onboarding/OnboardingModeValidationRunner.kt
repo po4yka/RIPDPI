@@ -417,7 +417,13 @@ class DefaultOnboardingModeValidationRunner
                     throw OnboardingProbeException(
                         step = OnboardingValidationStep.Volume,
                         reasonMessage =
-                            stringResolver.getString(
+                            outcome.hop?.let { hop ->
+                                stringResolver.getString(
+                                    R.string.onboarding_validation_failed_volume_hop,
+                                    hop,
+                                    outcome.receivedBytes,
+                                )
+                            } ?: stringResolver.getString(
                                 R.string.onboarding_validation_failed_volume,
                                 outcome.receivedBytes,
                             ),
