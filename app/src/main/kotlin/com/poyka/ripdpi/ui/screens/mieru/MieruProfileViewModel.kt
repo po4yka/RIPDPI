@@ -9,7 +9,7 @@ import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorSaveFlow
-import com.poyka.ripdpi.ui.screens.relayeditor.activateExplicitly
+import com.poyka.ripdpi.ui.screens.relayeditor.activateAsNewServer
 import com.poyka.ripdpi.ui.screens.relayeditor.loadRelayDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -130,7 +130,7 @@ class MieruProfileViewModel
                 block = {
                     val original = editingDraft
                     if (original == null) {
-                        relayActivator.activateExplicitly(profile)
+                        relayActivator.activateAsNewServer(profile, RelayKindMieru, relayArtifacts)
                     } else {
                         relayArtifacts.persist(
                             original.copy(
