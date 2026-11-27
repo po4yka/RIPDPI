@@ -21,6 +21,7 @@ This directory indexes protocol and architecture decisions that should be treate
 | [ADR 0014: Relay protocol crates code decisions](0014-relay-protocol-crates-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the `ripdpi-trojan`, `ripdpi-anytls`, and `ripdpi-shadowtls` source comments. |
 | [ADR 0015: Diagnostics probe crates code decisions](0015-diagnostics-probe-crates-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the `ripdpi-diagnostics-http`, `-tls`, `-dns`, and `-transport` source comments. |
 | [ADR 0016: Server journey code decisions](0016-server-journey-code-decisions.md) | Accepted | 2026-11-25 | Decision records moved out of the source comments of the saved server check, connected server status, relay event server names, and AmneziaWG profile editor. |
+| [ADR 0017: TLS-in-TLS classifier exposure](0017-tls-in-tls-classifier-exposure.md) | Accepted (research-only) | 2026-11-27 | Inventory of which relay kinds carry an inner TLS handshake inside an outer TLS session and their mitigations. Conditional-go for a repo-local loopback shape measurement; a shape-toward-one-TLS-server spike stays externally gated. No default changes. Holds the shared findings for the deploy counterpart `SEC-1795706124070316`. |
 
 ## Cross-Link Rules
 

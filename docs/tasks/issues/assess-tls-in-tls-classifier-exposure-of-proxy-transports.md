@@ -2,7 +2,7 @@
 id: TRN-1795705033979683
 title: Assess TLS-in-TLS classifier exposure of proxy transports
 kind: research
-status: backlog
+status: review
 area: transport
 priority: low
 owner: Transport obfuscation research lane
@@ -11,8 +11,9 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 spec_reason: research-only
+status_detail: "Design note: docs/adr/0017-tls-in-tls-classifier-exposure.md. Verdict: conditional-go for a repo-local loopback shape measurement; shaping spike externally gated."
 ---
 
 ## Goal

@@ -40,7 +40,7 @@ These items were scattered as parentless backlog tasks, making them look like re
 - [[add-constant-rate-traffic-shaping-voip-camouflage]] — constant-rate shaping profile spike. **Spike done 2026-06-11 — CONDITIONAL-GO** (forward-only QUIC-datagram pacer; gated on a missing low-power hook; stream-wrapper/bidirectional scope dropped).
 - [[spike-dns-morph-bootstrap-fallback-channel]] — DNS-Morph alternative bootstrap channel. **Spike done 2026-06-11 — EXTERNALLY-GATED** (sound + not a duplicate, but unverifiable without an RU-reachable bridge + an outbound-:53 reachability measurement).
 - [[investigate-operator-protocol-class-signatures]] — empirical block-rate matrix across transports; gated on ≥3 RU ISP vantages (external). **Spike done 2026-06-11 — CONDITIONAL-GO on methodology** (field run stays gated; key finding: no policy type is keyed by transport-crate identity, so lock the `(transport-class, scope-hash)` matrix schema now).
-- [[assess-tls-in-tls-classifier-exposure-of-proxy-transports]] — TLS-in-TLS classifier exposure of proxy transports. Filed 2026-11-26 from single-source, abstract-level preprint evidence (non-Russian ISP data); research-only, no spike run yet.
+- [[assess-tls-in-tls-classifier-exposure-of-proxy-transports]] — TLS-in-TLS classifier exposure of proxy transports. Filed 2026-11-26 from single-source, abstract-level preprint evidence (non-Russian ISP data); research-only. **Design note done 2026-11-27 — CONDITIONAL-GO** for a repo-local loopback shape measurement; the shape-toward-one-TLS-server spike stays externally gated ([ADR 0017](../../adr/0017-tls-in-tls-classifier-exposure.md)).
 
 ## Ship definition
 
