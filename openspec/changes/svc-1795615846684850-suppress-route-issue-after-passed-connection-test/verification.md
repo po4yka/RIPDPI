@@ -20,6 +20,6 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-SVC-1795615846684850-001 | SVC-1795615847257249 | `route_advances_on_local_targets_do_not_count_toward_warnings` and `failures_on_local_targets_do_not_count_toward_warnings` feed 127.0.0.1, 0.0.0.0, and :: targets and assert zero route and failure counts | pass |
-| REQ-SVC-1795615846684850-002 | SVC-1795615847721706 | The same tests assert that an advance and a failure on 203.0.113.10 still count 1; `RecentWarningTracker` and its 60 s window are unchanged | pass |
-| REQ-SVC-1795615846684850-003 | SVC-1795615848162479 | See device_evidence: audit refusals reproduced on purpose; home stayed Connected with no Route issue | pass |
+| REQ-SVC-1795615846684850-001 | SVC-1795615847257249 | `route_advances_on_local_targets_do_not_count_toward_warnings` and `failures_on_local_targets_do_not_count_toward_warnings` feed 127.0.0.1, 0.0.0.0, and :: targets and assert zero route and failure counts | passed |
+| REQ-SVC-1795615846684850-002 | SVC-1795615847721706 | The same tests assert that an advance and a failure on 203.0.113.10 still count 1; `RecentWarningTracker` and its 60 s window are unchanged | passed |
+| REQ-SVC-1795615846684850-003 | SVC-1795615848162479 | See device_evidence: audit refusals reproduced on purpose; home stayed Connected with no Route issue | passed |
