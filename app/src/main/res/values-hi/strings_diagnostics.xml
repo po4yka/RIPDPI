@@ -318,6 +318,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">दो अलग Reality प्रवाह हैंडशेक के बाद रुक गए।</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">उसी नेटवर्क पर QUIC Initial जाँच को उत्तर मिला; इससे ऐप का पथ प्रमाणित नहीं होता।</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">जाँचे हुए UDP/QUIC रिले को आज़माएँ, फिर ऐप के डेटा की जाँच करें।</string>
+    <string name="diagnostics_mobile_allowlist_summary">केवल अनुमत गंतव्यों ने HTTPS पूरा किया। विदेशी पते और UDP विफल रहे।</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">केवल ऐसा ट्रांसपोर्ट इस्तेमाल करें जो अनुमत गंतव्य तक TCP पर मानक HTTPS पूरा करे।</string>
     <string name="diagnostics_sparkline_selected_state">%2$d में से नमूना %1$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">नवीनतम मान: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">पिछला नमूना</string>

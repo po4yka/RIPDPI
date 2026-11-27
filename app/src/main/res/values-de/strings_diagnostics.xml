@@ -954,6 +954,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Zwei verschiedene Reality-Verbindungen blieben nach dem Handshake stehen.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Ein QUIC-Initial-Test erhielt im selben Netzwerk eine Antwort; das bestätigt nicht den Anwendungspfad.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Versuchen Sie ein getestetes UDP/QUIC-Relay und prüfen Sie dann die Anwendungsdaten.</string>
+    <string name="diagnostics_mobile_allowlist_summary">Nur erlaubte Ziele haben HTTPS abgeschlossen. Ausländische Adressen und UDP sind fehlgeschlagen.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">Verwenden Sie nur einen Transport, der Standard-HTTPS über TCP zu einem erlaubten Ziel abschließt.</string>
     <string name="diagnostics_sparkline_selected_state">Messwert %1$d von %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Letzter Wert: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Vorheriger Messwert</string>

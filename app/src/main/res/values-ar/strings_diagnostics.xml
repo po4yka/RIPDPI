@@ -957,6 +957,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">توقف مساران مختلفان من Reality بعد المصافحة.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">تلقى فحص QUIC Initial رداً على الشبكة نفسها؛ هذا لا يثبت عمل مسار التطبيق.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">جرّب مرحّل UDP/QUIC مختبراً، ثم تحقق من عمل بيانات التطبيق.</string>
+    <string name="diagnostics_mobile_allowlist_summary">أكملت الوجهات المسموح بها فقط اتصال HTTPS. فشلت العناوين الأجنبية وUDP.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">استخدم فقط نقلاً يُكمل HTTPS قياسياً عبر TCP إلى وجهة مسموح بها.</string>
     <string name="diagnostics_sparkline_selected_state">العينة %1$d من %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">أحدث قيمة: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">العينة السابقة</string>

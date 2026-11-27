@@ -156,6 +156,7 @@ class DiagnosticsSummaryProjector
         ): List<String> =
             buildList {
                 addAll(report?.results.orEmpty().selectiveMatrixSummaryLines())
+                addAll(report?.diagnoses.orEmpty().mobileAllowlistSummaryLines())
                 addAll(report?.results.orEmpty().ipFamilySummaryLines())
                 addAll(report?.results.orEmpty().http3SummaryLines())
                 addAll(report?.results.orEmpty().pmtuSummaryLines())

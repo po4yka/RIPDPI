@@ -954,6 +954,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Deux flux Reality distincts se sont bloqués après la négociation.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Un test QUIC Initial a reçu une réponse sur le même réseau ; cela ne valide pas le chemin de l’application.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Essayez un relais UDP/QUIC testé, puis vérifiez les données de l’application.</string>
+    <string name="diagnostics_mobile_allowlist_summary">Seules les destinations autorisées ont terminé HTTPS. Les adresses étrangères et UDP ont échoué.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">Utilisez uniquement un transport qui termine un HTTPS standard sur TCP vers une destination autorisée.</string>
     <string name="diagnostics_sparkline_selected_state">Échantillon %1$d sur %2$d : %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Dernière valeur : %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Échantillon précédent</string>

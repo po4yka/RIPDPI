@@ -1,4 +1,4 @@
-use crate::classification::pack_versions_from_refs;
+use crate::classification::{classify_mobile_allowlist, pack_versions_from_refs};
 use crate::observations::ENGINE_ANALYSIS_VERSION;
 use crate::types::{
     ConfirmGoodDpiVerdict, ConfirmGoodDpiVerdictStatus, Diagnosis, ExecutionPlanSnapshot, ProbeObservation,
@@ -33,7 +33,7 @@ pub(crate) fn build_report(
             evidence.quic_control_succeeded = true;
             ConfirmGoodDpiVerdict { status: ConfirmGoodDpiVerdictStatus::Suspected, evidence }
         });
-    let diagnoses = confirm_good_dpi_verdict.as_ref().map_or_else(Vec::new, |_| {
+    let mut diagnoses = confirm_good_dpi_verdict.as_ref().map_or_else(Vec::new, |_| {
         vec![Diagnosis {
             code: "confirm_good_dpi_suspected".to_string(),
             summary: "Reality handshakes succeeded but application data stalled; a QUIC Initial response was observed"
@@ -51,6 +51,7 @@ pub(crate) fn build_report(
             control_validated: None,
         }]
     });
+    diagnoses.extend(classify_mobile_allowlist(&results));
     ScanReport {
         session_id,
         profile_id: request.profile_id,

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.Diagnosis
+import com.poyka.ripdpi.diagnostics.MobileAllowlistDiagnosis
 import com.poyka.ripdpi.diagnostics.QuicInitialUnobservedDiagnosis
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
@@ -12,18 +13,7 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
     val isNetworkUnavailable = diagnosis.code == "network_unavailable"
     return DiagnosticsDiagnosisUiModel(
         code = diagnosis.code,
-        summary =
-            if (isConfirmGood) {
-                context.getString(R.string.diagnostics_confirm_good_dpi_summary)
-            } else if (isConnectionConcurrency) {
-                context.getString(R.string.diagnostics_connection_concurrency_summary)
-            } else if (isNetworkUnavailable) {
-                context.getString(R.string.diagnostics_network_unavailable_summary)
-            } else if (diagnosis.code == "network_scope_unverified") {
-                context.getString(R.string.diagnostics_network_scope_unverified_summary)
-            } else {
-                diagnosis.summary
-            },
+        summary = LocalizedDiagnosisSummaries[diagnosis.code]?.let(context::getString) ?: diagnosis.summary,
         controlStatus = context.getString(diagnosticControlStatusResource(diagnosis.controlValidated)),
         measurementLimit =
             if (diagnosis.code == QuicInitialUnobservedDiagnosis) {
@@ -56,6 +46,8 @@ internal fun DiagnosticsUiFactorySupport.toDiagnosisUiModel(diagnosis: Diagnosis
         recommendation =
             if (isConfirmGood) {
                 context.getString(R.string.diagnostics_confirm_good_dpi_recommendation)
+            } else if (diagnosis.code == MobileAllowlistDiagnosis) {
+                context.getString(R.string.diagnostics_mobile_allowlist_recommendation)
             } else if (isConnectionConcurrency && diagnosis.severity == "warning") {
                 context.getString(R.string.diagnostics_connection_concurrency_recommendation)
             } else if (isConnectionConcurrency && diagnosis.recommendation == ConnectionConcurrencyInfoRecommendation) {
@@ -88,3 +80,12 @@ internal fun diagnosticControlStatusResource(value: Boolean?): Int =
 private const val ConnectionConcurrencyInfoRecommendation =
     "A confirmed interaction applies the learned owned-stack profile and cap on the next service start; " +
         "browser-originated TLS in proxy mode may bypass this control."
+
+private val LocalizedDiagnosisSummaries =
+    mapOf(
+        "confirm_good_dpi_suspected" to R.string.diagnostics_confirm_good_dpi_summary,
+        "connection_concurrency_interaction" to R.string.diagnostics_connection_concurrency_summary,
+        "network_unavailable" to R.string.diagnostics_network_unavailable_summary,
+        "network_scope_unverified" to R.string.diagnostics_network_scope_unverified_summary,
+        MobileAllowlistDiagnosis to R.string.diagnostics_mobile_allowlist_summary,
+    )

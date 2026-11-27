@@ -759,6 +759,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Два разных соединения Reality зависли после рукопожатия.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Проба QUIC Initial получила ответ в той же сети; это не подтверждает работу приложения.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Попробуйте проверенный UDP/QUIC-ретранслятор, затем проверьте передачу данных приложения.</string>
+    <string name="diagnostics_mobile_allowlist_summary">HTTPS прошёл только к разрешённым адресатам. Зарубежные адреса и UDP недоступны.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">Используйте только транспорт, который выполняет стандартный HTTPS по TCP к разрешённому адресату.</string>
     <string name="diagnostics_sparkline_selected_state">Точка %1$d/%2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Последнее значение: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Назад</string>

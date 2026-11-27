@@ -954,6 +954,8 @@
     <string name="diagnostics_confirm_good_dpi_evidence_reality">Dos flujos Reality distintos se bloquearon después del handshake.</string>
     <string name="diagnostics_confirm_good_dpi_evidence_quic">Una prueba QUIC Initial recibió una respuesta en la misma red; no valida la ruta de la aplicación.</string>
     <string name="diagnostics_confirm_good_dpi_recommendation">Pruebe un relay UDP/QUIC verificado y compruebe los datos de la aplicación.</string>
+    <string name="diagnostics_mobile_allowlist_summary">Solo los destinos permitidos completaron HTTPS. Los destinos extranjeros y UDP fallaron.</string>
+    <string name="diagnostics_mobile_allowlist_recommendation">Use solo un transporte que complete HTTPS estándar sobre TCP hacia un destino permitido.</string>
     <string name="diagnostics_sparkline_selected_state">Muestra %1$d de %2$d: %3$s</string>
     <string name="diagnostics_sparkline_latest_state">Último valor: %1$s</string>
     <string name="diagnostics_sparkline_previous_sample">Muestra anterior</string>
