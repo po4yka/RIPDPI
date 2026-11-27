@@ -7,6 +7,7 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::session::udp_feedback::{self
 use ripdpi_proxy_runtime_adapter::platform::udp_error_queue;
 
 use super::flow::{UdpFlowActivationState, UdpFlowKey};
+use super::sockets::ClientDatagrams;
 
 const PREFIX_LEN: usize = 64;
 const HISTORY_LIMIT: usize = 64;
@@ -116,7 +117,7 @@ impl Drop for FlowFeedback {
 
 pub(super) fn drain_errors(
     state: &crate::runtime::state::RuntimeState,
-    client_relay: &UdpSocket,
+    client_relay: &impl ClientDatagrams,
     key: &UdpFlowKey,
     entry: &mut UdpFlowActivationState,
     nonce: Option<&Nonce>,
@@ -154,8 +155,8 @@ pub(super) fn drain_errors(
     Ok(progressed)
 }
 
-pub(super) fn send_frame(socket: &UdpSocket, client: SocketAddr, frame: &[u8]) -> io::Result<()> {
-    match socket.send_to(frame, client) {
+pub(super) fn send_frame(socket: &impl ClientDatagrams, client: SocketAddr, frame: &[u8]) -> io::Result<()> {
+    match socket.send_client(frame, client) {
         Ok(_) => Ok(()),
         Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.raw_os_error() == Some(libc::EMSGSIZE) => {
             Ok(())

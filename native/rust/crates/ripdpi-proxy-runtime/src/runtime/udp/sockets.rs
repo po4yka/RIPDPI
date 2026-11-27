@@ -1,7 +1,42 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket};
+use std::os::unix::net::UnixDatagram;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
+
+/// The client-facing datagram socket of an association: an IP socket whose sender is pinned, or the
+/// connected socket a Unix client passed, which has no sender address.
+pub(crate) trait ClientDatagrams {
+    fn recv_client(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)>;
+    fn send_client(&self, buf: &[u8], to: SocketAddr) -> io::Result<usize>;
+}
+
+impl ClientDatagrams for UdpSocket {
+    fn recv_client(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        self.recv_from(buf)
+    }
+
+    fn send_client(&self, buf: &[u8], to: SocketAddr) -> io::Result<usize> {
+        self.send_to(buf, to)
+    }
+}
+
+/// Sender reported for every datagram on a Unix client socket, so the loopback-peer checks apply unchanged.
+pub(crate) const UNIX_CLIENT_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+
+impl ClientDatagrams for UnixDatagram {
+    fn recv_client(&self, buf: &mut [u8]) -> io::Result<(usize, SocketAddr)> {
+        match self.recv(buf)? {
+            // An empty datagram carries no frame: report no progress so the loop idles.
+            0 => Err(io::ErrorKind::WouldBlock.into()),
+            n => Ok((n, UNIX_CLIENT_ADDR)),
+        }
+    }
+
+    fn send_client(&self, buf: &[u8], _to: SocketAddr) -> io::Result<usize> {
+        self.send(buf)
+    }
+}
 
 pub(crate) struct UdpRelaySockets {
     pub(crate) client: UdpSocket,

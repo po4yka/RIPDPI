@@ -1,9 +1,10 @@
 #![cfg(not(feature = "loom"))]
 
 use std::io::{self, Read, Write};
-use std::net::{Ipv4Addr, SocketAddr, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr, TcpListener, UdpSocket};
+use std::os::fd::AsFd;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixStream;
+use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, mpsc};
@@ -13,6 +14,7 @@ use std::time::Duration;
 use ripdpi_proxy_runtime::{create_listener, prepare_embedded, run_proxy_with_embedded_control_receipt};
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
+use ripdpi_proxy_runtime_adapter::model::session::{descriptor, udp_feedback};
 
 const TOKEN: &str = "session-token";
 const TIMEOUT: Duration = Duration::from_secs(5);
@@ -274,4 +276,219 @@ fn runtime_stop_shuts_down_an_idle_unix_client() {
             "the idle client must be closed, not left to time out: {err}"
         ),
     }
+}
+
+/// Echoes every datagram back and counts them.
+struct UdpEcho {
+    addr: SocketAddr,
+    received: Arc<AtomicUsize>,
+}
+
+impl UdpEcho {
+    fn start() -> Self {
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind UDP upstream");
+        let addr = socket.local_addr().expect("UDP upstream address");
+        let received = Arc::new(AtomicUsize::new(0));
+        let counter = received.clone();
+        thread::spawn(move || {
+            let mut buf = vec![0_u8; 65_535];
+            while let Ok((n, from)) = socket.recv_from(&mut buf) {
+                counter.fetch_add(1, Ordering::SeqCst);
+                let _ = socket.send_to(&buf[..n], from);
+            }
+        });
+        Self { addr, received }
+    }
+
+    fn received(&self) -> usize {
+        self.received.load(Ordering::SeqCst)
+    }
+}
+
+/// A private UDP association: the control stream, and this side of the passed datagram socket.
+struct UdpClient {
+    control: UnixStream,
+    datagrams: UnixDatagram,
+    nonce: udp_feedback::Nonce,
+}
+
+fn open_private_udp(path: &Path) -> UdpClient {
+    let mut control = client(path);
+    socks5_authenticate(&mut control);
+    control.write_all(&[5, udp_feedback::COMMAND, 0, 1, 0, 0, 0, 0, 0, 0]).expect("private UDP request");
+    let mut reply = [0_u8; 10];
+    control.read_exact(&mut reply).expect("private UDP reply");
+    assert_eq!(reply, [5, 0, 0, 1, 0, 0, 0, 0, 0, 0], "no UDP port is bound for a Unix client");
+    let mut preface = [0_u8; udp_feedback::PREFACE_LEN];
+    control.read_exact(&mut preface).expect("feedback preface");
+    let nonce = udp_feedback::decode_preface(&preface).expect("valid preface");
+    let (datagrams, passed) = UnixDatagram::pair().expect("datagram pair");
+    // The client sizes both ends; macOS defaults are smaller than a maximum-size frame.
+    for end in [&datagrams, &passed] {
+        let socket = socket2::SockRef::from(end);
+        socket.set_send_buffer_size(1 << 20).expect("send buffer");
+        socket.set_recv_buffer_size(1 << 20).expect("receive buffer");
+    }
+    descriptor::send_fd(control.as_fd(), passed.as_fd()).expect("pass the datagram socket");
+    drop(passed);
+    datagrams.set_read_timeout(Some(TIMEOUT)).expect("datagram read timeout");
+    UdpClient { control, datagrams, nonce }
+}
+
+fn socks5_udp_packet(target: SocketAddr, data: &[u8]) -> Vec<u8> {
+    let mut packet = vec![0, 0, 0, 1, 127, 0, 0, 1];
+    packet.extend_from_slice(&target.port().to_be_bytes());
+    packet.extend_from_slice(data);
+    packet
+}
+
+impl UdpClient {
+    fn send_request(&self, nonce: &udp_feedback::Nonce, id: u64, target: SocketAddr, data: &[u8]) {
+        let frame = udp_feedback::encode_request(nonce, id, &socks5_udp_packet(target, data)).expect("request frame");
+        self.datagrams.send(&frame).expect("send request frame");
+    }
+
+    /// The echoed data of the next response frame, with the SOCKS5 header removed.
+    fn recv_response(&self) -> Vec<u8> {
+        let mut buf = vec![0_u8; 65_535];
+        let n = self.datagrams.recv(&mut buf).expect("response frame");
+        let udp_feedback::Frame::Response { payload } = udp_feedback::decode(&buf[..n], &self.nonce).expect("frame")
+        else {
+            panic!("expected a response frame");
+        };
+        payload[10..].to_vec()
+    }
+
+    fn assert_no_frame(&self) {
+        self.datagrams.set_read_timeout(Some(Duration::from_millis(300))).expect("short wait");
+        let err = self.datagrams.recv(&mut [0_u8; 65_535]).expect_err("no frame expected");
+        assert!(matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{err}");
+        self.datagrams.set_read_timeout(Some(TIMEOUT)).expect("restore wait");
+    }
+}
+
+#[test]
+fn unix_private_udp_relays_a_datagram_through_the_passed_socket() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let echo = UdpEcho::start();
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+
+    let udp = open_private_udp(&path);
+    udp.send_request(&udp.nonce, 1, echo.addr, b"hello");
+    assert_eq!(udp.recv_response(), b"hello");
+
+    drop(udp);
+    runtime.stop();
+}
+
+#[test]
+fn unix_private_udp_drops_stale_identifiers_and_wrong_nonces() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let echo = UdpEcho::start();
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+
+    let udp = open_private_udp(&path);
+    udp.send_request(&udp.nonce, 2, echo.addr, b"first");
+    assert_eq!(udp.recv_response(), b"first");
+    udp.send_request(&udp.nonce, 2, echo.addr, b"repeat");
+    udp.send_request(&udp.nonce, 1, echo.addr, b"older");
+    let mut wrong_nonce = udp.nonce;
+    wrong_nonce[0] ^= 1;
+    udp.send_request(&wrong_nonce, 3, echo.addr, b"forged");
+    udp.assert_no_frame();
+    assert_eq!(echo.received(), 1, "dropped frames must not reach the upstream");
+    udp.send_request(&udp.nonce, 3, echo.addr, b"next");
+    assert_eq!(udp.recv_response(), b"next", "a dropped frame does not consume its identifier");
+
+    drop(udp);
+    runtime.stop();
+}
+
+#[test]
+fn unix_private_udp_survives_a_maximum_size_frame() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let echo = UdpEcho::start();
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+
+    let udp = open_private_udp(&path);
+    let data = vec![0xa5_u8; udp_feedback::MAX_WIRE_LEN - udp_feedback::HEADER_LEN - 10];
+    udp.send_request(&udp.nonce, 1, echo.addr, &data);
+    // Linux loopback carries the datagram. macOS refuses a UDP datagram this large (EMSGSIZE), so the
+    // proxy drops the frame and nothing reaches the upstream.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    assert_eq!(udp.recv_response(), data);
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    {
+        udp.assert_no_frame();
+        assert_eq!(echo.received(), 0);
+    }
+    udp.send_request(&udp.nonce, 2, echo.addr, b"after");
+    assert_eq!(udp.recv_response(), b"after", "the association keeps working after a maximum-size frame");
+
+    drop(udp);
+    runtime.stop();
+}
+
+#[test]
+fn unix_private_udp_ends_with_the_control_stream() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let echo = UdpEcho::start();
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+
+    let udp = open_private_udp(&path);
+    udp.send_request(&udp.nonce, 1, echo.addr, b"hello");
+    assert_eq!(udp.recv_response(), b"hello");
+    drop(udp.control);
+
+    let closed = (0..100).any(|_| {
+        thread::sleep(Duration::from_millis(50));
+        udp.datagrams.send(b"x").is_err()
+    });
+    assert!(closed, "the passed socket must be released once the control stream ends");
+    runtime.stop();
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[test]
+fn unix_private_udp_reports_a_remote_error_frame() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+    let closed = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).expect("reserve a closed port");
+    let target = closed.local_addr().expect("closed target");
+    drop(closed);
+
+    let udp = open_private_udp(&path);
+    udp.send_request(&udp.nonce, 1, target, b"remote-error");
+    let mut buf = [0_u8; 2048];
+    let n = udp.datagrams.recv(&mut buf).expect("remote error frame");
+    let udp_feedback::Frame::Error { id, error } = udp_feedback::decode(&buf[..n], &udp.nonce).expect("frame") else {
+        panic!("expected a remote error frame");
+    };
+    assert_eq!((id, error.target, (error.icmp_type, error.icmp_code)), (1, target, (3, 3)));
+
+    drop(udp);
+    runtime.stop();
+}
+
+#[test]
+fn unix_private_udp_ignores_an_empty_datagram() {
+    let dir = socket_dir();
+    let path = dir.path().join("px-test");
+    let echo = UdpEcho::start();
+    let runtime = Runtime::start(unix_config(&path, Some(TOKEN)));
+
+    let udp = open_private_udp(&path);
+    udp.datagrams.send(&[]).expect("send an empty datagram");
+    udp.assert_no_frame();
+    udp.send_request(&udp.nonce, 1, echo.addr, b"hello");
+    assert_eq!(udp.recv_response(), b"hello");
+    assert_eq!(echo.received(), 1);
+
+    drop(udp);
+    runtime.stop();
 }

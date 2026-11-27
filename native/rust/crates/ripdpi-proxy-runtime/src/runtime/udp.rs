@@ -15,7 +15,7 @@ mod tests;
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -28,7 +28,7 @@ pub(in crate::runtime) use self::settings::{
     RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
     runtime_udp_packet_settings,
 };
-pub(crate) use self::sockets::build_udp_relay_sockets;
+pub(crate) use self::sockets::{ClientDatagrams, UNIX_CLIENT_ADDR, build_udp_relay_sockets};
 use self::upstream_pump::{UdpUpstreamPollScratch, pump_udp_upstream_responses};
 use super::adaptive::emit_due_direct_path_learning_timeouts;
 use super::state::RuntimeState;
@@ -63,7 +63,7 @@ fn parse_socks5_udp_packet_with_host<'a>(
 }
 
 pub(super) fn udp_associate_loop(
-    client_relay: UdpSocket,
+    client_relay: impl ClientDatagrams,
     control_peer_ip: IpAddr,
     requested_udp_source: SocketAddr,
     protect_path: Option<String>,

@@ -62,6 +62,8 @@
 extern crate log;
 
 pub mod client;
+#[cfg(unix)]
+pub mod descriptor;
 #[cfg(test)]
 pub mod server;
 pub mod udp_feedback;

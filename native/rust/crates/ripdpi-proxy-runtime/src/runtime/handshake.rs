@@ -9,19 +9,21 @@ mod ws_tunnel;
 use ripdpi_ws_transport_port::{ClientPeer, ClientStream};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::os::fd::{AsFd, OwnedFd};
+use std::os::unix::net::UnixDatagram;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_connect_auth;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
-use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, HttpConnectHead, S_ER_DENY};
+use ripdpi_proxy_runtime_adapter::model::session::{HttpConnectFailure, HttpConnectHead, S_ER_DENY, descriptor};
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 
 use connect_relay::{ConnectPolicyRejection, ConnectRelayError, SuccessReply, connect_and_relay};
 use protocol_io::{
-    negotiate_socks5, peek_by, read_exact_by, read_http_connect_request, read_shadowsocks_request, read_socks4_request,
-    read_socks5_request,
+    by_deadline, negotiate_socks5, peek_by, read_exact_by, read_http_connect_request, read_shadowsocks_request,
+    read_socks4_request, read_socks5_request,
 };
 
 use super::state::{HANDSHAKE_TIMEOUT, RuntimeState};
@@ -217,7 +219,7 @@ fn handle_socks5(mut client: ClientStream, state: &RuntimeState, version: u8, de
             if private_udp && !udp_feedback::exact_source(&client, requested_udp_source)? {
                 return udp_feedback::reject(&mut client);
             }
-            handle_socks5_udp_associate(client, state, attempt_token, requested_udp_source, private_udp)
+            handle_socks5_udp_associate(client, state, attempt_token, requested_udp_source, private_udp, deadline)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
@@ -308,33 +310,81 @@ fn handle_socks5_udp_associate(
     attempt_token: Option<AttemptCorrelationId>,
     requested_udp_source: SocketAddr,
     private_udp: bool,
+    deadline: Instant,
 ) -> io::Result<()> {
-    // TODO(po4yka): answer UDP ASSOCIATE for a Unix client once the Unix UDP path exists.
+    let protect_path = state.handshake_protect_path();
+    let feedback_nonce = private_udp.then(udp_feedback::new_nonce).transpose()?;
+    if client.peer()? == ClientPeer::LocalPrivate {
+        // A Unix client has no UDP port to bind a relay for: only the private command, over a passed socket.
+        let Some(nonce) = &feedback_nonce else { return udp_feedback::reject(&mut client) };
+        let unspecified = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+        client.write_all(RuntimeState::encode_socks5_reply(0, unspecified).as_bytes())?;
+        client.write_all(&udp_feedback::encode_preface(nonce))?;
+        let relay = UnixDatagram::from(receive_client_datagram_socket(&mut client, deadline)?);
+        relay.set_nonblocking(true)?;
+        let control_peer_ip = super::udp::UNIX_CLIENT_ADDR.ip();
+        return run_udp_association(
+            client,
+            state,
+            relay,
+            control_peer_ip,
+            requested_udp_source,
+            protect_path,
+            attempt_token,
+            feedback_nonce,
+        );
+    }
     let (Some(local), Some(control_peer_ip)) = (client.local_addr()?, client.peer()?.ip()) else {
         return udp_feedback::reject(&mut client);
     };
-    let local_ip = local.ip();
-    let protect_path = state.handshake_protect_path();
-    let relay = super::udp::build_udp_relay_sockets(local_ip)?;
+    let relay = super::udp::build_udp_relay_sockets(local.ip())?;
     let reply_addr = relay.client.local_addr()?;
-    let feedback_nonce = private_udp.then(udp_feedback::new_nonce).transpose()?;
     client.write_all(RuntimeState::encode_socks5_reply(0, reply_addr).as_bytes())?;
     if let Some(nonce) = &feedback_nonce {
         client.write_all(&udp_feedback::encode_preface(nonce))?;
     }
+    run_udp_association(
+        client,
+        state,
+        relay.client,
+        control_peer_ip,
+        requested_udp_source,
+        protect_path,
+        attempt_token,
+        feedback_nonce,
+    )
+}
 
+/// Receives the datagram socket a Unix client passes after the preface; anything else ends the session.
+fn receive_client_datagram_socket(client: &mut ClientStream, deadline: Instant) -> io::Result<OwnedFd> {
+    let fd = by_deadline(client, deadline, |client| descriptor::recv_fd(client.as_fd()))?;
+    if !descriptor::is_unix_datagram(fd.as_fd())? {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "passed descriptor is not a Unix datagram socket"));
+    }
+    Ok(fd)
+}
+
+fn run_udp_association(
+    mut client: ClientStream,
+    state: &RuntimeState,
+    relay: impl super::udp::ClientDatagrams + Send + 'static,
+    control_peer_ip: IpAddr,
+    requested_udp_source: SocketAddr,
+    protect_path: Option<String>,
+    attempt_token: Option<AttemptCorrelationId>,
+    feedback_nonce: Option<udp_feedback::Nonce>,
+) -> io::Result<()> {
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
     let worker_state = state.clone();
-    let worker_protect_path = protect_path;
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || {
             super::udp::udp_associate_loop(
-                relay.client,
+                relay,
                 control_peer_ip,
                 requested_udp_source,
-                worker_protect_path,
+                protect_path,
                 worker_state,
                 worker_running,
                 attempt_token,

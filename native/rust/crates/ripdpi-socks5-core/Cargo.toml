@@ -23,6 +23,9 @@ log = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "time", "macros"] }
 
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true }
+
 [dev-dependencies]
 socket2 = { workspace = true }
 tokio-stream = { workspace = true }

@@ -2,6 +2,9 @@ use super::*;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::net::UdpSocket;
 
+use std::os::fd::AsFd;
+use std::os::unix::net::UnixStream;
+
 use ripdpi_proxy_runtime_adapter::model::session::udp_feedback;
 
 fn state_with_auth(token: Option<&str>, port: u16) -> RuntimeState {
@@ -11,7 +14,7 @@ fn state_with_auth(token: Option<&str>, port: u16) -> RuntimeState {
     runtime_state(config)
 }
 
-fn authenticate(client: &mut TcpStream, auth: bool) {
+fn authenticate(client: &mut (impl Read + Write), auth: bool) {
     if auth {
         client.write_all(b"\x05\x01\x02\x01\x06ripdpi\x06secret").expect("authenticate");
         let mut reply = [0; 4];
@@ -158,4 +161,85 @@ fn remote_udp_errors_and_data_share_the_authenticated_association() {
         control.shutdown(Shutdown::Both).expect("close control");
         worker.join().expect("worker").expect("association stops");
     }
+}
+
+fn unix_session() -> (UnixStream, thread::JoinHandle<std::io::Result<()>>) {
+    let state = state_with_auth(Some("secret"), 0);
+    let (mut client, server) = UnixStream::pair().expect("unix pair");
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("bound reply wait");
+    let worker = thread::spawn(move || {
+        super::super::handle_client(ripdpi_ws_transport_port::ClientStream::Unix(server), &state)
+    });
+    authenticate(&mut client, true);
+    (client, worker)
+}
+
+fn unix_request(client: &mut UnixStream, command: u8, source: SocketAddr) -> [u8; 10] {
+    let mut request = vec![5, command, 0, 1];
+    let SocketAddr::V4(source) = source else { panic!("IPv4 fixture") };
+    request.extend_from_slice(&source.ip().octets());
+    request.extend_from_slice(&source.port().to_be_bytes());
+    client.write_all(&request).expect("request");
+    let mut reply = [0; 10];
+    client.read_exact(&mut reply).expect("reply");
+    reply
+}
+
+#[test]
+fn unix_private_udp_requires_an_unspecified_source() {
+    for source in [([127, 0, 0, 1], 5000), ([0, 0, 0, 0], 5000), ([127, 0, 0, 1], 0)] {
+        let (mut client, worker) = unix_session();
+        let reply = unix_request(&mut client, udp_feedback::COMMAND, SocketAddr::from(source));
+        assert_eq!(&reply[..3], &[5, 7, 0], "{source:?}");
+        drop(client);
+        worker.join().expect("worker").expect("refusal handled");
+    }
+}
+
+#[test]
+fn unix_peer_gets_unsupported_for_standard_udp_associate() {
+    let (mut client, worker) = unix_session();
+    let reply = unix_request(&mut client, 3, SocketAddr::from(([0, 0, 0, 0], 0)));
+    assert_eq!(&reply[..3], &[5, 7, 0]);
+    drop(client);
+    worker.join().expect("worker").expect("refusal handled");
+}
+
+#[test]
+fn unix_private_udp_refuses_a_missing_or_wrong_descriptor() {
+    let (mut client, worker) = unix_session();
+    let reply = unix_request(&mut client, udp_feedback::COMMAND, SocketAddr::from(([0, 0, 0, 0], 0)));
+    assert_eq!(&reply[..4], &[5, 0, 0, 1]);
+    let mut preface = [0; udp_feedback::PREFACE_LEN];
+    client.read_exact(&mut preface).expect("preface");
+    client.write_all(&[1]).expect("marker without a descriptor");
+    let error = worker.join().expect("worker").expect_err("no descriptor");
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
+    assert_eq!(client.read(&mut [0; 1]).expect("control closed"), 0);
+
+    let (mut client, worker) = unix_session();
+    unix_request(&mut client, udp_feedback::COMMAND, SocketAddr::from(([0, 0, 0, 0], 0)));
+    client.read_exact(&mut preface).expect("preface");
+    let (mut observer, passed) = UnixStream::pair().expect("stream pair");
+    ripdpi_proxy_runtime_adapter::model::session::descriptor::send_fd(client.as_fd(), passed.as_fd())
+        .expect("pass a stream socket");
+    drop(passed);
+    let error = worker.join().expect("worker").expect_err("not a datagram socket");
+    assert_eq!(error.kind(), ErrorKind::InvalidData);
+    assert_eq!(observer.read(&mut [0; 1]).expect("passed descriptor closed"), 0);
+}
+
+#[test]
+fn unix_private_udp_times_out_when_no_descriptor_arrives() {
+    let (mut client, worker) = unix_session();
+    let reply = unix_request(&mut client, udp_feedback::COMMAND, SocketAddr::from(([0, 0, 0, 0], 0)));
+    assert_eq!(&reply[..4], &[5, 0, 0, 1]);
+    let mut preface = [0; udp_feedback::PREFACE_LEN];
+    client.read_exact(&mut preface).expect("preface");
+    let started = std::time::Instant::now();
+    let error = worker.join().expect("worker").expect_err("silent client");
+    assert_eq!(error.kind(), ErrorKind::TimedOut);
+    assert!(started.elapsed() < super::super::HANDSHAKE_TIMEOUT + Duration::from_secs(2));
+    // The worker ended before an association started, so the control stream is closed.
+    assert_eq!(client.read(&mut [0; 1]).expect("control closed"), 0);
 }

@@ -1,4 +1,4 @@
-use ripdpi_ws_transport_port::ClientStream;
+use ripdpi_ws_transport_port::{ClientPeer, ClientStream};
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
@@ -8,14 +8,20 @@ use ripdpi_proxy_runtime_adapter::platform::udp_error_queue;
 use crate::runtime::state::RuntimeState;
 
 pub(super) fn allowed(client: &ClientStream, state: &RuntimeState) -> bool {
-    udp_error_queue::supported()
-        && state.resolved_domain_targets_allowed()
-        // TODO(po4yka): serve the private UDP command to a Unix peer once the Unix UDP path exists.
-        && client.peer().is_ok_and(|peer| peer.ip().is_some() && peer.is_local())
+    state.resolved_domain_targets_allowed()
+        && match client.peer() {
+            // Without an error queue the association only lacks remote-error frames.
+            Ok(ClientPeer::LocalPrivate) => true,
+            Ok(peer) => udp_error_queue::supported() && peer.is_local(),
+            Err(_) => false,
+        }
 }
 
 pub(super) fn exact_source(client: &ClientStream, source: SocketAddr) -> io::Result<bool> {
-    Ok(source.port() != 0 && Some(source.ip()) == client.peer()?.ip())
+    Ok(match client.peer()?.ip() {
+        Some(ip) => source.port() != 0 && source.ip() == ip,
+        None => source.ip().is_unspecified() && source.port() == 0,
+    })
 }
 
 pub(super) fn new_nonce() -> io::Result<Nonce> {

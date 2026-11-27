@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr};
 use std::time::Instant;
 
 use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet_with_host;
 use super::remote_feedback::{self, FeedbackBudget, Nonce, udp_feedback};
+use super::sockets::ClientDatagrams;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::handshake::is_device_local_target_for;
 use crate::runtime::state::RuntimeState;
@@ -46,7 +47,7 @@ pub(super) struct UdpClientReceiveConfig<'a> {
 }
 
 pub(super) fn receive_and_forward_udp_client_packet(
-    client_relay: &UdpSocket,
+    client_relay: &impl ClientDatagrams,
     client_buffer: &mut [u8],
     udp_client_addr: &mut Option<SocketAddr>,
     config: UdpClientReceiveConfig<'_>,
@@ -55,7 +56,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
     protect_path: Option<&str>,
     attempt_token: Option<&AttemptCorrelationId>,
 ) -> io::Result<bool> {
-    match client_relay.recv_from(client_buffer) {
+    match client_relay.recv_client(client_buffer) {
         Ok((n, sender)) => {
             let now = Instant::now();
             let (packet_bytes, datagram_id) = if let Some(nonce) = config.feedback_nonce {

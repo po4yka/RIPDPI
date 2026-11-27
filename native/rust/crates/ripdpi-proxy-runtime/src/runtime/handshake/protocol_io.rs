@@ -3,7 +3,8 @@ mod reply;
 mod targets;
 
 pub(super) use readers::{
-    negotiate_socks5, peek_by, read_exact_by, read_http_connect_request, read_socks4_request, read_socks5_request,
+    by_deadline, negotiate_socks5, peek_by, read_exact_by, read_http_connect_request, read_socks4_request,
+    read_socks5_request,
 };
 pub(super) use reply::HandshakeKind;
 pub(super) use targets::read_shadowsocks_request;

@@ -255,11 +255,11 @@ pub(in crate::runtime::handshake) fn peek_by(
 /// Runs one read-like call with the timeout left before `deadline`. The
 /// socket timeout (`WouldBlock` from `SO_RCVTIMEO`) is reported as
 /// `TimedOut`, the same kind as a deadline that has already passed.
-fn by_deadline(
+pub(in crate::runtime::handshake) fn by_deadline<T>(
     client: &mut ClientStream,
     deadline: Instant,
-    mut read: impl FnMut(&mut ClientStream) -> io::Result<usize>,
-) -> io::Result<usize> {
+    mut read: impl FnMut(&mut ClientStream) -> io::Result<T>,
+) -> io::Result<T> {
     loop {
         arm_read_timeout(client, deadline)?;
         match read(client) {

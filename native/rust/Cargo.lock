@@ -6722,6 +6722,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
+ "rustix",
  "socket2",
  "thiserror 2.0.21",
  "tokio",

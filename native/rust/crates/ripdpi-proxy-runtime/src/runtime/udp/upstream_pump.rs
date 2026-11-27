@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::io;
-use std::net::{IpAddr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, SocketAddr};
 #[cfg(unix)]
 use std::os::fd::{AsRawFd, RawFd};
 use std::time::Instant;
@@ -14,6 +14,7 @@ use super::flow::{UdpFlowActivationState, UdpFlowKey, retire_failed_udp_flow};
 use super::migration::maybe_rebind_udp_source_port;
 use super::remote_feedback::{self, Nonce, udp_feedback};
 use super::session::UpstreamResponse;
+use super::sockets::ClientDatagrams;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::udp_desync::UdpDesyncAction;
 
@@ -31,7 +32,7 @@ pub(super) struct UdpUpstreamPollScratch {
 
 pub(super) fn pump_udp_upstream_responses(
     state: &RuntimeState,
-    client_relay: &UdpSocket,
+    client_relay: &impl ClientDatagrams,
     upstream_buffer: &mut [u8],
     encode_buffer: &mut Vec<u8>,
     flow_state: &mut HashMap<UdpFlowKey, UdpFlowActivationState>,
@@ -96,7 +97,7 @@ pub(super) fn pump_udp_upstream_responses(
                 } else {
                     encode_buffer.as_slice()
                 };
-                match client_relay.send_to(encoded, key.client) {
+                match client_relay.send_client(encoded, key.client) {
                     Ok(_) => state.note_application_traffic(0, response.len() as u64),
                     Err(err)
                         if err.kind() != io::ErrorKind::WouldBlock && err.raw_os_error() != Some(libc::EMSGSIZE) =>

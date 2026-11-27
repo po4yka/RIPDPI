@@ -22,4 +22,6 @@ pub use state::{
     outbound_payload_count_this_round,
 };
 
+#[cfg(unix)]
+pub use ripdpi_socks5_core::descriptor;
 pub use ripdpi_socks5_core::udp_feedback;
