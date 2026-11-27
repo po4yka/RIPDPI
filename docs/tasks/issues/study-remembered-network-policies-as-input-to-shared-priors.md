@@ -2,7 +2,7 @@
 id: DAT-1795705030545238
 title: Study remembered network policies as input to shared priors
 kind: research
-status: backlog
+status: review
 area: data
 priority: low
 owner: Offline Learner research lane
@@ -11,8 +11,9 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-26
-updated: 2026-11-26
+updated: 2026-11-27
 spec_reason: research-only
+status_detail: "ADR 0017 written: conditional go"
 ---
 
 ## Goal
