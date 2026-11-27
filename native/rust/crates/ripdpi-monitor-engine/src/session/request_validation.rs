@@ -9,6 +9,7 @@ use crate::types::{
     HTTP3_TRANSFER_COMPARISON_PROFILE_ID, ProbeTaskFamily, ScanKind, ScanPathMode, TRANSFER_VOLUME_LONG_ID,
     TRANSFER_VOLUME_PROFILE_ID, TRANSFER_VOLUME_SHORT_ID, VERIFIED_DOWNLOAD_PROFILE_ID, VERIFIED_UPLOAD_PROFILE_ID,
 };
+use ripdpi_diagnostics_contracts::types::valid_target_class_and_asn;
 use ripdpi_diagnostics_contracts::util::{
     FAT_HEADER_MAX_ALTERNATES, FAT_HEADER_MAX_REQUESTS, FAT_HEADER_REQUESTS, is_valid_fat_header_authority,
 };
@@ -236,6 +237,9 @@ fn validate_verified_transfer_profile(request: &EngineScanRequestWire) -> Result
             "volume comparison requires one short and one long RAW download at the same pinned HTTPS origin".into()
         });
     }
+    if targets.iter().any(|target| target.target_class.is_some() || target.destination_asn.is_some()) {
+        return Err("target class and destination AS are only valid on volume comparison targets".into());
+    }
     if targets.iter().any(|target| target.transfer_volume_leg().is_some()) {
         return Err("volume comparison targets require their dedicated RAW profile".into());
     }
@@ -309,6 +313,9 @@ fn validate_volume_comparison(request: &EngineScanRequestWire) -> bool {
         && short_port == long_port
         && short_path != long_path
         && short.pinned_download_ip().is_some_and(|ip| long.pinned_download_ip() == Some(ip))
+        && short.target_class == long.target_class
+        && short.destination_asn == long.destination_asn
+        && valid_target_class_and_asn(short.target_class.as_deref(), short.destination_asn)
 }
 
 fn volume_endpoint(url: &str) -> Option<(String, u16, &str)> {

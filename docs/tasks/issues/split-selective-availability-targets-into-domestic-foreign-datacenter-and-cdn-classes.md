@@ -33,6 +33,8 @@ Extends DGN-1795361889557414 (transfer volume comparison) and the existing conne
 - The connection_freeze classification together with the transfer volume comparison can be grouped by class and by destination AS in one report.
 - A response with a wrong status or a wrong byte count is reported as a server response, not as a freeze, because the check compares exact bytes or hash.
 
+Step 3 (grouping): volume targets are user hosts and carry no catalog class. The user may declare a class and a destination AS on the volume comparison input; they travel on both legs and report under the `volume_declared` source, apart from `catalog` rows. They are declared, not observed. Legs without them stay `volume_unattributed`.
+
 ## Ownership
 
 Not assigned yet. Before a writer starts, record the owner of the selective-availability target list and of the diagnostics result schema, and serialize any schema-version constant.

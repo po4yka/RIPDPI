@@ -131,6 +131,8 @@ fn assert_upload(
                 runs: 1,
                 verification: None,
                 upload_body_bytes: Some(body_bytes),
+                target_class: None,
+                destination_asn: None,
             };
             let result = run_throughput_probe_with_progress(
                 &target,

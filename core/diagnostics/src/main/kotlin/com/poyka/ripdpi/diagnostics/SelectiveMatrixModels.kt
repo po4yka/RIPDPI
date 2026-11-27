@@ -73,10 +73,7 @@ data class SelectiveMatrixConfig(
             )
             require(target.connectIps.size <= MatrixMaxConnectIps)
             require(target.cohort in MatrixCohorts)
-            require(
-                (target.targetClass == null && target.destinationAsn == null) ||
-                    (target.targetClass in MatrixTargetClasses && target.destinationAsn?.isPublicAsn() == true),
-            )
+            require(isValidTargetClassAndAsn(target.targetClass, target.destinationAsn))
             val uri = URI(target.url)
             require(uri.scheme == "https" && uri.port in setOf(-1, MatrixHttpsPort))
             require(uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null)
@@ -120,6 +117,13 @@ internal fun SelectiveMatrixConfig.withUserHosts(hosts: List<String>): Selective
 const val TargetClassDomesticHosting = "domestic_hosting"
 const val TargetClassForeignDatacenter = "foreign_datacenter"
 const val TargetClassCdn = "cdn"
+
+internal fun isValidTargetClassAndAsn(
+    targetClass: String?,
+    destinationAsn: Long?,
+): Boolean =
+    (targetClass == null && destinationAsn == null) ||
+        (targetClass in MatrixTargetClasses && destinationAsn?.isPublicAsn() == true)
 
 private fun Long.isPublicAsn() = this in 1..MaxAsn && this != AsTrans && this !in ReservedAsns && this < PrivateAsn32
 

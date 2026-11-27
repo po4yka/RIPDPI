@@ -2112,6 +2112,12 @@
     <string name="diagnostics_volume_transfer_short">پاسخ کوتاه</string>
     <string name="diagnostics_volume_transfer_long">پاسخ بلند</string>
     <string name="diagnostics_volume_transfer_input_error">یک نشانی IP و دو نشانی متفاوت HTTPS با میزبان و درگاه یکسان وارد کنید. اندازه‌ها و هش‌های SHA-256 را بررسی کنید.</string>
+    <string name="diagnostics_volume_transfer_class">کلاس هدف اعلام‌شده (اختیاری)</string>
+    <string name="diagnostics_volume_transfer_class_none">هیچ‌کدام</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">هاستینگ داخلی</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">مرکز داده خارجی</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">شماره AS مقصد (اختیاری، همراه با کلاس)</string>
     <string name="diagnostics_control_passed">آزمون کنترلی موفق بود</string>
     <string name="diagnostics_control_failed">آزمون کنترلی ناموفق بود</string>
     <string name="diagnostics_control_unknown">آزمون کنترلی: بدون داده</string>

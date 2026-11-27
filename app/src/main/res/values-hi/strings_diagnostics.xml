@@ -2119,6 +2119,12 @@
     <string name="diagnostics_volume_transfer_short">छोटा जवाब</string>
     <string name="diagnostics_volume_transfer_long">बड़ा जवाब</string>
     <string name="diagnostics_volume_transfer_input_error">एक IP पता और एक ही होस्ट और पोर्ट के दो अलग HTTPS URL डालें। आकार और SHA-256 हैश जाँचें।</string>
+    <string name="diagnostics_volume_transfer_class">घोषित लक्ष्य श्रेणी (वैकल्पिक)</string>
+    <string name="diagnostics_volume_transfer_class_none">कोई नहीं</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">घरेलू होस्टिंग</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">विदेशी डेटा सेंटर</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">गंतव्य AS संख्या (वैकल्पिक, श्रेणी के साथ)</string>
     <string name="diagnostics_control_passed">नियंत्रण जाँच सफल</string>
     <string name="diagnostics_control_failed">नियंत्रण जाँच विफल</string>
     <string name="diagnostics_control_unknown">नियंत्रण जाँच: कोई डेटा नहीं</string>

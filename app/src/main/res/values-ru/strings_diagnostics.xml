@@ -2183,6 +2183,12 @@
     <string name="diagnostics_volume_transfer_short">Короткий ответ</string>
     <string name="diagnostics_volume_transfer_long">Длинный ответ</string>
     <string name="diagnostics_volume_transfer_input_error">Укажите один IP-адрес и два разных URL HTTPS с одним хостом и портом. Проверьте размеры и хеши SHA-256.</string>
+    <string name="diagnostics_volume_transfer_class">Заявленный класс цели (необязательно)</string>
+    <string name="diagnostics_volume_transfer_class_none">Нет</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">Российский хостинг</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">Зарубежный дата-центр</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">Номер AS назначения (необязательно, вместе с классом)</string>
     <string name="diagnostics_control_passed">Контрольная проверка пройдена</string>
     <string name="diagnostics_control_failed">Контрольная проверка не пройдена</string>
     <string name="diagnostics_control_unknown">Контрольная проверка: нет данных</string>

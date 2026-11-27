@@ -9,6 +9,7 @@ internal enum class GroupSource(
     UserHost("user_host"),
     LegacyNoClass("legacy_no_class"),
     VolumeUnattributed("volume_unattributed"),
+    VolumeDeclared("volume_declared"),
 }
 
 internal data class TargetGroup(
@@ -77,20 +78,17 @@ private fun matrixBodyClass(reason: String): ResponseClass =
         else -> ResponseClass.ServerResponse
     }
 
-private fun ProbeResult.targetGroup(volumeTarget: SelectiveMatrixTarget?): TargetGroup? {
+private fun ProbeResult.targetGroup(): TargetGroup? {
     val volumeLeg = detail("transferVolumeLeg") != null
     val targetClass = detail("targetClass")
     val asn = detail("destinationAsn")?.toLongOrNull()
     return when {
-        targetClass != null -> {
-            TargetGroup(targetClass, asn)
+        volumeLeg && targetClass != null -> {
+            TargetGroup(targetClass, asn, GroupSource.VolumeDeclared)
         }
 
-        volumeLeg && volumeTarget?.targetClass != null -> {
-            TargetGroup(
-                volumeTarget.targetClass,
-                volumeTarget.destinationAsn,
-            )
+        targetClass != null -> {
+            TargetGroup(targetClass, asn)
         }
 
         volumeLeg -> {
@@ -111,11 +109,9 @@ private fun ProbeResult.targetGroup(volumeTarget: SelectiveMatrixTarget?): Targe
     }
 }
 
-internal fun List<ProbeResult>.groupByTargetClassAndAs(
-    volumeTarget: SelectiveMatrixTarget? = null,
-): List<TargetGroupCounts> =
+internal fun List<ProbeResult>.groupByTargetClassAndAs(): List<TargetGroupCounts> =
     mapNotNull { result ->
-        val group = result.targetGroup(volumeTarget)
+        val group = result.targetGroup()
         val responseClass = result.responseClass()
         if (group != null && responseClass != null) group to responseClass else null
     }.groupBy({ it.first }, { it.second })

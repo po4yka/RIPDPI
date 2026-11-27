@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -9,16 +11,21 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.TargetClassCdn
+import com.poyka.ripdpi.diagnostics.TargetClassDomesticHosting
+import com.poyka.ripdpi.diagnostics.TargetClassForeignDatacenter
 import com.poyka.ripdpi.diagnostics.TransferVolumeComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedDownloadInput
 import com.poyka.ripdpi.diagnostics.VerifiedTransferComparisonInput
 import com.poyka.ripdpi.diagnostics.VerifiedUploadInput
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -49,8 +56,11 @@ internal fun TransferVolumeComparisonInputCard(
     SideEffect { address.sync(input.connectIp) }
     val short = rememberVerifiedDownloadFields(input.short)
     val long = rememberVerifiedDownloadFields(input.long)
+    val asn = remember { LaggingInputText(input.destinationAsn) }
+    SideEffect { asn.sync(input.destinationAsn) }
 
-    fun currentInput() = TransferVolumeComparisonInput(address.text, short.input(), long.input())
+    fun currentInput() =
+        TransferVolumeComparisonInput(address.text, short.input(), long.input(), input.targetClass, asn.text)
     val publishInput = { onInputChanged(currentInput()) }
 
     RipDpiCard(variant = RipDpiCardVariant.Tonal) {
@@ -65,9 +75,49 @@ internal fun TransferVolumeComparisonInputCard(
         VerifiedDownloadFields(short, enabled, publishInput)
         VolumeTransferHeading(R.string.diagnostics_volume_transfer_long)
         VerifiedDownloadFields(long, enabled, publishInput)
+        VolumeTransferHeading(R.string.diagnostics_volume_transfer_class)
+        VolumeTargetClassChips(input.targetClass, enabled) { selected ->
+            onInputChanged(currentInput().copy(targetClass = selected))
+        }
+        VerifiedTransferField(
+            R.string.diagnostics_volume_transfer_asn,
+            asn,
+            enabled,
+            KeyboardType.Number,
+            onEdited = publishInput,
+        )
         val isFilled = address.text.isNotBlank() && short.isFilled() && long.isFilled()
         if (isFilled && !currentInput().isValid()) {
             VerifiedTransferInputError(R.string.diagnostics_volume_transfer_input_error)
+        }
+    }
+}
+
+@Composable
+private fun VolumeTargetClassChips(
+    selected: String?,
+    enabled: Boolean,
+    onSelected: (String?) -> Unit,
+) {
+    val options =
+        listOf(
+            null to R.string.diagnostics_volume_transfer_class_none,
+            TargetClassDomesticHosting to R.string.diagnostics_volume_transfer_class_domestic_hosting,
+            TargetClassForeignDatacenter to R.string.diagnostics_volume_transfer_class_foreign_datacenter,
+            TargetClassCdn to R.string.diagnostics_volume_transfer_class_cdn,
+        )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        options.forEach { (value, label) ->
+            RipDpiChip(
+                text = stringResource(label),
+                onClick = { onSelected(value) },
+                selected = selected == value,
+                enabled = enabled,
+                role = Role.RadioButton,
+            )
         }
     }
 }

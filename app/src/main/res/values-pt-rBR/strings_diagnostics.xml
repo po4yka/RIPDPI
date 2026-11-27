@@ -2126,6 +2126,12 @@
     <string name="diagnostics_volume_transfer_short">Resposta curta</string>
     <string name="diagnostics_volume_transfer_long">Resposta longa</string>
     <string name="diagnostics_volume_transfer_input_error">Insira um endereço IP e dois URLs HTTPS diferentes com o mesmo host e porta. Confira os tamanhos e os hashes SHA-256.</string>
+    <string name="diagnostics_volume_transfer_class">Classe de destino declarada (opcional)</string>
+    <string name="diagnostics_volume_transfer_class_none">Nenhuma</string>
+    <string name="diagnostics_volume_transfer_class_domestic_hosting">Hospedagem nacional</string>
+    <string name="diagnostics_volume_transfer_class_foreign_datacenter">Data center estrangeiro</string>
+    <string name="diagnostics_volume_transfer_class_cdn">CDN</string>
+    <string name="diagnostics_volume_transfer_asn">Número do AS de destino (opcional, junto com a classe)</string>
     <string name="diagnostics_control_passed">Verificação de controle aprovada</string>
     <string name="diagnostics_control_failed">Falha na verificação de controle</string>
     <string name="diagnostics_control_unknown">Verificação de controle: sem dados</string>

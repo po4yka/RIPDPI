@@ -12,7 +12,7 @@ mod ip_family;
 pub use ip_family::{IpFamilyEvidence, IpFamilyProbeConfig};
 mod config;
 mod selective_matrix;
-pub use selective_matrix::{SelectiveMatrixConfig, SelectiveMatrixTarget};
+pub use selective_matrix::{SelectiveMatrixConfig, SelectiveMatrixTarget, valid_target_class_and_asn};
 mod progress;
 mod report;
 mod result;

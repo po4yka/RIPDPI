@@ -46,6 +46,54 @@ fn proxy_style_403_is_a_wrong_status_not_a_stall() {
     assert_download(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 2\r\n\r\nno", false, "verified_download_failed", 0);
 }
 
+#[test]
+fn volume_leg_reports_declared_class_and_asn_only_when_present() {
+    for (declared, expected) in [(Some(("cdn", 13335)), Some(("cdn", "13335"))), (None, None)] {
+        with_trusted_https_peer(
+            |mut stream| {
+                read_until_marker(&mut stream, b"\r\n\r\n");
+                stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok").unwrap();
+                stream.flush().unwrap();
+                stream.conn.send_close_notify();
+                let _ = stream.flush();
+            },
+            |port, verifier| {
+                let target = ThroughputTarget {
+                    id: "transfer-volume-short".into(),
+                    label: "Short response".into(),
+                    url: format!("https://localhost:{port}/control.bin"),
+                    connect_ip: Some("127.0.0.1".into()),
+                    connect_ips: vec![],
+                    port: None,
+                    is_control: false,
+                    window_bytes: 3,
+                    runs: 1,
+                    upload_body_bytes: None,
+                    target_class: declared.map(|(class, _)| class.to_string()),
+                    destination_asn: declared.map(|(_, asn)| asn),
+                    verification: Some(DownloadVerification {
+                        expected_body_bytes: 2,
+                        sha256: OK_SHA256.into(),
+                        ech_comparison_ip: None,
+                    }),
+                };
+                let result = run_throughput_probe_with_progress(
+                    &target,
+                    &direct_transport(),
+                    None,
+                    Some(verifier),
+                    &AtomicBool::new(false),
+                    &mut |_| {},
+                );
+                let detail = |key: &str| result.details.iter().find(|d| d.key == key).map(|d| d.value.as_str());
+                assert_eq!(detail("transferVolumeLeg"), Some("short"));
+                assert_eq!(detail("targetClass"), expected.map(|(class, _)| class));
+                assert_eq!(detail("destinationAsn"), expected.map(|(_, asn)| asn));
+            },
+        );
+    }
+}
+
 fn assert_download(response: &[u8], hold_open: bool, outcome: &str, received: u64) {
     with_trusted_https_peer(
         |mut stream| {
@@ -71,6 +119,8 @@ fn assert_download(response: &[u8], hold_open: bool, outcome: &str, received: u6
                 window_bytes: 3,
                 runs: 1,
                 upload_body_bytes: None,
+                target_class: None,
+                destination_asn: None,
                 verification: Some(DownloadVerification {
                     expected_body_bytes: 2,
                     sha256: OK_SHA256.into(),

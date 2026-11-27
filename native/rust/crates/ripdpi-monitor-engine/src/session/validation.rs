@@ -128,6 +128,8 @@ mod tests {
             window_bytes: 3,
             runs: 1,
             upload_body_bytes: None,
+            target_class: None,
+            destination_asn: None,
             verification: Some(DownloadVerification {
                 expected_body_bytes: 2,
                 sha256: "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df".into(),
@@ -252,8 +254,59 @@ mod tests {
             diversity_on_failure_only: true,
         });
         assert!(validate_scan_request(&bad).is_err());
+        let declare = |request: &mut EngineScanRequestWire, class: Option<&str>, asn: Option<u32>| {
+            for target in &mut request.throughput_targets {
+                target.target_class = class.map(str::to_string);
+                target.destination_asn = asn;
+            }
+        };
+        let mut declared = specimen.clone();
+        declare(&mut declared, Some("cdn"), Some(13335));
+        assert!(validate_scan_request(&declared).is_ok());
+        for (class, asn) in [
+            (Some("cdn"), None),
+            (None, Some(13335)),
+            (Some("unknown"), Some(13335)),
+            (Some("cdn"), Some(0)),
+            (Some("cdn"), Some(23456)),
+            (Some("cdn"), Some(64496)),
+            (Some("cdn"), Some(4_200_000_000)),
+        ] {
+            let mut bad = specimen.clone();
+            declare(&mut bad, class, asn);
+            assert!(validate_scan_request(&bad).is_err(), "{class:?} {asn:?}");
+        }
+        let mut bad = declared.clone();
+        bad.throughput_targets[1].destination_asn = Some(15169);
+        assert!(validate_scan_request(&bad).is_err());
         specimen.path_mode = ScanPathMode::InPath;
         assert!(validate_scan_request(&specimen).is_err());
+    }
+
+    #[test]
+    fn target_class_is_rejected_outside_the_volume_profile() {
+        let mut specimen = request();
+        specimen.profile_id = crate::types::VERIFIED_DOWNLOAD_PROFILE_ID.into();
+        specimen.throughput_targets.push(
+            serde_json::from_value(serde_json::json!({
+                "id": "download",
+                "label": "v",
+                "url": "https://example.test/control.bin",
+                "windowBytes": 3,
+                "runs": 1,
+                "targetClass": "cdn",
+                "destinationAsn": 13335,
+                "verification": {
+                    "expectedBodyBytes": 2,
+                    "sha256": "2689367b205c16ce32ed4200942b8b8b1e262dfc70d9bc9fbc77c49699a4f1df",
+                }
+            }))
+            .unwrap(),
+        );
+        assert!(validate_scan_request(&specimen).is_err());
+        specimen.throughput_targets[0].target_class = None;
+        specimen.throughput_targets[0].destination_asn = None;
+        assert!(validate_scan_request(&specimen).is_ok());
     }
 
     #[test]
@@ -315,6 +368,8 @@ mod tests {
             runs: 1,
             verification: None,
             upload_body_bytes: Some(MAX_VERIFIED_UPLOAD_BYTES),
+            target_class: None,
+            destination_asn: None,
         };
         specimen.throughput_targets.push(target.clone());
         assert!(validate_scan_request(&specimen).is_err());
@@ -331,6 +386,8 @@ mod tests {
             ThroughputTarget {
                 window_bytes: MAX_VERIFIED_UPLOAD_BYTES + 1,
                 upload_body_bytes: Some(MAX_VERIFIED_UPLOAD_BYTES + 1),
+                target_class: None,
+                destination_asn: None,
                 ..target.clone()
             },
         ] {
@@ -346,6 +403,8 @@ mod tests {
         let mut request = request();
         request.throughput_targets.push(ThroughputTarget {
             upload_body_bytes: None,
+            target_class: None,
+            destination_asn: None,
             verification: None,
             id: "throughput".to_string(),
             label: "Throughput".to_string(),

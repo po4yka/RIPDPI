@@ -215,6 +215,10 @@ pub struct ThroughputTarget {
     pub verification: Option<DownloadVerification>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_body_bytes: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_asn: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
