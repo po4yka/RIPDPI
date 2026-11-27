@@ -2,7 +2,7 @@
 id: DAT-1795705030545238
 title: Study remembered network policies as input to shared priors
 kind: research
-status: review
+status: done
 area: data
 priority: low
 owner: Offline Learner research lane
@@ -14,6 +14,9 @@ created: 2026-11-26
 updated: 2026-11-27
 spec_reason: research-only
 status_detail: "ADR 0017 written: conditional go"
+closed_at: "2026-11-27T10:57:20Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "ADR 0018 (docs/adr/0018-remembered-policies-as-shared-priors.md) merged to main via PR #811: names allowed and forbidden aggregate fields, fit with the opt-in field report and shared priors manifest v1, conditional-go recommendation"
 ---
 
 ## Goal
