@@ -569,7 +569,7 @@ private fun dnsRowStatus(state: OnboardingValidationState): OnboardingRowStatus 
         is OnboardingValidationState.Failed -> {
             when (state.failedStep) {
                 OnboardingValidationStep.Dns -> OnboardingRowStatus.Failed
-                OnboardingValidationStep.Connectivity -> OnboardingRowStatus.Complete
+                OnboardingValidationStep.Connectivity, OnboardingValidationStep.Volume -> OnboardingRowStatus.Complete
                 else -> OnboardingRowStatus.Pending
             }
         }
@@ -595,7 +595,9 @@ private fun connectivityRowStatus(state: OnboardingValidationState): OnboardingR
         }
 
         is OnboardingValidationState.Failed -> {
-            if (state.failedStep == OnboardingValidationStep.Connectivity) {
+            if (state.failedStep == OnboardingValidationStep.Connectivity ||
+                state.failedStep == OnboardingValidationStep.Volume
+            ) {
                 OnboardingRowStatus.Failed
             } else {
                 OnboardingRowStatus.Pending

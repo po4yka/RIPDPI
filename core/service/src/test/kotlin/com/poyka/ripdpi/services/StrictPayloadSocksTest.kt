@@ -131,4 +131,28 @@ class StrictPayloadSocksTest {
                 assertTrue(fixture.closed.await(2, TimeUnit.SECONDS))
             }
         }
+
+    @Test
+    fun `probeControl reports the bytes received before the body stalled`() =
+        runBlocking {
+            val stalled = "HTTP/1.1 200 OK\r\nContent-Length: 32768\r\n\r\nx"
+            StrictPayloadSocksFixture(listOf(stalled), stall = true).use { fixture ->
+                val evidence = fixture.httpProbe().probeControl(fixture.endpoint, control(), 500)
+                assertFalse(evidence.succeeded)
+                assertEquals(1L, evidence.receivedBytes)
+                assertTrue(evidence.timedOut)
+            }
+        }
+
+    @Test
+    fun `probeControl reports the full byte count for a body with the wrong digest`() =
+        runBlocking {
+            val wrong = "HTTP/1.1 200 OK\r\nContent-Length: 32768\r\n\r\n" + "y".repeat(32_768)
+            StrictPayloadSocksFixture(listOf(wrong)).use { fixture ->
+                val evidence = fixture.httpProbe().probeControl(fixture.endpoint, control(), 3_000)
+                assertFalse(evidence.succeeded)
+                assertEquals(32_768L, evidence.receivedBytes)
+                assertFalse(evidence.timedOut)
+            }
+        }
 }

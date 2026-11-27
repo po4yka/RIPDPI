@@ -294,7 +294,7 @@ private fun OnboardingSignalLinePreviewBody(themePreference: String) {
         // The running test, the passed test, and a failure at each stage.
         OnboardingSignalLine(signal(OnboardingValidationState.CheckingDns(Mode.VPN)), pagePosition = { test })
         OnboardingSignalLine(
-            signal(OnboardingValidationState.Success(Mode.VPN, dnsSummary = "")),
+            signal(OnboardingValidationState.Success(Mode.VPN, dnsSummary = "", volumeTested = true)),
             pagePosition = { test },
         )
         OnboardingValidationStep.entries.forEach { step ->

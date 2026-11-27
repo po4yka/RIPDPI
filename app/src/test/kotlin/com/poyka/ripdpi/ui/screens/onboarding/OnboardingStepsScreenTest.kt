@@ -158,7 +158,13 @@ class OnboardingStepsScreenTest {
                             selectedPersona = "advanced",
                             selectedMode = Mode.Proxy,
                             selectedDnsProviderId = DnsProviderCloudflare,
-                        ).withValidationState(OnboardingValidationState.Success(Mode.Proxy, dnsSummary = "Test DNS")),
+                        ).withValidationState(
+                            OnboardingValidationState.Success(
+                                Mode.Proxy,
+                                dnsSummary = "Test DNS",
+                                volumeTested = true,
+                            ),
+                        ),
                     actions =
                         OnboardingScreenActions(
                             onFinishKeepRunning = { kept = true },
@@ -231,6 +237,23 @@ class OnboardingStepsScreenTest {
             .onNodeWithTag(RipDpiTestTags.OnboardingValidateAction)
             .assertTextEquals("Allow status notifications")
         composeRule.onAllNodesWithText("Grant VPN permission").assertCountEquals(0)
+    }
+
+    @Test
+    fun `a volume failure completes the tunnel and dns rows and fails the connectivity row`() {
+        renderOnboarding(
+            OnboardingUiState(currentPage = OnboardingTestPageIndex).withValidationState(
+                OnboardingValidationState.Failed(
+                    reason = "The test transfer stopped after 20480 bytes.",
+                    failedStep = OnboardingValidationStep.Volume,
+                    transferredBytes = 20_480L,
+                ),
+            ),
+        )
+
+        composeRule.onNode(rowWithState("Start local VPN tunnel", "Done")).assertExists()
+        composeRule.onNode(rowWithState("Check DNS resolution", "Done")).assertExists()
+        composeRule.onNode(rowWithState("Verify internet connectivity", "Failed")).assertExists()
     }
 
     @Test

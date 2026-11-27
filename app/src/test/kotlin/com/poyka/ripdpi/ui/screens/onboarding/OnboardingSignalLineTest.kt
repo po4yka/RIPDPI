@@ -39,7 +39,7 @@ class OnboardingSignalLineTest {
 
     @Test
     fun `a passed test shows a live path`() {
-        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "System DNS")
+        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "System DNS", volumeTested = true)
 
         assertEquals(RipDpiSignalMode.Live, modeOnTestStep(passed))
     }
@@ -92,7 +92,7 @@ class OnboardingSignalLineTest {
 
         listOf(
             OnboardingValidationState.CheckingDns(Mode.Proxy),
-            OnboardingValidationState.Success(mode = Mode.Proxy, dnsSummary = ""),
+            OnboardingValidationState.Success(mode = Mode.Proxy, dnsSummary = "", volumeTested = true),
             OnboardingValidationState.Failed(reason = ""),
         ).forEach { state ->
             val tested = signal(state, persona = OnboardingPersona.Advanced, scope = Mode.Proxy)
@@ -133,7 +133,7 @@ class OnboardingSignalLineTest {
 
     @Test
     fun `the line states the test on the test step, and a passed test on a step after it`() {
-        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "")
+        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "", volumeTested = true)
         val failed = OnboardingValidationState.Failed(reason = "")
 
         assertTrue(onboardingLineStatesTest(step = 3, testStep = 3, failed))
@@ -146,7 +146,13 @@ class OnboardingSignalLineTest {
     fun `only a finished test gives a haptic, success or error`() {
         assertEquals(
             RipDpiHapticFeedback.Success,
-            onboardingResultHaptic(OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "")),
+            onboardingResultHaptic(
+                OnboardingValidationState.Success(
+                    mode = Mode.VPN,
+                    dnsSummary = "",
+                    volumeTested = true,
+                ),
+            ),
         )
         assertEquals(RipDpiHapticFeedback.Error, onboardingResultHaptic(OnboardingValidationState.Failed(reason = "")))
         assertNull(onboardingResultHaptic(OnboardingValidationState.Idle))

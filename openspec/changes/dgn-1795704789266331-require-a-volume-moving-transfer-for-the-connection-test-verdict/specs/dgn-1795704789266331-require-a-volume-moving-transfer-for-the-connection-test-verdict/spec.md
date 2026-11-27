@@ -31,6 +31,11 @@ The RIPDPI implementation MUST satisfy this portfolio criterion: The test adds n
 - **WHEN** the linked change is exercised under the conditions defined by the portfolio task
 - **THEN** the observed result MUST demonstrate that the test adds no third-party host. When the server publishes no payload control, the verdict states that volume was not tested instead of Passed
 
+#### Scenario: Names resolved locally is an explicit exception
+
+- **WHEN** the route resolves names locally (`noDomain`)
+- **THEN** the verdict MUST state that volume was not tested, because resolving the control host in the app would leave the tunnel
+
 ### Requirement: REQ-DGN-1795704789266331-004 — The test reuses the existing transfer measurement and stop evidence and adds no...
 
 The RIPDPI implementation MUST satisfy this portfolio criterion: The test reuses the existing transfer measurement and stop evidence and adds no second transfer engine.

@@ -67,7 +67,7 @@ private const val ProxyProbeUsername = "onboarding"
 sealed interface OnboardingValidationResult {
     data class Success(
         val dnsSummary: String,
-        val volumeTested: Boolean = true,
+        val volumeTested: Boolean,
     ) : OnboardingValidationResult
 
     data class Failed(
@@ -404,6 +404,13 @@ class DefaultOnboardingModeValidationRunner
 
                 OnboardingVolumeOutcome.Verified -> {
                     true
+                }
+
+                OnboardingVolumeOutcome.Rejected -> {
+                    throw OnboardingProbeException(
+                        step = OnboardingValidationStep.Volume,
+                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_volume_rejected),
+                    )
                 }
 
                 is OnboardingVolumeOutcome.Stalled -> {

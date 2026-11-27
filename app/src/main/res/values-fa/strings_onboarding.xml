@@ -12,6 +12,7 @@
     <string name="onboarding_continue">ادامه</string>
     <string name="onboarding_validation_failed_generic">حالت انتخاب‌شده قابل اعتبارسنجی نبود.</string>
     <string name="onboarding_validation_failed_volume">انتقال آزمایشی پس از %1$d بایت متوقف شد.</string>
+    <string name="onboarding_validation_failed_volume_rejected">فایل آزمایشی سالم نرسید.</string>
     <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند وضعیت سرویس اعتبارسنجی را نشان دهد.</string>
     <string name="permissions_background_activity_title">فعالیت پس‌زمینه</string>
     <string name="permissions_notifications_denied">اعلان‌ها را فعال کنید تا وضعیت RIPDPI و هشدارهای سرویس هنگام اجرای VPN یا پراکسی محلی نمایش داده شود.</string>
@@ -138,7 +139,7 @@
     <string name="onboarding_done_dns">سرور DNS</string>
     <string name="onboarding_done_test">آزمایش اتصال</string>
     <string name="onboarding_done_test_passed">موفق</string>
-    <string name="onboarding_done_test_volume_untested">موفق، حجم داده آزمایش نشد</string>
+    <string name="onboarding_done_test_volume_untested">متصل، حجم داده آزمایش نشد</string>
     <string name="onboarding_done_test_not_run">اجرا نشده</string>
     <string name="onboarding_done_test_failed">ناموفق</string>
 </resources>

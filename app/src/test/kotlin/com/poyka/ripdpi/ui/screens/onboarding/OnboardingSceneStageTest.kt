@@ -32,7 +32,7 @@ class OnboardingSceneStageTest {
 
     @Test
     fun `a passed test has every stage complete`() {
-        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "")
+        val passed = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "", volumeTested = true)
 
         assertEquals(OnboardingSceneState(dns = "Resolver", passed = true, stage = 3), scene(passed))
     }
