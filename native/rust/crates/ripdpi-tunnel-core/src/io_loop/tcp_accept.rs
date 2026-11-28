@@ -1,4 +1,3 @@
-use std::io;
 use std::net::{IpAddr, SocketAddr};
 
 use smoltcp::socket::tcp::Socket as TcpSocket;
@@ -6,7 +5,7 @@ use smoltcp::wire::{IpAddress, IpListenEndpoint};
 
 use ripdpi_tunnel_config::Config;
 
-use crate::session::{Auth, ProxyUpstream};
+use crate::session::Auth;
 
 use super::packet::endpoint_to_socketaddr;
 
@@ -42,18 +41,6 @@ pub(super) fn make_auth(config: &Config) -> Auth {
         (Some(u), Some(p)) => Auth::UserPass { username: u.clone(), password: p.clone() },
         _ => Auth::NoAuth,
     }
-}
-
-pub(super) fn proxy_addr(config: &Config) -> io::Result<ProxyUpstream> {
-    if let Some(path) = &config.socks5.unix_path {
-        return Ok(ProxyUpstream::Unix(path.into()));
-    }
-    let ip: IpAddr = config
-        .socks5
-        .address
-        .parse()
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid socks5.address"))?;
-    Ok(ProxyUpstream::Tcp(SocketAddr::new(ip, config.socks5.port)))
 }
 
 #[cfg(test)]

@@ -133,7 +133,7 @@ never a raw pointer.
   `to_handle(jlong) -> Option<u64>` (`ripdpi-android-bridge-support` and
   `ripdpi-tunnel-android`) rejects `0` and negative values.
 - **Tunnel config validation precedes handle allocation.** Android tunnel
-  sessions accept only the required JNI flat-JSON `schemaVersion: 3`:
+  sessions accept only the required JNI flat-JSON `schemaVersion: 4`:
   `Tun2SocksTunnel.start` rejects other versions before entering JNI, and
   `ripdpi-tunnel-android` independently rejects missing, retired, or future
   versions before registry insertion. This JNI envelope is separate from the

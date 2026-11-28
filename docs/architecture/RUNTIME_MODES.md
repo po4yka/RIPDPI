@@ -143,10 +143,14 @@ RIPDPI's own package and, per `VpnAppExclusionPolicy`, configured Russian apps;
 ```
 RipDpiVpnService  → ConnectionPolicyResolver.resolve()
   1. RipDpiProxy.startProxy()    — same jniCreate/jniStart path as §1
-       VPN applies runtime-only sessionOverrides: listenPortOverride=0
-       (ephemeral localhost bind) + a fresh authToken (mandatory local auth)
+       VPN applies runtime-only sessionOverrides: listenUnixPath
+       (<filesDir>/px-<32 hex>, owner-only Unix socket, no TCP bind) + a fresh
+       authToken (mandatory local auth). When the DNS plan routes encrypted DNS
+       through the proxy, it uses listenPortOverride=0 (ephemeral loopback
+       bind) instead.
   2. ProxyRuntimeSupervisor.start() waits for readiness, polls telemetry,
-       resolves the actual ephemeral listenerAddress (fails closed if none)
+       resolves the listenerAddress (`unix`, or the ephemeral loopback address)
+       (fails closed if none)
   3. VpnTunnelRuntime.start()              — core/service/.../services/VpnTunnelRuntime.kt
        → buildVpnTun2SocksConfig()          — core/service/.../services/VpnTun2SocksConfig.kt
        → Tun2SocksBridge.start(config, tunFd, flowAttributionBridge)
@@ -156,7 +160,8 @@ RipDpiVpnService  → ConnectionPolicyResolver.resolve()
 ```
 
 `ripdpi-tunnel-core` reads IP packets from the TUN fd and opens SOCKS5 sessions
-to `127.0.0.1:<ephemeral port>` (RFC 1929 auth with the session token) into the
+to the Unix socket path (or, when encrypted DNS is proxied, to
+`127.0.0.1:<ephemeral port>`) with RFC 1929 auth with the session token into the
 proxy runtime, which applies the desync pipeline before traffic egresses.
 
 **`libripdpi-tunnel.so` depends on `libripdpi.so` already being active** — the
@@ -302,8 +307,8 @@ mode-specific orchestration through concrete subclasses and composed collaborato
 | Transition | What happens |
 |------------|--------------|
 | **Start (proxy)** | `onStartCommand` → `startForeground` (≤5 s) → `ConnectionPolicyResolver.resolve()` → `RipDpiProxy.startProxy()` → blocking `jniStart` |
-| **Start (VPN)** | `startForeground` → resolve policy → start proxy (ephemeral port + fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `VpnTunnelRuntime.start()` (starts the TUN bridge) |
-| **Network handover** | `NetworkHandoverMonitor` → **full proxy+tunnel restart under the service mutex**; auth token and ephemeral port rotate. A DNS-only rebuild reuses the existing endpoint (proxy not restarted). |
+| **Start (VPN)** | `startForeground` → resolve policy → start proxy (private Unix socket or ephemeral port, plus a fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `VpnTunnelRuntime.start()` (starts the TUN bridge) |
+| **Network handover** | `NetworkHandoverMonitor` → **full proxy+tunnel restart under the service mutex**; auth token and the socket path or ephemeral port rotate. A DNS-only rebuild reuses the existing endpoint (proxy not restarted). |
 | **Raw-path diagnostics** | VPN service is **stopped** before probing, then reconstructed afterward; protect mechanisms unregister/re-register across the boundary |
 | **Revoke (VPN)** | `onRevoke()` sets `revoked = true` and runs the shell-delegate revoke path; `onDestroy` tears the session down |
 | **Stop / destroy** | `onDestroy` → coordinator/session teardown → `RootHelperManager.stop()` → native `jniStop`/`jniDestroy` |
@@ -321,14 +326,14 @@ mode-specific orchestration through concrete subclasses and composed collaborato
   a full teardown of one service before the other starts — there is one
   foreground service / one `VpnService` session at a time.
 - **Tunnel depends on the proxy.** `libripdpi-tunnel.so` forwards into
-  `libripdpi.so`'s SOCKS endpoint; the proxy must be ready (and its ephemeral
-  listener address resolved) before `VpnTunnelRuntime.start()` starts the TUN bridge. VPN startup **fails
+  `libripdpi.so`'s SOCKS endpoint; the proxy must be ready (and its listener
+  address resolved) before `VpnTunnelRuntime.start()` starts the TUN bridge. VPN startup **fails
   closed** if the proxy never publishes a listener address.
 - **`protect()` is mandatory in VPN mode.** Any upstream socket opened without
   protection loops into the TUN with exponential traffic growth. Raw-path scans
   are exempt only because they connect with no TUN present.
-- **Handover restart rotates the localhost contract.** The ephemeral proxy port
-  and auth token change on a full restart; any component caching the old
+- **Handover restart rotates the local listener contract.** The Unix socket path
+  (or ephemeral proxy port) and auth token change on a full restart; any component caching the old
   endpoint must re-read it. DNS-only rebuilds intentionally keep the endpoint.
 - **Relay failure must not kill the base path.** Relay composes into proxy/VPN;
   a relay transport fault should surface as a relay error, not tear down the

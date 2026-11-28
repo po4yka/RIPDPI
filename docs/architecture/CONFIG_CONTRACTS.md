@@ -260,19 +260,62 @@ currently has **no runtime effect**. Proxy mode never read it. VPN mode does
 not call `VpnService.Builder.setHttpProxy`, even when the setting is on
 (`resolveTunnelInterfacePolicy` always resolves `httpProxyPort = null`):
 
-- In VPN mode the local listener binds an ephemeral port (`listenPortOverride = 0`)
-  and requires a per-session token (`VpnRuntimeCompositionCoordinator`). The
-  configured proxy port is not bound, so
-  advertising it sends proxied requests to any local app that binds that port.
-- `ProxyInfo` cannot carry credentials, so system-proxy clients cannot use the
-  session listener either. The listener answers them with `407`.
+- In VPN mode with the native proxy provider, the local listener is an
+  owner-only Unix domain socket and binds no TCP port
+  (`sessionOverrides.listenUnixPath`, see below). It requires a per-session
+  token (`VpnRuntimeCompositionCoordinator`). The configured proxy port is not
+  bound, so advertising it sends proxied requests to any local app that binds
+  that port.
+- `ProxyInfo` cannot carry credentials or a Unix path, so system-proxy clients
+  cannot use the session listener in either form. The TCP form answers them
+  with `407`; the Unix form is not reachable from them.
 - The TUN already captures the traffic of the routed apps.
 
 Do not advertise a proxy endpoint that the session does not own, and do not
-remove the ephemeral-port or session-token protection of the VPN listener to make
+remove the private-path or session-token protection of the VPN listener to make
 this setting work. `RipDpiVpnService.buildHttpProxyInfo` and the `httpProxyPort`
 argument of `VpnTunnelSessionProvider.establish` stay available for a listener
 that the session owns and that unauthenticated loopback clients can use.
+
+#### VPN private Unix listener
+
+- Path: `<filesDir>/px-<32 lowercase hex>`. The proxy binds it with mode `0600`.
+  The service picks a new name for each proxy start. A VPN start removes the
+  `px-*` files of earlier processes before it binds. The proxy removes its file
+  at stop. The path is 71 bytes, below the 108-byte `sun_path` limit.
+- `sessionOverrides.listenUnixPath` requires `authToken` and excludes
+  `listenPortOverride`. With it, the proxy binds no TCP socket. Telemetry
+  reports the listener address as the literal `unix`.
+- The path never appears in logs, telemetry, `toString()`, or exports.
+- The Unix listener keeps the session token as SOCKS5 username/password. The
+  username carries the per-app scope. SOCKS5 without authentication, SOCKS4,
+  HTTP proxy requests without the credentials, and transparent requests are
+  refused.
+- TCP flows use SOCKS5 CONNECT over a Unix stream. A relay that the proxy
+  aborts reaches the app as end of stream, not as a reset, because a Unix
+  stream has no reset. TLS and length-delimited protocols still detect the
+  truncation.
+- UDP flows use only the private association. Request `05 80 00 01 00 00 00 00
+  00 00`; success reply with BND `0.0.0.0:0`; the 20-byte `RUF1` preface; then
+  the client sends one byte `0x01` with `SCM_RIGHTS` that carries one end of an
+  `AF_UNIX` `SOCK_DGRAM` socketpair. `RUF1` frames run on that socket
+  unchanged. A full socket drops the datagram. Standard UDP ASSOCIATE is
+  refused on the Unix listener.
+- Tunnel config payload schema 4 carries `socks5UnixPath` or the SOCKS5 address
+  and port, never both.
+- In-app path clients (onboarding validation, onboarding volume check, selector
+  payload probe, field report upload, in-path diagnostics scan) use the Unix
+  route. The in-path route of the scan request has an optional `unixPath`
+  (additive, no wire version change).
+- Exception: when the DNS plan routes encrypted DNS through the proxy
+  (`mapDnsEnabled && (routeDnsThroughSocks5 || a split strict DNS policy)`,
+  `vpnTunnelNeedsTcpProxyListener`), the session keeps the token-protected
+  loopback TCP listener on an ephemeral port (`listenPortOverride = 0`). The
+  encrypted DNS client dials its proxy over TCP only. A handover or DNS refresh
+  that changes this answer recomposes the runtime.
+- Unchanged: the proxy mode TCP listener, the Xray provider loopback inbound,
+  and the relay, WARP, AmneziaWG, NaiveProxy, pluggable-transport,
+  cloudflare-origin, and diagnostics candidate listeners.
 
 ---
 
@@ -318,14 +361,21 @@ credential field must contain 1 to 255 UTF-8 bytes.
   acceptance, strategy probes) get the pair from the process-local
   `LocalSocksCredentialRegistry`. The listener owner registers it after
   readiness and removes it at stop or when the runtime exits.
-- Accepted residual: the live Xray inbound keeps the profile's fixed port
-  (default 10808), and the normal relay start keeps the configured relay port
-  (default 11980). Another app can still find a SOCKS listener there by a port
-  scan, but it cannot use it without the session pair. An ephemeral Xray port
-  is not a contained change: the profile port is the route port by design
-  (`XrayProviderRouteBuilder`, `XrayProviderConfig.localInboundPort`), the
-  orchestrator treats a port change as a full replace, and libXray needs the
-  port before it binds, so the app must reserve it with a check-then-bind race.
+- Accepted residual: these loopback listeners stay, and each requires the
+  session credentials. The live Xray inbound keeps the profile's fixed port
+  (default 10808). The normal relay start keeps the configured relay port
+  (default 11980). WARP, AmneziaWG (default 10808), NaiveProxy,
+  pluggable-transport, cloudflare-origin, and other helper processes bind
+  loopback. Diagnostics candidate listeners bind loopback. The native proxy
+  keeps its TCP listener in proxy mode, and in VPN mode when the DNS plan
+  routes encrypted DNS through the proxy. In the default VPN mode with the
+  native proxy provider, the proxy has no loopback listener. Another app can
+  find the remaining SOCKS listeners by a port scan, but it cannot use one
+  without the session pair. An ephemeral Xray port is not a contained change:
+  the profile port is the route port by design (`XrayProviderRouteBuilder`,
+  `XrayProviderConfig.localInboundPort`), the orchestrator treats a port change
+  as a full replace, and libXray needs the port before it binds, so the app
+  must reserve it with a check-then-bind race.
 
 ---
 
@@ -632,10 +682,12 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   `SUPPORTED_NATIVE_CONFIG_SCHEMA_VERSION` are both `2`; missing, version 1,
   and future payloads are rejected by `ripdpi-proxy-config`.
 - The Android **tunnel JNI flat-JSON config** carries required
-  `schemaVersion: 3` on `Tun2SocksConfig`. Kotlin validates the version before
+  `schemaVersion: 4` on `Tun2SocksConfig`. Kotlin validates the version before
   calling `Tun2SocksBindings.create`; the live `ripdpi-tunnel-android`
   `TunnelConfigPayload` validates it again before registering a native handle.
-  Missing, retired version `2`, and future versions fail closed. The optional,
+  Missing, retired versions `2` and `3`, and future versions fail closed. The
+  payload carries `socks5UnixPath` or the SOCKS5 address and port, never both.
+  The optional,
   additive `splitDnsPolicy` section is used by the native DNS interceptor;
   its ordered rules, digests, numeric resolver candidates, and bounded
   coverage-reason token are checked before native handle allocation. When the

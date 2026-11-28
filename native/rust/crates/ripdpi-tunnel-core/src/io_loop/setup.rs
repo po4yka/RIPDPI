@@ -10,6 +10,7 @@ use tracing::info;
 use ripdpi_tunnel_config::Config;
 
 use crate::dns_cache::DnsCache;
+use crate::session::ProxyUpstream;
 use crate::session::udp::UdpMemoryBudget;
 use crate::split_dns::SplitDnsPolicy;
 use crate::{ActiveSessions, Stats, TunDevice};
@@ -18,7 +19,7 @@ use super::dns_intercept::{parse_dns_cache, parse_mapdns_runtime};
 use super::retransmit::RetransmitTracker;
 use super::setup_dns::{build_dns_worker, configure_resolver_fallback};
 use super::state::{LoopState, PendingUidPackets};
-use super::tcp_accept::{make_auth, proxy_addr};
+use super::tcp_accept::make_auth;
 use super::udp_assoc::UDP_EVICTION_HEAP_CAPACITY;
 
 mod runtime;
@@ -35,8 +36,8 @@ pub(in crate::io_loop) fn setup_io_loop(
     stats: Arc<Stats>,
     mut dns_cache: Option<DnsCache>,
 ) -> io::Result<LoopState> {
-    let proxy_sockaddr =
-        proxy_addr(&config).map_err(|e| io::Error::other(format!("resolve SOCKS5 proxy address: {e}")))?;
+    let proxy_sockaddr = ProxyUpstream::from_config(&config)
+        .map_err(|e| io::Error::other(format!("resolve SOCKS5 proxy address: {e}")))?;
     let auth = make_auth(&config);
 
     let mapdns_runtime =

@@ -523,10 +523,15 @@ class OnboardingModeValidationRunnerTest {
                 LocalSocksRoute("", 0, LocalSocksCredentials("user", "pass"), unixPath = "/data/px-0123")
 
             val outcome =
-                OnboardingVolumeCheck(groups, applied) { probeEndpoint, control, _ ->
-                    endpoint = probeEndpoint
-                    CandidateHttpPayloadEvidence(true, 1L, receivedBytes = control.expectedBytes.toLong())
-                }.run(Mode.VPN, route)
+                OnboardingVolumeCheck(
+                    groups,
+                    applied,
+                    { probeEndpoint, control, _ ->
+                        endpoint = probeEndpoint
+                        CandidateHttpPayloadEvidence(true, 1L, receivedBytes = control.expectedBytes.toLong())
+                    },
+                    OnboardingChainStallLocator { _, _, _ -> error("chain locator not expected") },
+                ).run(Mode.VPN, route)
 
             assertEquals(OnboardingVolumeOutcome.Verified, outcome)
             assertEquals("/data/px-0123", endpoint?.unixPath)

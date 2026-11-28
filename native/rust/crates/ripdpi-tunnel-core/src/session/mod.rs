@@ -6,8 +6,11 @@ pub(crate) mod test_socket;
 pub mod udp;
 
 pub use socks5::{Auth, TargetAddr};
-use std::net::SocketAddr;
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::path::PathBuf;
+
+use ripdpi_tunnel_config::Config;
 pub use tcp::TcpSession;
 pub use udp::UdpSession;
 
@@ -15,6 +18,20 @@ pub use udp::UdpSession;
 pub enum ProxyUpstream {
     Tcp(SocketAddr),
     Unix(PathBuf),
+}
+
+impl ProxyUpstream {
+    pub(crate) fn from_config(config: &Config) -> io::Result<Self> {
+        if let Some(path) = &config.socks5.unix_path {
+            return Ok(Self::Unix(path.into()));
+        }
+        let ip: IpAddr = config
+            .socks5
+            .address
+            .parse()
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid socks5.address"))?;
+        Ok(Self::Tcp(SocketAddr::new(ip, config.socks5.port)))
+    }
 }
 
 impl std::fmt::Debug for ProxyUpstream {

@@ -133,7 +133,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 tunnel_ipv4,
                 tunnel_ipv6,
                 socks5_address,
-                socks5_port,
+                socks5_port: Some(socks5_port),
                 socks5_unix_path: None,
                 socks5_udp,
                 socks5_udp_address,
@@ -274,7 +274,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 tunnel_ipv4,
                 tunnel_ipv6,
                 socks5_address,
-                socks5_port,
+                socks5_port: Some(socks5_port),
                 socks5_unix_path: None,
                 socks5_udp,
                 socks5_udp_address,
@@ -466,7 +466,7 @@ fn rejects_blank_socks5_address() {
 fn unix_payload(unix_path: &str) -> TunnelConfigPayload {
     let mut payload = sample_payload();
     payload.socks5_address = String::new();
-    payload.socks5_port = 0;
+    payload.socks5_port = None;
     payload.socks5_unix_path = Some(unix_path.to_string());
     payload
 }
@@ -484,10 +484,10 @@ fn rejects_unix_path_together_with_address_or_port_and_neither_form() {
     let mut with_address = unix_payload("/data/px-0123");
     with_address.socks5_address = "127.0.0.1".to_string();
     let mut with_port = unix_payload("/data/px-0123");
-    with_port.socks5_port = 1080;
+    with_port.socks5_port = Some(1080);
     let mut neither = sample_payload();
     neither.socks5_address = String::new();
-    neither.socks5_port = 0;
+    neither.socks5_port = None;
     let long = unix_payload(&format!("/{}", "a".repeat(107)));
 
     for (payload, field) in [
@@ -697,7 +697,7 @@ fn split_dns_policy_rejects_incomplete_odoh_endpoint_before_handle_allocation() 
 #[test]
 fn rejects_zero_socks5_port() {
     let mut payload = sample_payload();
-    payload.socks5_port = 0;
+    payload.socks5_port = None;
     let err = config_from_payload(payload).expect_err("zero port");
     assert_eq!(err, "socks5Port must be non-zero");
 }
@@ -816,7 +816,7 @@ proptest! {
         let expected_mtu = payload.tunnel_mtu;
         let expected_multi_queue = payload.multi_queue;
         let expected_address = payload.socks5_address.clone();
-        let expected_port = payload.socks5_port;
+        let expected_port = payload.socks5_port.unwrap_or_default();
         let expected_pipeline = payload.socks5_pipeline;
         let expected_stack_size = payload.task_stack_size;
         let expected_log_level = payload.log_level.clone();

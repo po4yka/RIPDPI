@@ -15,7 +15,7 @@ pub(crate) fn validate_payload(payload: &TunnelConfigPayload) -> Result<(), Stri
     if payload.tunnel_name.trim().is_empty() {
         return Err("tunnelName must not be blank".to_string());
     }
-    if tcp_upstream && payload.socks5_port == 0 {
+    if tcp_upstream && payload.socks5_port.unwrap_or_default() == 0 {
         return Err("socks5Port must be non-zero".to_string());
     }
     if let Some(port) = payload.mapdns_port

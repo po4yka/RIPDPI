@@ -65,22 +65,24 @@ Android Proxy command-line preferences can select this mode, but usable traffic 
 VPN mode now treats the local proxy endpoint as a session-local runtime detail instead of reusing the persisted manual proxy port.
 
 - Proxy mode still binds the configured `proxyPort` and exposes it directly to the user.
-- VPN mode applies runtime-only `sessionOverrides` after payload parsing: `listenPortOverride=0` for an ephemeral localhost bind and `authToken=<fresh token>` for mandatory local auth.
+- VPN mode applies runtime-only `sessionOverrides` after payload parsing: `listenUnixPath=<filesDir>/px-<32 hex>` for an owner-only Unix socket with no TCP bind, and `authToken=<fresh token>` for mandatory local auth. `listenUnixPath` requires `authToken` and excludes `listenPortOverride`. When the DNS plan routes encrypted DNS through the proxy, VPN mode uses `listenPortOverride=0` for an ephemeral localhost bind instead, because the encrypted DNS client dials its proxy over TCP only.
 - The same override layer is applied to both UI-config and command-line-config VPN sessions. No AppSettings schema change and no new CLI flag were added.
-- `ProxyRuntimeSupervisor.start()` waits for readiness, polls proxy telemetry, and resolves the actual `listenerAddress` into a concrete localhost endpoint before tun2socks starts.
+- `ProxyRuntimeSupervisor.start()` waits for readiness, polls proxy telemetry, and resolves the actual `listenerAddress` (the literal `unix`, or the ephemeral loopback address) into a concrete endpoint before tun2socks starts.
 - If the proxy becomes ready but never publishes a listener address, VPN startup fails closed instead of falling back to `1080`.
-- Initial VPN start and handover restart rotate both the auth token and the ephemeral listener port. DNS-only tunnel rebuilds reuse the current endpoint because the proxy is not restarted.
+- Initial VPN start and handover restart rotate both the auth token and the listener (a new socket path, or a new ephemeral port). DNS-only tunnel rebuilds reuse the current endpoint because the proxy is not restarted.
 
 Resolved endpoint shape handed from proxy startup to the TUN bridge:
 
 ```text
-host=127.0.0.1
-port=<telemetry-reported ephemeral port>
+unix_path=<filesDir>/px-<32 hex>        (or, with proxied encrypted DNS:
+host=127.0.0.1, port=<telemetry-reported ephemeral port>)
 username=ripdpi
 password=<session auth token>
 ```
 
-That same token is enforced on all localhost proxy protocols already guarded by the native `auth_token` path:
+The path never appears in logs, telemetry, or exports. The Unix listener refuses SOCKS5 without authentication, SOCKS4, HTTP proxy requests without the credentials, and transparent requests. It serves UDP only through the private association (`05 80 00 01 00 00 00 00 00 00`, the `RUF1` preface, then one byte with `SCM_RIGHTS` that carries one end of an `AF_UNIX` `SOCK_DGRAM` socketpair). It refuses standard UDP ASSOCIATE. A relay that the proxy aborts reaches the app as end of stream, not as a reset. See `docs/architecture/CONFIG_CONTRACTS.md` for the full contract.
+
+That same token is enforced on all local proxy protocols already guarded by the native `auth_token` path:
 
 - SOCKS5 requires RFC 1929 username/password auth
 - HTTP CONNECT requires valid `Proxy-Authorization`

@@ -311,7 +311,9 @@ Consequences a probe author must honour:
 **In-path** (`IN_PATH`). On Android, admission requires a running RIPDPI
 service. VPN mode additionally requires an eligible active route lease from
 `DefaultDiagnosticsRuntimeCoordinator`; proxy mode checks the local listener
-against the planned endpoint. The service stays running. This is scoped
+against the planned endpoint. The in-path route of the scan request carries
+either an address and port or an optional `unixPath` (the private VPN
+listener); the path never appears in logs or reports. The service stays running. This is scoped
 diagnostic evidence, not verification of every application's connectivity. Outbound sockets a probe opens are therefore subject
 to the normal `protect()` invariant and the active desync/relay policy.
 
