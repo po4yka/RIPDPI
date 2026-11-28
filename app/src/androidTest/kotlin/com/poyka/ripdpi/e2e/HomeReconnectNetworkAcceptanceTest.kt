@@ -49,6 +49,7 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -90,7 +91,7 @@ class HomeReconnectNetworkAcceptanceTest {
     private lateinit var replacementDnsProtocol: String
     private var expectedAnimationsEnabled = true
     private lateinit var initialReceipt: com.poyka.ripdpi.data.RuntimeActivationReceipt
-    private var originalVpnListener: Int? = null
+    private var originalVpnListener: String? = null
     private var baselineIds = emptySet<String>()
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
@@ -264,7 +265,7 @@ class HomeReconnectNetworkAcceptanceTest {
         awaitRunning(mode)
         if (mode == Mode.VPN) {
             originalVpnListener = captureVpnListener("initial", original)
-            evidence.assertTcpListenerOpen(checkNotNull(originalVpnListener))
+            evidence.assertUnixListenerOpen(vpnListenerFile(checkNotNull(originalVpnListener)))
         }
         evidence.probe("initial", mode, port, "doh")
         ui.observe("initial-running")
@@ -415,17 +416,21 @@ class HomeReconnectNetworkAcceptanceTest {
         ui.awaitTag(RipDpiTestTags.StatusRuntimeReconnectDialog, false)
         if (mode == Mode.VPN) {
             val replacementListener = captureVpnListener("reconnected", replacement)
-            evidence.assertTcpListenerOpen(replacementListener)
+            evidence.assertUnixListenerOpen(vpnListenerFile(replacementListener))
             val previousListener = checkNotNull(originalVpnListener)
-            if (previousListener != replacementListener) evidence.assertListenerClosed(previousListener)
+            assertNotEquals(
+                "A replacement VPN runtime must own a new private listener",
+                previousListener,
+                replacementListener,
+            )
+            assertFalse("The replaced private listener must be removed", vpnListenerFile(previousListener).exists())
             evidence.record(
                 "vpn-listener-replacement",
                 JSONObject()
                     .put("originalRuntimeId", original.runtimeId)
                     .put("replacementRuntimeId", replacement.runtimeId)
-                    .put("originalAddress", "127.0.0.1:$previousListener")
-                    .put("replacementAddress", "127.0.0.1:$replacementListener")
-                    .put("endpointReused", previousListener == replacementListener),
+                    .put("originalAddress", "unix:$previousListener")
+                    .put("replacementAddress", "unix:$replacementListener"),
             )
         } else {
             evidence.assertListenerClosed(ports[0])
@@ -455,32 +460,33 @@ class HomeReconnectNetworkAcceptanceTest {
             checkNotNull(originalVpnListener),
             listener,
         )
-        evidence.assertTcpListenerOpen(listener)
+        evidence.assertUnixListenerOpen(vpnListenerFile(listener))
     }
+
+    private fun vpnListenerFile(name: String) = File(context.filesDir, name)
 
     private fun captureVpnListener(
         stage: String,
         configuration: AppliedRuntimeConfiguration,
-    ): Int {
+    ): String {
         check(configuration.mode == Mode.VPN)
         val before = awaitCoherentAuthority(configuration)
         val notBefore = System.currentTimeMillis()
-        var listener: Int? = null
+        var listener: String? = null
         var capturedAt = 0L
         HomeReconnectNetworkAcceptanceSupport.await("No fresh listener for the owned VPN runtime", 15_000) {
             val telemetry = serviceState.telemetry.value
             val proxy = telemetry.proxyTelemetry
             val now = System.currentTimeMillis()
-            val port =
-                Regex("127\\.0\\.0\\.1:([0-9]{1,5})")
-                    .matchEntire(proxy.listenerAddress.orEmpty())
-                    ?.groupValues
-                    ?.get(1)
-                    ?.toIntOrNull()
+            val name =
+                context.filesDir
+                    .list { _, file -> file.startsWith("px-") }
+                    ?.singleOrNull()
+                    ?.takeIf { proxy.listenerAddress == "unix" }
             if (telemetry.mode != Mode.VPN || telemetry.status != AppStatus.Running ||
                 serviceState.status.value != AppStatus.Running to Mode.VPN ||
                 telemetry.proxyTelemetryStatus.state != RuntimeTelemetryState.Snapshot ||
-                proxy.source != "proxy" || proxy.state != "running" || port == null || port !in 1..65535 ||
+                proxy.source != "proxy" || proxy.state != "running" || name == null ||
                 proxy.capturedAt <= maxOf(configuration.appliedAt, notBefore) || proxy.capturedAt > now ||
                 proxy.measurementSource(telemetry).freshness(now) != RuntimeMeasurementFreshness.Current
             ) {
@@ -492,11 +498,11 @@ class HomeReconnectNetworkAcceptanceTest {
             if (current != configuration || before != after || !ownership.isCoherent(configuration, after)) {
                 return@await false
             }
-            listener = port
+            listener = name
             capturedAt = proxy.capturedAt
             true
         }
-        val port = checkNotNull(listener)
+        val name = checkNotNull(listener)
         val command = checkNotNull(before.command)
         evidence.record(
             "vpn-listener-$stage",
@@ -504,11 +510,11 @@ class HomeReconnectNetworkAcceptanceTest {
                 .put("configuration", configuration.toEvidence())
                 .put("commandId", command.commandId)
                 .put("generation", command.generation)
-                .put("address", "127.0.0.1:$port")
+                .put("address", "unix:$name")
                 .put("notBefore", notBefore)
                 .put("capturedAt", capturedAt),
         )
-        return port
+        return name
     }
 
     private fun openReview(stage: String) {

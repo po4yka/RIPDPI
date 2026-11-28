@@ -5,6 +5,8 @@ import android.app.Instrumentation
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.net.LocalSocket
+import android.net.LocalSocketAddress
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.result.ActivityResultLauncher
@@ -170,9 +172,9 @@ internal class HomeReconnectNetworkAcceptanceSupport(
         write("$stage-fixture-events.json", JSONArray(fixtureClient.events().map { it.toEvidence() }).toString(2))
     }
 
-    fun assertTcpListenerOpen(port: Int) {
-        Socket().use { socket ->
-            socket.connect(InetSocketAddress("127.0.0.1", port), 1_000)
+    fun assertUnixListenerOpen(file: File) {
+        LocalSocket().use { socket ->
+            socket.connect(LocalSocketAddress(file.path, LocalSocketAddress.Namespace.FILESYSTEM))
         }
     }
 
