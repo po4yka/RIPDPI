@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-25
 updated: 2026-11-26
 spec_reason: regression-tested-single-module
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: start a relay that fails (for example VLESS) and check that Status names the selected relay and not Direct, and that the Relay server row opens the editor of the selected server."
 ---
 
 ## Goal

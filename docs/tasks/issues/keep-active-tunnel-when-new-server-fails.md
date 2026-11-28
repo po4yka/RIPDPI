@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: svc-1795615848338894-keep-active-tunnel-when-new-server-fails
 created: 2026-11-25
 updated: 2026-11-25
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: with the DPI tunnel connected, connect an unreachable AmneziaWG profile and an unreachable relay, and check that the previous mode is restored, the message names endpoint, keys, and port without raw state, and a background failure posts a notification."
 ---
 
 ## Goal

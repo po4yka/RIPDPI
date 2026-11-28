@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795615855953573-confirm-imports-and-offer-to-connect
 created: 2026-11-25
 updated: 2026-11-25
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: import by link, QR code, and single-link file and see Added name with Select and Connect; type a link after an empty clipboard; run the subscription Check and Add journeys (the Kaspresso subscription journeys were not run) and see the server count and a failure cause."
 ---
 
 ## Goal

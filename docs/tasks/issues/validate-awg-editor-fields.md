@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-25
 updated: 2026-11-26
 spec_reason: regression-tested-single-module
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: in the AmneziaWG editor, type long text in the port field and see the error, see the Connect hint name the blocking fields, and see Example supporting text for Address and DNS."
 ---
 
 ## Goal

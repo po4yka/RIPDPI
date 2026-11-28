@@ -1,11 +1,11 @@
 ---
 task_id: UIX-1795615850526190
 change: uix-1795615850526190-add-own-server-entry-to-onboarding-and-home
-commit_sha: b87e737d907392bd4d14886695c24b72b383b5bf
-local: required
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
+local: passed
 local_evidence: "./gradlew :app:verifyRoborazziGithubDebug (all 4293 app unit tests plus every Roborazzi golden) BUILD SUCCESSFUL; ./gradlew :app:lintGithubDebug BUILD SUCCESSFUL; just ci-gates exit 0; ktlint on changed files exit 0"
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37."
 device: required
 device_evidence: "Pending: not run on a device or emulator in the implementation session"
 artifact: not_applicable

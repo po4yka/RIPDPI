@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795085498592630-opt-in-field-report-client
 created: 2026-11-19
 updated: 2026-11-26
-status_detail: Gradle gates passed on 2026-11-20; owner waived local counsel and approved the AGENTS.md wording; device run and remote CI remain
+status_detail: Gradle gates passed on 2026-11-20; owner waived local counsel and approved the AGENTS.md wording; remote CI passed (run 46009834608 on d9aa00b99f); a device run of the consent flow (off by default, opt in, one hourly report through the tunnel, revoke) and the live ingest (deploy D2 and D7) remain After this task closes, run ./taskctl close purge DAT-1795085420746769; its done record stays until this incoming reference goes.
 ---
 
 ## Goal

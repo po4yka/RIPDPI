@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-25
 updated: 2026-11-26
 spec_reason: research-only
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: connect on a clean install and confirm that no VPN detected notification appears on the first check and that Details on Home has no Route row."
 ---
 
 ## Goal
@@ -56,3 +57,4 @@ Decision: Details shows no route label. The row and the `status_stat_route` stri
 - `just ci-gates` exit 0.
 - After rebasing onto local `main` (bc95fe0e3e), `./gradlew :core:detection:testDebugUnitTest :app:testGithubDebugUnitTest --tests 'com.poyka.ripdpi.ui.screens.status.*' --continue`: status tests and `DetectionCheckSchedulerTest` pass; `PingCommandProfileTest` (`iputils uses numeric output without reverse DNS`) failed twice with `replied == false` while the host load average was about 830. This branch does not touch that test or `SystemPingProber`, and it passed in the pre-rebase full detection run.
 - Not checked on a device.
+- Remote CI: run 46009834608 on main d9aa00b99f passed (35 jobs, no failures).

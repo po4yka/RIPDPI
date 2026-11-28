@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dat-1795704964813672-skip-non-surviving-bundle-entries-when-allowlist-mode-is-detected
 created: 2026-11-26
 updated: 2026-11-26
-status_detail: Waits for the server counterpart to ship the label in the bundle v3 contract and for the allowlist verdict task
+status_detail: Waits for ripdpi-vpn-deploy SCR-1795705796387934, which adds the per-entry allowlist survivability label to the bundle v3 contract, and for DGN-1795704952088416 (allowlist verdict, in review). Start after the label is in the deploy contract and vendored into this repository.
 ---
 
 ## Goal

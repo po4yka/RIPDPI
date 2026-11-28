@@ -1,11 +1,11 @@
 ---
 task_id: UIX-1795615858043815
 change: uix-1795615858043815-complete-amneziawg-editor
-commit_sha: null
-local: required
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
+local: passed
 local_evidence: "./gradlew :app:testGithubDebugUnitTest --tests com.poyka.ripdpi.ui.screens.awg.* --tests com.poyka.ripdpi.ui.screens.profiles.* passed (192 tests, 0 failures; after review fix the awg package reran at 120 tests, 0 failures, AmneziaWgProfileSaveTest 7/7); :app:verifyRoborazziGithubDebug --tests AmneziaWgProfileScreenshotTest passed after blessing 6 goldens; :app:lintGithubDebug and :core:service/:core:engine compileStandardDebugUnitTestKotlin passed (2026-11-25)."
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37."
 device: required
 device_evidence: null
 artifact: not_applicable

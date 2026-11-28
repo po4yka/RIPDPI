@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795663496674824-offer-connect-after-bundle-file-import
 created: 2026-11-26
 updated: 2026-11-26
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: import a RIPDPI bundle file, see Added name with the server names, use Select and Connect, and check that a running service follows the selection without a second start."
 ---
 
 ## Goal
@@ -37,4 +38,4 @@ Split from `UIX-1795615855953573`. Link, QR code, and a file that holds a single
 - Strings: no new string. The result uses the existing `import_done_added`, `vpn_connect`, `profile_variants_cta_select`, `relay_editor_activation_failed`, and `xray_import_done_action`, which exist in all ten locales.
 - Review: an independent review found that Select and Connect skipped the AmneziaWG key screen; the route now passes the key ID with the selection, and the mixed-bundle test caught and now covers the state order (servers and key ID are published in one update).
 - Gates (rebased on main bc95fe0e3e, head 501cc17793, with `-Pripdpi.pluggableTransportAssetsMode=stub` because gitlab.torproject.org is unreachable here): `:app:lintGithubDebug` exit 0; `:app:detekt` exit 0; `just ci-gates` exit 0 after the comment ratchet baseline was lowered by one. `:app:verifyRoborazziGithubDebug` runs 4332 tests with one failure, `RipDpiNavHostLogicTest` "UI audit spec covers or explains every registered route" (stale tags `logs-actions`, `logs-filters`). That failure comes from main bc95fe0e3e, which moved the Logs tags to `FeatureTestTags` while the test reads only `RipDpiTestTags`; this change does not touch either. Before that rebase, on 04f530db19, the same gate passed with exit 0.
-- Limit: the screen title still reads "Add subscription" for a bundle file; renaming it belongs to the profile-strings task. Device and remote CI evidence were not collected.
+- Limit: the screen title still reads "Add subscription" for a bundle file; renaming it belongs to the profile-strings task. Remote CI: run 46009834608 on main d9aa00b99f passed (35 jobs, no failures; the stale `RipDpiNavHostLogicTest` failure from the rebase base no longer occurs). Device evidence was not collected.

@@ -2,7 +2,7 @@
 id: EPC-1795615697939690
 title: Guide new users from install to their own VPN server
 kind: epic
-status: backlog
+status: doing
 area: epic
 priority: high
 owner: unassigned
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: epc-1795615697939690-epic-own-server-user-journey
 created: 2026-11-25
-updated: 2026-11-25
+updated: 2026-11-28
+status_detail: "Children merged and in review; remote CI passed (run 46009834608 on d9aa00b99f). Open: DGN-1795704789266331 (Require a volume-moving transfer for the connection test verdict) is still in review, each child still lacks its device run, and the clean-install on-device journey to a connected own server against a real test server remains"
 ---
 
 ## Goal

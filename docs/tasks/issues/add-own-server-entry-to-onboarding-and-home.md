@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795615850526190-add-own-server-entry-to-onboarding-and-home
 created: 2026-11-25
 updated: 2026-11-25
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run on a clean install remains: the optional onboarding own-server step (Paste link, Scan QR, Import file, Add manually, skip), the add-server action on home with no saved server, and the Connection tab Add server control."
 ---
 
 ## Goal

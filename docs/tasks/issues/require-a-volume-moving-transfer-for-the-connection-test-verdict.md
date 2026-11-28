@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795704789266331-require-a-volume-moving-transfer-for-the-connection-test-verdict
 created: 2026-11-26
 updated: 2026-11-27
-status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
+status_detail: 'Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f). A device run remains: the onboarding connection test reports Verified against a server with payload controls and reports that volume was not tested against a server without them. After this task closes, run ./taskctl close purge SVC-1795615846684850; its done record stays until this incoming reference goes.'
 ---
 
 ## Goal

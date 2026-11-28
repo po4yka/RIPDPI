@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795661374629256-rename-remaining-profile-strings
 created: 2026-11-26
 updated: 2026-11-26
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: check the renamed server and preset wording on the share, import, subscription, and notification screens in a sample of locales. The Arabic, Persian, and Hindi plural and gender forms still need a native-speaker review."
 ---
 
 ## Goal
@@ -40,5 +41,5 @@ One writer in a dedicated worktree owns all locale resource sets in `app` and `c
 - Tests: `RelayFieldsTest` and `OnboardingScreenTest` asserted the old English text; they now assert the new text.
 - Goldens: 51 Roborazzi baselines re-recorded (text-only diffs, reviewed).
 - Gates: `./gradlew :app:verifyRoborazziGithubDebug` (4326 tests), `./gradlew :app:lintGithubDebug :core:service:lintStandardDebug` and `just ci-gates` pass.
-- Not checked: device run and remote CI. The ar, fa and hi plural and gender forms were written without a native-speaker review.
+- Remote CI: run 46009834608 on main d9aa00b99f passed (35 jobs, no failures). Not checked: device run. The ar, fa and hi plural and gender forms were written without a native-speaker review.
 - After rebase onto main bc95fe0e3e: `:app:lintGithubDebug :core:service:lintStandardDebug` and all Roborazzi comparisons pass. One unit test fails: `RipDpiNavHostLogicTest` "UI audit spec covers or explains every registered route" reports stale tags `logs-actions` and `logs-filters`. It passed before the rebase, this branch changes no Kotlin source or guide spec, so the failure comes from main's commits c470ca7fbc and bc95fe0e3e.

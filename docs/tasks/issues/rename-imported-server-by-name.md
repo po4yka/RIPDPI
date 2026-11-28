@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-26
 updated: 2026-11-26
 spec_reason: regression-tested-single-module
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: rename a link-imported server and a subscription server from the Servers sheet; the dialog opens with the shown name and the new name appears in the sheet and on the Connection card. A subscription refresh restores the provider name."
 ---
 
 ## Goal
@@ -40,3 +41,4 @@ One writer in a dedicated worktree owns the rename path in `app` (`ServerListIte
 - Tests: `ConnectionScreenTest` long-press test asserts the dialog opens with the shown name (it failed before the fix with the ID in the field); `ProxyGroupRepositoryTest` asserts a rename changes only the member name, keeps its ID and group, and returns false for an ID no group holds.
 - Gates: `./gradlew :app:verifyRoborazziGithubDebug :core:data:testDebugUnitTest :core:data:runtime-state:testDebugUnitTest :app:lintGithubDebug :core:data:runtime-state:detekt` pass; `just ci-gates` exit 0. `:app:detekt` reports 18 findings, all in files this change does not touch (for example `ConnectionScreenTest` was already 858 lines on main, over `LargeClass`).
 - Limit: a subscription refresh re-applies the provider's member name (`remapMemberIds` matches by connection or endpoint and keeps the refreshed name), so a renamed subscription server returns to the provider name after the next refresh. Link-imported servers are not refreshed.
+- Remote CI: run 46009834608 on main d9aa00b99f passed (35 jobs, no failures).

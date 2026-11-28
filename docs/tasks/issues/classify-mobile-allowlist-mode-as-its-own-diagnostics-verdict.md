@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795704952088416-classify-mobile-allowlist-mode-as-its-own-diagnostics-verdict
 created: 2026-11-26
 updated: 2026-11-27
-status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
+status_detail: 'Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f). A device run remains: on a network with an allowlist regime (permitted domains reachable, foreign addresses and UDP blocked) diagnostics shows the allowlist verdict and the narrowed transports; on a network where every target fails it does not.'
 ---
 
 ## Goal

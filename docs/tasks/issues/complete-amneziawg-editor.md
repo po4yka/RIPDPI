@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795615858043815-complete-amneziawg-editor
 created: 2026-11-25
 updated: 2026-11-25
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run of the AmneziaWG editor remains: save a named profile without starting the VPN, generate a key pair with the native generator, copy the public key, and see the name in the server list."
 ---
 
 ## Goal

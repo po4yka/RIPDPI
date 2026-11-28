@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795704986857984-warn-about-default-shaped-amneziawg-settings-on-import-and-share
 created: 2026-11-26
 updated: 2026-11-26
+status_detail: Waits for UIX-1795661310559744 (AmneziaWG .conf share) and TRN-1792776081374051 (AWG 3.1 header ranges and signature packets); both are in review and need their device runs. The server-side counterpart is ripdpi-vpn-deploy ANS-1795705936932681.
 ---
 
 ## Goal
