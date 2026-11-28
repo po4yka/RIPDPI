@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "address": "192.0.2.10",
+  "port": 443,
+  "checked_at": "2026-11-27T09:00:00Z",
+  "vantage": {
+    "side": "filtered",
+    "network_type": "cellular"
+  },
+  "probes": {
+    "tcp": "pass",
+    "tls": "pass",
+    "icmp": "no_reply"
+  },
+  "signature": {
+    "algorithm": "ed25519",
+    "public_key": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+    "value": "mkvuiq0K4MYIh55R46+nj4vaIHz4XezIvUwjiYTDcnVqGPi9R5mLzzb9+lYKlGzPxTwS5puB+QXJIsmF/qGrAw=="
+  }
+}
