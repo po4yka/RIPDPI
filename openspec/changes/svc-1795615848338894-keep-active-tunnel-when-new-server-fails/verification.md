@@ -1,11 +1,11 @@
 ---
 task_id: SVC-1795615848338894
 change: svc-1795615848338894-keep-active-tunnel-when-new-server-fails
-commit_sha: null
-local: required
+commit_sha: d9aa00b99ffd01d299c33993874b39d7b3b98d72
+local: passed
 local_evidence: ":core:service:testStandardDebugUnitTest (5 classes, 128 tests, 0 failures); :app:testGithubDebugUnitTest (4 classes, 63 tests, 0 failures); :core:service:detekt, :app:detekt, ktlint, :app:lintGithubDebug pass"
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: passed
+remote_ci_evidence: "CI workflow run https://github.com/po4yka/RIPDPI/actions/runs/46009834608 succeeded on exact main SHA d9aa00b99ffd01d299c33993874b39d7b3b98d72: 35 successful jobs and 31 change-routed skips, no failures, including kotlin-coverage, verify-roborazzi and android-instrumented-tests on API 27, 33, 35, 36 and 37. Rust workspace tests skipped there (no Rust change since); they succeeded in run https://github.com/po4yka/RIPDPI/actions/runs/45985235551 on ancestor a0714e6e37."
 device: required
 device_evidence: null
 artifact: not_applicable

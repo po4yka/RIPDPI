@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795661310559744-share-amneziawg-servers
 created: 2026-11-26
 updated: 2026-11-26
+status_detail: 'Merged; remote CI passed (run 46009834608 on d9aa00b99f). The verification rows read Pending and local_evidence is empty, although the Evidence section lists passed tests and gates: copy that evidence into verification.md before closure. A device run remains: Share on a keyed local AmneziaWG row opens the share sheet with a complete .conf file, and a subscription-owned row has no Share.'
 ---
 
 ## Goal
@@ -40,4 +41,5 @@ One writer in a dedicated worktree owns the AmneziaWG exporter in `core/data`, i
 - Subscription rule: subscription relay members are never individual share targets, so subscription-owned AWG rows get no Share (rename stays). Decisions are in ADR 0016.
 - Tests: `AwgActivationConfTest` (AWG 3 fields parse back exactly; plain server writes plain WireGuard; keyless, WebSocket, and invalid servers are refused); `AmneziaWgConfShareRoundTripTest` (export then import equals the original for plain WG, AWG 1.x, and AWG 3.x); `AmneziaWgSavedProfileEditTest` (only keyed local UDP servers are shareable); `ConnectionScreenTest` (share from the actions menu and long press; the subscription row has rename and no Share). The `ConnectionScreenTest` case failed before the fix with `onShare = null` (AssertionError at the share click); the other tests use APIs the fix adds and do not compile without it.
 - Gates on the branch rebased onto main `bc95fe0e3e`: `./gradlew :core:data:testDebugUnitTest --tests '*AwgActivationConfTest'`, `./gradlew :app:lintGithubDebug`, `./gradlew :core:data:runtime-state:detekt :app:detekt` (0 findings), and `just ci-gates` exit 0. `./gradlew :app:verifyRoborazziGithubDebug` ran 4329 tests with 1 failure, `RipDpiNavHostLogicTest` "UI audit spec covers or explains every registered route" (stale tags `logs-actions`, `logs-filters` from main commits `c470ca7fbc`/`bc95fe0e3e`, not this change); all tests of this change pass and no goldens changed.
+- Remote CI: run 46009834608 on main d9aa00b99f passed (35 jobs, no failures), so the `RipDpiNavHostLogicTest` failure seen on the rebase base no longer occurs.
 - Not checked: the share sheet on a device or emulator. Server names without Latin characters give the file name `amneziawg.conf`.

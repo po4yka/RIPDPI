@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795615859682455-monitor-health-of-each-server
 created: 2026-11-25
 updated: 2026-11-25
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: a Check handshake against a real AmneziaWG server on its row, and the Status strip with server latency, traffic, and uptime for a connected server."
 ---
 
 ## Goal

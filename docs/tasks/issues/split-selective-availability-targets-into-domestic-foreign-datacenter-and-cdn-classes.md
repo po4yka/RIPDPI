@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795704974460888-split-selective-availability-targets-into-domestic-foreign-datacenter-and-cdn-classes
 created: 2026-11-26
 updated: 2026-11-27
-status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
+status_detail: 'Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f). A device run remains: a diagnostics run on a mobile network shows the target class and the destination AS in the results and in a redacted export, with no user-network address.'
 ---
 
 ## Goal

@@ -13,7 +13,7 @@ openspec_change: null
 created: 2026-11-25
 updated: 2026-11-26
 spec_reason: regression-tested-single-module
-status_detail: Does not reproduce after the unified server list; pinned by ConnectionScreenTest
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); pinned by ConnectionScreenTest; a device run remains: with only AmneziaWG servers saved, the Servers list shows no empty-state message. The Server checks screen still reads No saved profiles when only AmneziaWG servers exist."
 ---
 
 ## Goal

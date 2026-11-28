@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: dgn-1795705002630350-locate-the-stalling-hop-of-a-user-built-relay-chain-with-a-large-transfer
 created: 2026-11-26
 updated: 2026-11-27
-status_detail: Merged to main; remote CI evidence recorded (run 46009834608 on d9aa00b99f).
+status_detail: 'Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f). A device run remains: a user-built chain of three or more hops with one stalling hop reports that hop and the byte count at the stop.'
 ---
 
 ## Goal

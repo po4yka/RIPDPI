@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-11-25
 updated: 2026-11-26
 spec_reason: regression-tested-single-module
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: the battery action opens the RIPDPI app details, the Always-on VPN card opens VPN settings, the notification permission prompt appears before the first connection on the skip path, and Settings shows Optional on both rows."
 ---
 
 ## Goal

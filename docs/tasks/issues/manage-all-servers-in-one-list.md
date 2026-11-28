@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: uix-1795615852980919-manage-all-servers-in-one-list
 created: 2026-11-25
 updated: 2026-11-26
+status_detail: "Merged; local gates and remote CI passed (run 46009834608 on d9aa00b99f); a device run remains: the Add server menu offers every relay kind, saved AmneziaWG servers share the list, long-press opens rename, duplicate, share, and delete, selecting a server keeps the Recommended preset, and the Relay view survives a return to the Connection screen."
 ---
 
 ## Goal
