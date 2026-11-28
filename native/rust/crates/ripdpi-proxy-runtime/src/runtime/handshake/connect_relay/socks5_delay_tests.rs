@@ -241,7 +241,8 @@ fn syn_data_group_serves_a_delayed_connect_with_one_origin_connection() {
 fn deferred_syn_data_socket_is_replaced_for_a_payload_that_is_not_replay_safe() {
     use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
     let origin = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
-    let (mut peer, mut client) = pair();
+    let (mut peer, client) = pair();
+    let mut client = ClientStream::Tcp(client);
     let sender = std::thread::spawn(move || {
         let mut reply = [0; 10];
         peer.read_exact(&mut reply).unwrap();

@@ -81,7 +81,7 @@ fn mapped_wildcard_rejects_ipv4_alias_and_allows_separate_ipv6_service() {
     let mapped = IpAddr::V6(Ipv4Addr::UNSPECIFIED.to_ipv6_mapped());
     let mapped_listener = listener(mapped, false);
     let port = mapped_listener.local_addr().expect("mapped wildcard address").port();
-    let proxy = start_proxy_with_listener(config(0), mapped_listener, None);
+    let proxy = start_proxy_with_listener(config(0), mapped_listener.into(), None);
     let mut client = authenticate(SocketAddr::from((Ipv4Addr::LOCALHOST, port)));
     request(&mut client, SocketAddr::from((Ipv4Addr::new(127, 0, 0, 2), port)), false);
     let reply = recv_socks5_reply(&mut client);

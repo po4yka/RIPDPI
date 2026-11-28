@@ -9,7 +9,7 @@ pub(crate) fn validate_payload(payload: &TunnelConfigPayload) -> Result<(), Stri
         ));
     }
     let tcp_upstream = payload.socks5_unix_path.is_none();
-    if tcp_upstream && payload.socks5_address.trim().is_empty() {
+    if tcp_upstream && payload.socks5_address.as_deref().is_some_and(|address| address.trim().is_empty()) {
         return Err("socks5Address must not be blank".to_string());
     }
     if payload.tunnel_name.trim().is_empty() {

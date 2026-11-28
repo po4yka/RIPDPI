@@ -172,7 +172,10 @@ class RecordingRipDpiProxyRuntime(
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
         faults.next(ProxyRuntimeFaultTarget.TELEMETRY)?.throwOrIgnore()
-        return telemetryValue
+        return telemetryValue.copy(
+            listenerAddress =
+                if (lastPreferences?.localListenUnixPath != null) "unix" else telemetryValue.listenerAddress,
+        )
     }
 
     override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) = Unit

@@ -28,8 +28,7 @@ pub(crate) struct TunnelConfigPayload {
     pub(crate) multi_queue: bool,
     pub(crate) tunnel_ipv4: Option<String>,
     pub(crate) tunnel_ipv6: Option<String>,
-    #[serde(default)]
-    pub(crate) socks5_address: String,
+    pub(crate) socks5_address: Option<String>,
     pub(crate) socks5_port: Option<u16>,
     pub(crate) socks5_unix_path: Option<String>,
     #[serde(default = "default_socks5_udp")]

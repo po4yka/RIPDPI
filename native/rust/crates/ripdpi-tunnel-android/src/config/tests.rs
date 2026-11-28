@@ -132,7 +132,7 @@ fn tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload> {
                 multi_queue,
                 tunnel_ipv4,
                 tunnel_ipv6,
-                socks5_address,
+                socks5_address: Some(socks5_address),
                 socks5_port: Some(socks5_port),
                 socks5_unix_path: None,
                 socks5_udp,
@@ -273,7 +273,7 @@ fn valid_tunnel_payload_strategy() -> impl Strategy<Value = TunnelConfigPayload>
                 multi_queue,
                 tunnel_ipv4,
                 tunnel_ipv6,
-                socks5_address,
+                socks5_address: Some(socks5_address),
                 socks5_port: Some(socks5_port),
                 socks5_unix_path: None,
                 socks5_udp,
@@ -454,9 +454,19 @@ fn preserves_ipv4_and_ipv6_tunnel_addresses() {
 }
 
 #[test]
+fn absent_socks5_address_defaults_to_loopback() {
+    let mut payload = sample_payload();
+    payload.socks5_address = None;
+
+    let config = config_from_payload(payload).expect("config");
+
+    assert_eq!(config.socks5.address, "127.0.0.1");
+}
+
+#[test]
 fn rejects_blank_socks5_address() {
     let mut payload = sample_payload();
-    payload.socks5_address = "   ".to_string();
+    payload.socks5_address = Some("   ".to_string());
 
     let err = config_from_payload(payload).expect_err("blank address");
 
@@ -465,7 +475,7 @@ fn rejects_blank_socks5_address() {
 
 fn unix_payload(unix_path: &str) -> TunnelConfigPayload {
     let mut payload = sample_payload();
-    payload.socks5_address = String::new();
+    payload.socks5_address = None;
     payload.socks5_port = None;
     payload.socks5_unix_path = Some(unix_path.to_string());
     payload
@@ -482,11 +492,11 @@ fn unix_upstream_maps_to_the_socks5_config_without_an_address() {
 #[test]
 fn rejects_unix_path_together_with_address_or_port_and_neither_form() {
     let mut with_address = unix_payload("/data/px-0123");
-    with_address.socks5_address = "127.0.0.1".to_string();
+    with_address.socks5_address = Some("127.0.0.1".to_string());
     let mut with_port = unix_payload("/data/px-0123");
     with_port.socks5_port = Some(1080);
     let mut neither = sample_payload();
-    neither.socks5_address = String::new();
+    neither.socks5_address = None;
     neither.socks5_port = None;
     let long = unix_payload(&format!("/{}", "a".repeat(107)));
 
@@ -495,7 +505,7 @@ fn rejects_unix_path_together_with_address_or_port_and_neither_form() {
         (with_port, "socks5.unix-path"),
         (unix_payload("relative"), "socks5.unix-path"),
         (long, "socks5.unix-path"),
-        (neither, "socks5Address"),
+        (neither, "socks5Port"),
     ] {
         let err = config_from_payload(payload).expect_err("invalid upstream");
         assert!(err.contains(field), "{err}");
@@ -815,7 +825,7 @@ proptest! {
         let expected_name = payload.tunnel_name.clone();
         let expected_mtu = payload.tunnel_mtu;
         let expected_multi_queue = payload.multi_queue;
-        let expected_address = payload.socks5_address.clone();
+        let expected_address = payload.socks5_address.clone().unwrap_or_default();
         let expected_port = payload.socks5_port.unwrap_or_default();
         let expected_pipeline = payload.socks5_pipeline;
         let expected_stack_size = payload.task_stack_size;

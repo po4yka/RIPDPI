@@ -1,11 +1,16 @@
 use ripdpi_tunnel_config::Socks5Config;
 
+use crate::config::defaults::default_socks5_address;
 use crate::config::payload::TunnelConfigPayload;
+
+fn default_address(payload: &TunnelConfigPayload) -> String {
+    if payload.socks5_unix_path.is_some() { String::new() } else { default_socks5_address() }
+}
 
 pub(crate) fn socks5_config_from_payload(payload: &TunnelConfigPayload) -> Socks5Config {
     Socks5Config {
         port: payload.socks5_port.unwrap_or_default(),
-        address: payload.socks5_address.clone(),
+        address: payload.socks5_address.clone().unwrap_or_else(|| default_address(payload)),
         unix_path: payload.socks5_unix_path.clone(),
         udp: payload.socks5_udp.clone(),
         udp_address: payload.socks5_udp_address.clone(),

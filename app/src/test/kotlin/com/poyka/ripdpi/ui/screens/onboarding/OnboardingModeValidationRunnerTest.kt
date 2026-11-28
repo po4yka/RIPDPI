@@ -6,7 +6,6 @@ import com.poyka.ripdpi.activities.FakeAppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.activities.FakeStringResolver
 import com.poyka.ripdpi.activities.runningOn
-import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -33,6 +32,7 @@ import com.poyka.ripdpi.services.ServiceRuntimeHandle
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.localSocksUnixRoute
 import com.poyka.ripdpi.services.withLogin
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -520,7 +520,7 @@ class OnboardingModeValidationRunnerTest {
                 )
             var endpoint: RelayProbeEndpoint? = null
             val route =
-                LocalSocksRoute("", 0, LocalSocksCredentials("user", "pass"), unixPath = "/data/px-0123")
+                localSocksUnixRoute("/data/px-0123", "user", "pass")
 
             val outcome =
                 OnboardingVolumeCheck(

@@ -61,6 +61,12 @@ fun LocalSocksRoute.withLogin(
     password: String,
 ): LocalSocksRoute = copy(credentials = LocalSocksCredentials(username, password))
 
+fun localSocksUnixRoute(
+    unixPath: String,
+    username: String,
+    password: String,
+): LocalSocksRoute = LocalSocksRoute("", 0, LocalSocksCredentials(username, password), unixPath = unixPath)
+
 /**
  * Authenticates on the connected [socket] and opens a CONNECT tunnel to [target].
  *

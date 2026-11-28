@@ -307,11 +307,14 @@ class ServiceLifecycleIntegrationTest {
                 IntegrationTestOverrides.vpnTunnelSessionProvider.lastInterfaceSettings?.dnsIp,
             )
             assertEquals(true, IntegrationTestOverrides.vpnTunnelSessionProvider.lastIpv6)
+            val tunnelConfig = IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig
             assertEquals(
-                1090,
-                IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig
-                    ?.socks5Port,
+                IntegrationTestOverrides.proxyFactory.lastRuntime.lastPreferences
+                    ?.localListenUnixPath,
+                tunnelConfig?.socks5UnixPath,
             )
+            assertTrue(tunnelConfig?.socks5UnixPath?.contains("/px-") == true)
+            assertEquals(null, tunnelConfig?.socks5Port)
             assertContainsSubsequence(
                 IntegrationTestOverrides.orderSnapshot(),
                 listOf("vpn:establish", "tunnel:start"),
