@@ -44,7 +44,7 @@ impl EncryptedDnsResolver {
         deadline: Option<Deadline>,
     ) -> Result<Vec<u8>, EncryptedDnsError> {
         let len_prefix = doq_length_prefix(query_bytes.len())?;
-        if matches!(self.inner.transport, EncryptedDnsTransport::Socks5 { .. }) {
+        if !matches!(self.inner.transport, EncryptedDnsTransport::Direct) {
             return Err(EncryptedDnsError::Request(
                 "DoQ is not supported over SOCKS5 transport (SOCKS5 is TCP-only)".to_string(),
             ));

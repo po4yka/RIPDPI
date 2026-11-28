@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::future::Future;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
@@ -12,18 +13,20 @@ use super::super::state::ResolverInner;
 use super::{health, timeouts};
 use crate::types::{EncryptedDnsError, EncryptedDnsTransport};
 
+/// # Cancel safety:
 /// cancel-safe: cancellation drops the in-flight proxy stream before any shared
 /// bootstrap health outcome is recorded.
-pub(super) async fn connect_socks5_tcp_with<S, C, F>(
+pub(super) async fn connect_socks5_tcp_with<P, S, C, F>(
     inner: &ResolverInner,
     bootstrap_ips: Vec<IpAddr>,
     record_success: bool,
-    proxy_target: SocketAddr,
+    proxy_target: P,
     mut connect: C,
 ) -> Result<S, EncryptedDnsError>
 where
+    P: Copy + Display,
     S: TcpClientStream,
-    C: FnMut(SocketAddr) -> F,
+    C: FnMut(P) -> F,
     F: Future<Output = io::Result<S>>,
 {
     if bootstrap_ips.is_empty() {
@@ -52,24 +55,26 @@ where
     Err(last_error.unwrap_or_else(|| EncryptedDnsError::Socks5("no bootstrap addresses".to_string())))
 }
 
+/// # Cancel safety:
 /// cancel-safe: cancellation drops the partially negotiated SOCKS stream; no
 /// shared resolver state is mutated by this function.
-async fn connect_socks5_target<S, C, F>(
+pub(super) async fn connect_socks5_target<P, S, C, F>(
     inner: &ResolverInner,
-    proxy_target: SocketAddr,
+    proxy_target: P,
     target: Socks5TargetAddr,
     connect: &mut C,
 ) -> Result<S, EncryptedDnsError>
 where
+    P: Copy + Display,
     S: TcpClientStream,
-    C: FnMut(SocketAddr) -> F,
+    C: FnMut(P) -> F,
     F: Future<Output = io::Result<S>>,
 {
     let proxy_stream = timeouts::socks5_proxy_connect(inner.timeout, proxy_target, connect(proxy_target)).await?;
     let _ = proxy_stream.set_nodelay_if_supported(true);
     let auth = match &inner.transport {
         EncryptedDnsTransport::Direct => None,
-        EncryptedDnsTransport::Socks5 { credentials, .. } => {
+        EncryptedDnsTransport::Socks5 { credentials, .. } | EncryptedDnsTransport::Socks5Unix { credentials, .. } => {
             credentials.as_ref().map(|credentials| AuthenticationMethod::Password {
                 username: credentials.username.clone(),
                 password: credentials.password.clone(),

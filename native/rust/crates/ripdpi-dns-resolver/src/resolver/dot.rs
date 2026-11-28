@@ -9,6 +9,7 @@ use tokio::time::{Instant, timeout};
 use super::EncryptedDnsResolver;
 use super::connection::{DotTlsStream, MAX_POOLED_IDLE_DURATION};
 use super::dot_connection::DotConnection;
+use super::proxy_stream::ResolverStream;
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsError};
 
 impl EncryptedDnsResolver {
@@ -120,7 +121,7 @@ impl EncryptedDnsResolver {
     async fn dot_tls_handshake(
         &self,
         connector: &SslConnector,
-        tcp_stream: tokio::net::TcpStream,
+        tcp_stream: ResolverStream,
     ) -> Result<DotTlsStream, EncryptedDnsError> {
         let tls_name = self.dot_tls_name();
         let config_ssl =

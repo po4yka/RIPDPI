@@ -6,7 +6,8 @@ mod util;
 mod wire;
 
 pub(crate) use client::{
-    build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, tls_version_refused,
+    build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config,
+    build_unix_doh_tls_config, doh_request_target, tls_version_refused,
 };
 pub(crate) use edns::{prepare_query, restore_response};
 pub(crate) use framing::{
@@ -24,3 +25,5 @@ use std::time::Duration;
 
 pub(crate) const DNS_MESSAGE_MEDIA_TYPE: &str = "application/dns-message";
 pub(crate) const DEFAULT_TIMEOUT: Duration = Duration::from_secs(4);
+pub(crate) const DOH_H2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(20);
+pub(crate) const DOH_H2_KEEP_ALIVE_TIMEOUT: Duration = DEFAULT_TIMEOUT;

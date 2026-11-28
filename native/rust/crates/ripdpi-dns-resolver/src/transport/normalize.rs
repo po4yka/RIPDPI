@@ -6,11 +6,23 @@ use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol
 #[cfg(test)]
 mod socks5_contract_tests;
 
+const UNIX_SOCKET_PATH_LIMIT: usize = 108;
+
 pub(crate) fn normalize_endpoint(
     mut endpoint: EncryptedDnsEndpoint,
     transport: &EncryptedDnsTransport,
 ) -> Result<EncryptedDnsEndpoint, EncryptedDnsError> {
-    if let EncryptedDnsTransport::Socks5 { credentials: Some(credentials), .. } = transport
+    if let EncryptedDnsTransport::Socks5Unix { path, .. } = transport {
+        let path = path.as_path();
+        if !path.is_absolute()
+            || path.as_os_str().len() >= UNIX_SOCKET_PATH_LIMIT
+            || path.to_string_lossy().contains('\0')
+        {
+            return Err(EncryptedDnsError::InvalidEndpoint("SOCKS5 Unix path is not usable".into()));
+        }
+    }
+    if let EncryptedDnsTransport::Socks5 { credentials: Some(credentials), .. }
+    | EncryptedDnsTransport::Socks5Unix { credentials: Some(credentials), .. } = transport
         && [&credentials.username, &credentials.password].iter().any(|value| !(1..=255).contains(&value.len()))
     {
         return Err(EncryptedDnsError::InvalidEndpoint("SOCKS5 credentials must contain 1..=255 bytes".into()));

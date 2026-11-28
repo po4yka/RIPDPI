@@ -1,3 +1,4 @@
+mod h2_exchange;
 mod http1_exchange;
 mod http1_request;
 mod http1_response;
@@ -6,6 +7,7 @@ mod request_exchange;
 #[cfg(test)]
 mod tests;
 
+pub(super) use self::h2_exchange::DohH2Connection;
 use super::EncryptedDnsResolver;
 use crate::odoh::ODOH_MESSAGE_MEDIA_TYPE;
 use crate::transport::unix_time_secs;
@@ -17,6 +19,20 @@ const MAX_DOH_HEADER_BYTES: usize = 8 * 1024;
 impl EncryptedDnsResolver {
     pub(super) async fn exchange_doh(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
         request_exchange::exchange_doh(self, query_bytes).await
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops local request state; the remote outcome can remain unknown.
+    #[cfg(test)]
+    pub(crate) async fn post_dns_message_to_url(&self, url: &str, body: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {
+        request_exchange::exchange_binary_post(
+            self,
+            url,
+            body,
+            crate::transport::DNS_MESSAGE_MEDIA_TYPE,
+            crate::transport::DNS_MESSAGE_MEDIA_TYPE,
+        )
+        .await
     }
 
     pub(super) async fn exchange_odoh(&self, query_bytes: &[u8]) -> Result<Vec<u8>, EncryptedDnsError> {

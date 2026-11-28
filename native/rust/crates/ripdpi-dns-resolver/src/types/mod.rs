@@ -10,7 +10,7 @@ pub(crate) use cache::DnsCryptCachedCertificate;
 #[allow(unused_imports)]
 pub use endpoint::{
     DOQ_DEFAULT_PORT, DOT_DEFAULT_PORT, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, OdohEndpointConfig,
+    EncryptedDnsTransport, EncryptedDnsUnixPath, OdohEndpointConfig,
 };
 pub use error::{DoqErrorKind, EncryptedDnsError, EncryptedDnsErrorKind};
 pub use exchange::EncryptedDnsExchangeSuccess;

@@ -36,8 +36,8 @@ pub use transport::{
 pub use types::{
     BoxedDnsTcpStream, DirectTcpConnection, DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint,
     EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsProtocol,
-    EncryptedDnsSocks5Credentials, EncryptedDnsTransport, OdohEndpointConfig, ResolverNetworkScope,
-    ResolverOracleObservation, TlsPinVerifier, sha256_array,
+    EncryptedDnsSocks5Credentials, EncryptedDnsTransport, EncryptedDnsUnixPath, OdohEndpointConfig,
+    ResolverNetworkScope, ResolverOracleObservation, TlsPinVerifier, sha256_array,
 };
 
 // Internal re-exports for test access

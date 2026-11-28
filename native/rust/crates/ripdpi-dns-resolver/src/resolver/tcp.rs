@@ -4,31 +4,46 @@ mod hooks;
 mod socks5;
 mod timeouts;
 mod tokio_connect;
+mod unix;
 
 use std::net::IpAddr;
 
 use tokio::net::TcpStream as TokioTcpStream;
 
 use super::EncryptedDnsResolver;
+use super::proxy_stream::ResolverStream;
 use crate::types::{BoxedDnsTcpStream, EncryptedDnsError, EncryptedDnsTransport};
 
 impl EncryptedDnsResolver {
-    pub(super) async fn connect_plain_tcp(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+    /// # Cancel safety:
+    /// cancel-safe: it only delegates to `connect_plain_tcp_to`.
+    pub(super) async fn connect_plain_tcp(&self) -> Result<ResolverStream, EncryptedDnsError> {
         self.connect_plain_tcp_to(self.ranked_bootstrap_ips(), true).await
     }
 
     /// Connects through the given bootstrap IPs in order. Over SOCKS5 an empty
     /// list makes the proxy resolve the endpoint host. A caller with a later stage
     /// (TLS) passes `record_success = false` and records one outcome per IP itself.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: each branch owns its partial stream and drops it on cancellation; the proxy connect loop
+    /// records bootstrap health only after a finished attempt.
     pub(super) async fn connect_plain_tcp_to(
         &self,
         ips: Vec<IpAddr>,
         record_success: bool,
-    ) -> Result<TokioTcpStream, EncryptedDnsError> {
+    ) -> Result<ResolverStream, EncryptedDnsError> {
         match &self.inner.transport {
-            EncryptedDnsTransport::Direct => self.connect_direct_tcp(ips, record_success).await,
+            EncryptedDnsTransport::Direct => {
+                self.connect_direct_tcp(ips, record_success).await.map(ResolverStream::Tcp)
+            }
             EncryptedDnsTransport::Socks5 { host, port, .. } => {
-                self.connect_socks5_tcp(ips, record_success, host, *port).await
+                self.connect_socks5_tcp(ips, record_success, host, *port).await.map(ResolverStream::Tcp)
+            }
+            EncryptedDnsTransport::Socks5Unix { path, .. } => {
+                unix::connect_socks5_unix(&self.inner, ips, record_success, path.as_path())
+                    .await
+                    .map(ResolverStream::Unix)
             }
         }
     }
@@ -72,6 +87,11 @@ impl EncryptedDnsResolver {
                 .connect_socks5_tcp(self.ranked_bootstrap_ips(), true, host, *port)
                 .await
                 .map(|stream| Box::new(stream) as BoxedDnsTcpStream),
+            EncryptedDnsTransport::Socks5Unix { path, .. } => {
+                unix::connect_socks5_unix_target(&self.inner, path.as_path())
+                    .await
+                    .map(|stream| Box::new(stream) as BoxedDnsTcpStream)
+            }
         }
     }
 

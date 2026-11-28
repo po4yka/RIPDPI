@@ -15,6 +15,7 @@ mod doh;
 mod doq;
 mod dot;
 mod dot_connection;
+mod proxy_stream;
 mod state;
 mod tcp;
 

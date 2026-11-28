@@ -1,6 +1,6 @@
+use std::fmt::Display;
 use std::future::Future;
 use std::io;
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use tokio::time::timeout;
@@ -23,7 +23,7 @@ where
 
 pub(super) async fn socks5_proxy_connect<S, F>(
     duration: Duration,
-    proxy_target: SocketAddr,
+    proxy_target: impl Display,
     operation: F,
 ) -> Result<S, EncryptedDnsError>
 where

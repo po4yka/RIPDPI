@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use ripdpi_dns_resolver::{
     EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, OdohConfigSource, OdohEndpointConfig,
+    EncryptedDnsTransport, EncryptedDnsUnixPath, OdohConfigSource, OdohEndpointConfig,
 };
 use ripdpi_tunnel_config::{Config, MapDnsConfig};
 use rustls::RootCertStore;
@@ -27,13 +27,7 @@ pub(in crate::io_loop) fn build_encrypted_dns_resolver(config: &Config) -> io::R
         return Ok(None);
     };
     let transport = mapdns_resolver_transport(config, mapdns);
-    if config.socks5.unix_path.is_some() && matches!(transport, EncryptedDnsTransport::Socks5 { .. }) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "encrypted DNS through the proxy requires a TCP upstream",
-        ));
-    }
-    if protocol == EncryptedDnsProtocol::Doq && matches!(transport, EncryptedDnsTransport::Socks5 { .. }) {
+    if protocol == EncryptedDnsProtocol::Doq && transport != EncryptedDnsTransport::Direct {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "DoQ over SOCKS5 is not supported"));
     }
 
@@ -88,7 +82,14 @@ pub(in crate::io_loop) fn mapdns_resolver_transport(config: &Config, mapdns: &Ma
             config.socks5.username.as_ref().zip(config.socks5.password.as_ref()).map(|(username, password)| {
                 EncryptedDnsSocks5Credentials { username: username.clone(), password: password.clone() }
             });
-        EncryptedDnsTransport::Socks5 { host: config.socks5.address.clone(), port: config.socks5.port, credentials }
+        match &config.socks5.unix_path {
+            Some(path) => EncryptedDnsTransport::Socks5Unix { path: EncryptedDnsUnixPath::new(path), credentials },
+            None => EncryptedDnsTransport::Socks5 {
+                host: config.socks5.address.clone(),
+                port: config.socks5.port,
+                credentials,
+            },
+        }
     } else {
         EncryptedDnsTransport::Direct
     }

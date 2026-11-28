@@ -3,6 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use reqwest::{Client, Proxy};
+use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
 use ripdpi_tls_profiles::EchSetup;
 use rustls::client::danger::ServerCertVerifier;
 use rustls::pki_types::CertificateDer;
@@ -116,6 +117,24 @@ pub(crate) fn build_manual_doh_tls_config(
     Ok(Arc::new(config))
 }
 
+pub(crate) fn build_unix_doh_tls_config(
+    tls_roots: &[CertificateDer<'static>],
+    tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ech_setup: &EchSetup,
+) -> Result<Arc<ClientConfig>, EncryptedDnsError> {
+    doh_tls_config_with_ech_setup(tls_roots, tls_verifier, ech_setup).map(Arc::new)
+}
+
+pub(crate) fn doh_request_target(endpoint: &EncryptedDnsEndpoint) -> Option<Socks5TargetAddr> {
+    let url = Url::parse(endpoint_doh_url(endpoint)?).ok()?;
+    let port = url.port_or_known_default()?;
+    Some(match url.host()? {
+        url::Host::Domain(name) => Socks5TargetAddr::Domain(name.to_string(), port),
+        url::Host::Ipv4(ip) => Socks5TargetAddr::Ip(SocketAddr::new(IpAddr::V4(ip), port)),
+        url::Host::Ipv6(ip) => Socks5TargetAddr::Ip(SocketAddr::new(IpAddr::V6(ip), port)),
+    })
+}
+
 fn default_root_store(extra_roots: &[CertificateDer<'static>]) -> Result<RootCertStore, EncryptedDnsError> {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -185,6 +204,9 @@ fn configure_transport(
         EncryptedDnsTransport::Direct => Ok(configure_direct_transport(builder, endpoint, health, network_scope)),
         EncryptedDnsTransport::Socks5 { host, port, credentials } => {
             configure_socks5_transport(builder, host, *port, credentials.as_ref())
+        }
+        EncryptedDnsTransport::Socks5Unix { .. } => {
+            Err(EncryptedDnsError::ClientBuild("a Unix proxy route uses the manual DoH client".to_string()))
         }
     }
 }

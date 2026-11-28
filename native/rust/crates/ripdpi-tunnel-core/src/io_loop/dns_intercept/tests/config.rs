@@ -3,7 +3,9 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use hickory_proto::op::{Message, MessageType, OpCode, Query};
 use hickory_proto::rr::rdata::AAAA;
 use hickory_proto::rr::{Name, RData, Record, RecordType};
-use ripdpi_dns_resolver::{EncryptedDnsProtocol, EncryptedDnsSocks5Credentials, EncryptedDnsTransport};
+use ripdpi_dns_resolver::{
+    EncryptedDnsProtocol, EncryptedDnsSocks5Credentials, EncryptedDnsTransport, EncryptedDnsUnixPath,
+};
 
 use super::super::protect_hooks::encrypted_dns_connect_hooks;
 use super::super::{build_encrypted_dns_resolver, mapdns_resolver_transport, parse_dns_cache, parse_mapdns_runtime};
@@ -153,21 +155,65 @@ fn active_split_dns_rejects_doq_over_socks_at_startup() {
 }
 
 #[test]
-fn encrypted_dns_through_the_proxy_is_refused_for_a_unix_upstream() {
+fn encrypted_dns_through_a_unix_upstream_uses_the_unix_transport() {
     let mut mapdns = mapdns_config(16);
     mapdns.encrypted_dns_bootstrap_ips = vec!["1.1.1.1".to_string()];
     mapdns.encrypted_dns_doh_url = Some("https://dns.example.test/dns-query".to_string());
     mapdns.route_dns_through_socks5 = true;
     let mut config = tunnel_config_with_mapdns(Some(mapdns));
     config.socks5.unix_path = Some("/data/px-0123".to_string());
+    config.socks5.username = Some("ripdpi".to_string());
+    config.socks5.password = Some("session-secret".to_string());
 
-    let error = build_encrypted_dns_resolver(&config).expect_err("a Unix upstream cannot carry resolver traffic");
-
-    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
-    assert_eq!(error.to_string(), "encrypted DNS through the proxy requires a TCP upstream");
+    assert_eq!(
+        mapdns_resolver_transport(&config, config.mapdns.as_ref().expect("mapdns")),
+        EncryptedDnsTransport::Socks5Unix {
+            path: EncryptedDnsUnixPath::new("/data/px-0123"),
+            credentials: Some(EncryptedDnsSocks5Credentials {
+                username: "ripdpi".to_string(),
+                password: "session-secret".to_string(),
+            }),
+        },
+    );
+    assert!(build_encrypted_dns_resolver(&config).expect("resolver build").is_some());
 
     config.mapdns.as_mut().expect("mapdns").route_dns_through_socks5 = false;
-    assert!(build_encrypted_dns_resolver(&config).is_ok(), "direct resolver traffic does not use the proxy");
+    assert_eq!(
+        mapdns_resolver_transport(&config, config.mapdns.as_ref().expect("mapdns")),
+        EncryptedDnsTransport::Direct,
+        "direct resolver traffic does not use the proxy",
+    );
+}
+
+#[test]
+fn active_split_dns_with_a_unix_upstream_uses_the_unix_transport() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_doh_url = Some("https://dns.example.test/dns-query".to_string());
+    let mut config = tunnel_config_with_mapdns(Some(mapdns.clone()));
+    config.split_dns_policy = Some(empty_split_dns_policy());
+    config.socks5.unix_path = Some("/data/px-0123".to_string());
+
+    assert_eq!(
+        mapdns_resolver_transport(&config, &mapdns),
+        EncryptedDnsTransport::Socks5Unix { path: EncryptedDnsUnixPath::new("/data/px-0123"), credentials: None },
+    );
+    assert!(build_encrypted_dns_resolver(&config).expect("resolver build").is_some());
+}
+
+#[test]
+fn doq_over_a_unix_upstream_is_rejected_at_startup() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.encrypted_dns_protocol = Some("doq".to_string());
+    mapdns.encrypted_dns_host = Some("dns.example.test".to_string());
+    mapdns.encrypted_dns_port = Some(853);
+    mapdns.encrypted_dns_bootstrap_ips = vec!["192.0.2.53".to_string()];
+    mapdns.route_dns_through_socks5 = true;
+    let mut config = tunnel_config_with_mapdns(Some(mapdns));
+    config.socks5.unix_path = Some("/data/px-0123".to_string());
+
+    let error = build_encrypted_dns_resolver(&config).expect_err("DoQ over the proxy must fail during setup");
+
+    assert_eq!(error.to_string(), "DoQ over SOCKS5 is not supported");
 }
 
 #[test]

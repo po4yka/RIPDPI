@@ -10,11 +10,13 @@ use tokio::runtime::Runtime;
 use tokio::sync::Mutex as AsyncMutex;
 
 use super::connection::ConnectionPool;
+use super::doh::DohH2Connection;
 use super::doq;
 use super::dot_connection::DotConnection;
 use crate::health::HealthRegistry;
 use crate::transport::{
-    build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config, normalize_endpoint,
+    build_client_config, build_doh_client, build_doh_fallback_client, build_manual_doh_tls_config,
+    build_unix_doh_tls_config, normalize_endpoint,
 };
 use crate::types::{
     DnsCryptCachedCertificate, DoqErrorKind, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError,
@@ -51,6 +53,8 @@ pub(crate) struct ResolverInner {
     /// it stores when the last fetched refresh failed and why.
     pub(crate) dnscrypt_refresh: AsyncMutex<Option<(Instant, String)>>,
     pub(crate) connection_pool: ConnectionPool,
+    pub(super) doh_h2: Mutex<Option<DohH2Connection>>,
+    pub(super) doh_h2_connect: AsyncMutex<()>,
     /// The DoT connection shared by concurrent queries.
     pub(super) dot_connection: AsyncMutex<Option<Arc<DotConnection>>>,
     pub(crate) health: Option<HealthRegistry>,
@@ -128,10 +132,12 @@ pub(crate) fn build_inner(
         && matches!(normalized.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh)
     {
         let verifier = tls_verifiers.tls_verifier.as_ref();
-        (
-            build_manual_doh_tls_config(&tls_roots, verifier, &EchSetup::Grease)?,
-            build_manual_doh_tls_config(&tls_roots, verifier, &EchSetup::OptedOut)?,
-        )
+        let build = if matches!(transport, EncryptedDnsTransport::Socks5Unix { .. }) {
+            build_unix_doh_tls_config
+        } else {
+            build_manual_doh_tls_config
+        };
+        (build(&tls_roots, verifier, &EchSetup::Grease)?, build(&tls_roots, verifier, &EchSetup::OptedOut)?)
     } else {
         (dot_tls_config.clone(), dot_tls_config.clone())
     };
@@ -155,6 +161,8 @@ pub(crate) fn build_inner(
         dnscrypt_state: Mutex::new(None),
         dnscrypt_refresh: AsyncMutex::new(None),
         connection_pool: ConnectionPool::default(),
+        doh_h2: Mutex::new(None),
+        doh_h2_connect: AsyncMutex::new(()),
         dot_connection: AsyncMutex::new(None),
         health,
         network_scope,
@@ -185,6 +193,7 @@ fn build_doh_client_for_endpoint(
         EncryptedDnsTransport::Socks5 { host, .. } => {
             host.trim_matches(['[', ']']).parse::<IpAddr>().map_or(true, |ip| !ip.is_loopback())
         }
+        EncryptedDnsTransport::Socks5Unix { .. } => return Ok((None, None)),
     };
     if hooked && needs_hook {
         return Ok((None, None));

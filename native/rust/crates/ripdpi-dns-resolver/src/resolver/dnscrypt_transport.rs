@@ -4,11 +4,11 @@ use crypto_box::{PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::{Message, ResponseCode};
 use hickory_proto::rr::{RData, RecordType};
 use ring::rand::{SecureRandom, SystemRandom};
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::time::timeout;
 
 use super::EncryptedDnsResolver;
 use super::connection::PooledConnection;
+use super::proxy_stream::ResolverStream;
 use crate::dnscrypt::*;
 use crate::transport::{
     STREAM_CLOSED_BEFORE_FRAME, build_dns_query, ensure_response_matches_query, read_length_prefixed_frame_async,
@@ -75,7 +75,7 @@ impl EncryptedDnsResolver {
     /// path and on cancellation. No resolver state is touched.
     async fn exchange_dnscrypt_with_session(
         &self,
-        stream: &mut TokioTcpStream,
+        stream: &mut ResolverStream,
         certificate: &DnsCryptCachedCertificate,
         query_bytes: &[u8],
         deadline: Duration,
@@ -120,14 +120,18 @@ impl EncryptedDnsResolver {
         Ok(response)
     }
 
-    async fn take_dnscrypt_session(&self) -> Result<(TokioTcpStream, bool), EncryptedDnsError> {
+    /// # Cancel safety:
+    /// cancel-safe: the pooled stream is popped in the same poll that returns it; a cancelled connect owns and drops its stream.
+    async fn take_dnscrypt_session(&self) -> Result<(ResolverStream, bool), EncryptedDnsError> {
         match self.inner.connection_pool.take().await {
             Some(PooledConnection::DnsCrypt(stream)) => Ok((stream, true)),
             None => self.connect_dnscrypt_session().await.map(|stream| (stream, false)),
         }
     }
 
-    async fn connect_dnscrypt_session(&self) -> Result<TokioTcpStream, EncryptedDnsError> {
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops the partially connected stream.
+    async fn connect_dnscrypt_session(&self) -> Result<ResolverStream, EncryptedDnsError> {
         self.connect_plain_tcp().await
     }
 

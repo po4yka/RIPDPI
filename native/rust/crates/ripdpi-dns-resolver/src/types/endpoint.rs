@@ -1,5 +1,6 @@
 use std::fmt;
 use std::net::IpAddr;
+use std::path::{Path, PathBuf};
 
 use crate::odoh::OdohConfigSource;
 
@@ -77,11 +78,31 @@ impl fmt::Debug for EncryptedDnsSocks5Credentials {
     }
 }
 
+#[derive(Clone, PartialEq, Eq)]
+pub struct EncryptedDnsUnixPath(PathBuf);
+
+impl EncryptedDnsUnixPath {
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self(path.into())
+    }
+
+    pub fn as_path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl fmt::Debug for EncryptedDnsUnixPath {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("EncryptedDnsUnixPath(..)")
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EncryptedDnsTransport {
     Direct,
     Socks5 { host: String, port: u16, credentials: Option<EncryptedDnsSocks5Credentials> },
+    Socks5Unix { path: EncryptedDnsUnixPath, credentials: Option<EncryptedDnsSocks5Credentials> },
 }
 
 #[cfg(test)]

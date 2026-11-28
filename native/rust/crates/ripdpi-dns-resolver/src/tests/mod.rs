@@ -12,6 +12,7 @@ mod edns_padding;
 mod https_service_binding;
 mod pipeline;
 mod stream_matching;
+mod unix_socks;
 
 use super::*;
 
@@ -1375,7 +1376,7 @@ fn start_socks_proxy(
     (port, handle)
 }
 
-fn read_socks_target(stream: &mut TcpStream, atyp: u8) -> (String, u16) {
+fn read_socks_target(stream: &mut impl Read, atyp: u8) -> (String, u16) {
     match atyp {
         0x01 => {
             let mut host = [0u8; 4];

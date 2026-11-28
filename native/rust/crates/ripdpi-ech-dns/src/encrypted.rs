@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use ripdpi_dns_resolver::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsResolver, EncryptedDnsSocks5Credentials,
-    EncryptedDnsTransport, HttpsRr, HttpsServiceSelection, HttpsSvcbParseError, extract_ip_answers,
-    parse_ech_config_list, select_https_service_bindings,
+    EncryptedDnsTransport, EncryptedDnsUnixPath, HttpsRr, HttpsServiceSelection, HttpsSvcbParseError,
+    extract_ip_answers, parse_ech_config_list, select_https_service_bindings,
 };
 
 use crate::transport::TransportConfig;
@@ -383,7 +383,13 @@ fn prepare_exchange(
             });
             EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port, credentials }
         }
-        TransportConfig::Socks5Unix { .. } => return Err("encrypted DNS cannot use a Unix proxy route".to_string()),
+        TransportConfig::Socks5Unix { path, credentials } => {
+            let credentials = credentials.as_ref().map(|credentials| EncryptedDnsSocks5Credentials {
+                username: credentials.username().to_string(),
+                password: credentials.password().to_string(),
+            });
+            EncryptedDnsTransport::Socks5Unix { path: EncryptedDnsUnixPath::new(path.as_str()), credentials }
+        }
     };
     let timeout = bounded_scan_io_timeout(Duration::from_secs(4)).map_err(str::to_string)?;
     let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(

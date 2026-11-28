@@ -1,5 +1,5 @@
 {
- "total": 45581,
+ "total": 45577,
  "files": {
   ".claude/scripts/subagent-stop-audit-log.sh": 20,
   ".github/scripts/check-jni-symbols.sh": 24,
@@ -2037,7 +2037,7 @@
   "native/rust/crates/ripdpi-dns-resolver/src/resolver/dot_connection.rs": 22,
   "native/rust/crates/ripdpi-dns-resolver/src/resolver/state.rs": 31,
   "native/rust/crates/ripdpi-dns-resolver/src/resolver/tcp.rs": 13,
-  "native/rust/crates/ripdpi-dns-resolver/src/resolver/tcp/socks5.rs": 6,
+  "native/rust/crates/ripdpi-dns-resolver/src/resolver/tcp/socks5.rs": 2,
   "native/rust/crates/ripdpi-dns-resolver/src/resolver/tcp/tokio_connect.rs": 5,
   "native/rust/crates/ripdpi-dns-resolver/src/tests/burst.rs": 2,
   "native/rust/crates/ripdpi-dns-resolver/src/tests/dnscrypt_certs.rs": 16,

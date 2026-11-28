@@ -1,12 +1,12 @@
 use std::io;
 use std::time::{Duration, Instant};
 
-use tokio::net::TcpStream as TokioTcpStream;
 use tokio::sync::{Mutex as AsyncMutex, Semaphore, SemaphorePermit};
 
+use super::proxy_stream::ResolverStream;
 use crate::types::EncryptedDnsError;
 
-pub(super) type DotTlsStream = tokio_boring::SslStream<TokioTcpStream>;
+pub(super) type DotTlsStream = tokio_boring::SslStream<ResolverStream>;
 pub(super) const MAX_POOLED_IDLE_DURATION: Duration = Duration::from_secs(20);
 /// Upper bound on DNSCrypt connections per resolver. A burst of concurrent
 /// lookups waits for a slot and reuses its connection instead of opening one
@@ -20,17 +20,19 @@ pub(super) trait TcpClientStream: tokio::io::AsyncRead + tokio::io::AsyncWrite +
     }
 }
 
-impl TcpClientStream for TokioTcpStream {
+impl TcpClientStream for tokio::net::TcpStream {
     fn set_nodelay_if_supported(&self, enabled: bool) -> io::Result<()> {
         self.set_nodelay(enabled)
     }
 }
 
+impl TcpClientStream for tokio::net::UnixStream {}
+
 #[cfg(test)]
 impl TcpClientStream for turmoil::net::TcpStream {}
 
 pub(super) enum PooledConnection {
-    DnsCrypt(TokioTcpStream),
+    DnsCrypt(ResolverStream),
 }
 
 struct IdlePooledConnection {
@@ -116,7 +118,7 @@ mod tests {
 
         let pool = ConnectionPool::default();
         pool.put_with_idle_since(
-            PooledConnection::DnsCrypt(stream),
+            PooledConnection::DnsCrypt(ResolverStream::Tcp(stream)),
             Instant::now() - MAX_POOLED_IDLE_DURATION - Duration::from_secs(1),
         )
         .await;
@@ -135,7 +137,7 @@ mod tests {
 
         let pool = ConnectionPool::default();
         pool.put_with_idle_since(
-            PooledConnection::DnsCrypt(stream),
+            PooledConnection::DnsCrypt(ResolverStream::Tcp(stream)),
             Instant::now() - MAX_POOLED_IDLE_DURATION + Duration::from_secs(1),
         )
         .await;
