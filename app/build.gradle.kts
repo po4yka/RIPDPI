@@ -679,6 +679,7 @@ dependencies {
     testImplementation(project(":core:diagnostics-data"))
     testImplementation(testFixtures(project(":core:service")))
     androidTestImplementation(testFixtures(project(":core:service")))
+    androidTestImplementation(libs.okhttp.tls)
     testImplementation(project(":core:engine-api"))
     androidTestImplementation(libs.androidx.test.core.ktx)
     androidTestImplementation(libs.androidx.room.runtime)
