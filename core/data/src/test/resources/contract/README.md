@@ -19,6 +19,7 @@ These files are **vendored byte-identical** from the server repo
 | `client-field-report.schema.json` | `ripdpi-vpn-deploy/contract/client-field-report.schema.json` |
 | `client-field-report.golden.json` | `ripdpi-vpn-deploy/contract/client-field-report.golden.json` |
 | `negative/README.md`, `negative/report-*.json` | `ripdpi-vpn-deploy/contract/negative/` |
+| `node-address-check.schema.json`, `node-address-check.golden.json` | `ripdpi-vpn-deploy/contract/` |
 
 Other files in this directory are contract schemas, examples, and fixtures that
 tests read. They are listed here by purpose:
@@ -56,8 +57,10 @@ two halves make the contract machine-checkable so it cannot drift silently
 between the repos.
 
 **When the server contract changes, re-copy the listed files in the same PR.**
-The bundle and field-report files (`ripdpi-bundle.*`, `client-field-report.*`,
-`negative/neg-*`, `negative/report-*`, `negative/README.md`) are pinned by
+The bundle, field-report, network-hint and node-address-check files
+(`ripdpi-bundle.*`, `client-field-report.*`, `client-network-hint.*`,
+`node-address-check.*`, `negative/neg-*`, `negative/report-*`, `negative/hint-*`,
+`negative/README.md`) are pinned by
 SHA-256 in `vendored-deploy-contracts.sha256`, which also names the deployer
 commit. `scripts/ci/check_vendored_deploy_contracts.py` fails on an edited,
 missing, or unlisted copy; with `--source <ripdpi-vpn-deploy>/contract` it also
@@ -79,3 +82,5 @@ explicit offline export; the shared key is retained only in sealed subscription
 state and is never included in that export.
 
 `client-field-report.schema.json` is the v1 opt-in field report. Its `failure_stage` enum is the one failure-stage vocabulary of the client: the Rust `FieldFailureStage` (`ripdpi-diagnostics-contracts`) and the Kotlin `FieldFailureStage` (`core/diagnostics-data`) are tested against this vendored copy, and both pin its `x-contract-version` to their supported version. The Rust test reads this directory through the repository root, so there is one vendored copy.
+
+`node-address-check.schema.json` is the v1 signed filtered-side node address attestation that the deployer requires before it admits a node address into a RIPDPI bundle. No client code produces it yet; DGN-1795868945773730 owns the producer.

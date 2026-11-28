@@ -24,6 +24,7 @@ VENDORED_PATTERNS = (
     "ripdpi-bundle.*.json",
     "client-field-report.*.json",
     "client-network-hint.*.json",
+    "node-address-check.*.json",
     "negative/neg-*.json",
     "negative/report-*.json",
     "negative/hint-*.json",

@@ -1,4 +1,4 @@
-# source: ripdpi-vpn-deploy contract/ at 60a05950b11c
+# source: ripdpi-vpn-deploy contract/ at 6e2568ce4430
 302b4e4a23ea94b3ccb384a29518913604b225e895e56fe90bbfe591499dbc4d  client-field-report.golden-sim.json
 c43b4cf526dc10500540526f877c3e7f1d3795998123111c83d8e0e9c3a55a8b  client-field-report.golden.json
 bc42af2bd867dec228836d4d4eea7a85abe2535952401737d75e666755f03b8c  client-field-report.schema.json
@@ -60,6 +60,8 @@ cc5a75980b596616e975376962aa59a92155979bcfde870db6679dda9e71f0ba  negative/repor
 71c2ea88727153012bf27a9d387b3d692ad2bdf3f6992bc7296f927bb3078738  negative/report-success-with-stage.json
 40c4d9b5f8dd207c7477faeb4ad9668f638b7bf8124cb4d2f34315f25b8056a0  negative/report-unknown-failure-stage.json
 9eb30589f1aa5056a69215e94613d563bc989c8fe0baead78aa28ae6cc6a9367  negative/report-unknown-source.json
+547f6479228268a73785e7dd5610666092563c57337eee2ffa47eb14379a13a1  node-address-check.golden.json
+65ba386df7debf2ef3de25d6a58f0f7ea3b2d750da4bc28567dc85d98dc99a54  node-address-check.schema.json
 db37f490d65b218a8f39ea249c13c9e54f6412d096986ba957aac8cad127d3b0  ripdpi-bundle.example.json
 52d8cd80e89c08f1de56ddc9e73e833aa2a081b4546db5364fa7319a79a32cc4  ripdpi-bundle.golden-full.json
 01e41a80eac6f75d2fbf880758026e8e6135367ae4eb93a834258d96bd17fc30  ripdpi-bundle.health-expired.json
