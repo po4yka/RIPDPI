@@ -135,6 +135,7 @@ mod tests {
             verified_https_port: 13,
             dns_udp_port: 4,
             dns_http_port: 5,
+            dns_https_port: 14,
             dns_dot_port: 6,
             dns_dnscrypt_port: 7,
             dns_doq_port: 8,
@@ -365,6 +366,27 @@ mod tests {
         .expect("build dot resolver");
         let dot_response = dot_resolver.exchange_blocking(&query).expect("dot exchange");
         assert_eq!(extract_ip_answers(&dot_response).expect("dot answers"), expected_answers);
+
+        let doh_resolver = EncryptedDnsResolver::with_extra_tls_roots(
+            EncryptedDnsEndpoint {
+                protocol: EncryptedDnsProtocol::Doh,
+                resolver_id: Some("fixture-doh".to_string()),
+                host: manifest.bind_host.clone(),
+                port: manifest.dns_https_port,
+                tls_server_name: Some(manifest.bind_host.clone()),
+                bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+                doh_url: Some(format!("https://{}:{}/dns-query", manifest.bind_host, manifest.dns_https_port)),
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+                odoh: None,
+            },
+            EncryptedDnsTransport::Direct,
+            Duration::from_secs(2),
+            vec![certificate.clone()],
+        )
+        .expect("build doh resolver");
+        let doh_response = doh_resolver.exchange_blocking(&query).expect("doh exchange");
+        assert_eq!(extract_ip_answers(&doh_response).expect("doh answers"), expected_answers);
 
         let dnscrypt_resolver = EncryptedDnsResolver::new(
             EncryptedDnsEndpoint {

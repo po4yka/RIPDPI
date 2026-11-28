@@ -89,6 +89,7 @@ pub struct FixtureManifest {
     pub verified_https_port: u16,
     pub dns_udp_port: u16,
     pub dns_http_port: u16,
+    pub dns_https_port: u16,
     pub dns_dot_port: u16,
     pub dns_dnscrypt_port: u16,
     pub dns_doq_port: u16,

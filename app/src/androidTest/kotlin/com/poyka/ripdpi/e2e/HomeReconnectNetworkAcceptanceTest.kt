@@ -595,15 +595,15 @@ class HomeReconnectNetworkAcceptanceTest {
                 dnsIp = fixture.androidHost
                 encryptedDnsProtocol = protocol
                 encryptedDnsHost = if (protocol == "dot") fixture.fixtureDomain else fixture.androidHost
-                encryptedDnsPort = if (protocol == "dot") fixture.dnsDotPort else fixture.dnsHttpPort
+                encryptedDnsPort = if (protocol == "dot") fixture.dnsDotPort else fixture.dnsHttpsPort
                 encryptedDnsTlsServerName = encryptedDnsHost
                 clearEncryptedDnsBootstrapIps()
                 addEncryptedDnsBootstrapIps(fixture.androidHost)
                 encryptedDnsDohUrl =
-                    if (protocol == "doh") "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query" else ""
+                    if (protocol == "doh") "https://${fixture.androidHost}:${fixture.dnsHttpsPort}/dns-query" else ""
                 encryptedDnsDnscryptProviderName = ""
                 encryptedDnsDnscryptPublicKey = ""
-                encryptedDnsTlsRootsPem = if (protocol == "dot") fixture.tlsCertificatePem else ""
+                encryptedDnsTlsRootsPem = fixture.tlsCertificatePem
                 detectionCheckDnsRouteThroughProxy = false
             }.build()
 

@@ -43,6 +43,7 @@ struct EchoServices {
 struct DnsServices {
     udp_handle: JoinHandle<()>,
     http_handle: JoinHandle<()>,
+    https_handle: JoinHandle<()>,
     dot_handle: JoinHandle<()>,
     dnscrypt_handle: JoinHandle<()>,
     doq_handle: JoinHandle<()>,
@@ -50,6 +51,7 @@ struct DnsServices {
     odoh_proxy_handle: JoinHandle<()>,
     udp_port: u16,
     http_port: u16,
+    https_port: u16,
     dot_port: u16,
     dnscrypt_port: u16,
     doq_port: u16,
@@ -95,6 +97,7 @@ impl FixtureStack {
             echo.tls_handle,
             dns.udp_handle,
             dns.http_handle,
+            dns.https_handle,
             dns.dot_handle,
             dns.dnscrypt_handle,
             dns.doq_handle,
@@ -130,6 +133,7 @@ impl Drop for FixtureStack {
         util::wake_tcp(&self.manifest.bind_host, self.manifest.tls_echo_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.verified_https_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_http_port);
+        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_https_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dot_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dnscrypt_port);
         util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_odoh_proxy_port);
@@ -215,6 +219,17 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
         context.events.clone(),
         context.faults.clone(),
         config.dns_answer_ipv4.clone(),
+        None,
+    )?;
+    // Same handler, events, and faults as the plain listener; the port is ephemeral like `verified_https_port`.
+    let (https_handle, https_port) = dns::start_dns_http_server(
+        config.bind_host.clone(),
+        0,
+        context.stop.clone(),
+        context.events.clone(),
+        context.faults.clone(),
+        config.dns_answer_ipv4.clone(),
+        Some(tls.server_config.clone()),
     )?;
     let (dot_handle, dot_port) = dns::start_dns_dot_server(
         config.bind_host.clone(),
@@ -261,6 +276,7 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
     Ok(DnsServices {
         udp_handle,
         http_handle,
+        https_handle,
         dot_handle,
         dnscrypt_handle,
         doq_handle,
@@ -268,6 +284,7 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
         odoh_proxy_handle,
         udp_port,
         http_port,
+        https_port,
         dot_port,
         dnscrypt_port,
         doq_port,
@@ -321,6 +338,7 @@ fn build_manifest(
         verified_https_port: echo.verified_https_port,
         dns_udp_port: dns.udp_port,
         dns_http_port: dns.http_port,
+        dns_https_port: dns.https_port,
         dns_dot_port: dns.dot_port,
         dns_dnscrypt_port: dns.dnscrypt_port,
         dns_doq_port: dns.doq_port,

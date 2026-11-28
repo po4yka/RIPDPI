@@ -1,8 +1,10 @@
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpListener, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpListener};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::{self, JoinHandle};
+
+use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
 use crate::event::{EventLog, event};
 pub(crate) use crate::http_types::{HttpRequest, HttpResponse};
@@ -13,6 +15,7 @@ pub(crate) fn start_http_server<F>(
     port: u16,
     stop: Arc<AtomicBool>,
     events: EventLog,
+    tls: Option<Arc<ServerConfig>>,
     handler: F,
 ) -> io::Result<(JoinHandle<()>, u16)>
 where
@@ -29,20 +32,23 @@ where
                     Ok((mut stream, peer)) => {
                         let handler = handler.clone();
                         let events = events.clone();
+                        let tls = tls.clone();
                         thread::spawn(move || {
                             let _ = stream.set_nonblocking(false);
                             let local = stream.local_addr().ok();
-                            let request = parse_http_request(&mut stream);
-                            let response = match request {
-                                Ok(request) => handler(request, peer, local),
-                                Err(err) => {
-                                    events.record(event("http_error", "http", peer, local, &err.to_string(), 0, None));
-                                    HttpResponse::not_found()
-                                }
+                            let Some(config) = tls else {
+                                serve_http_request(&mut stream, peer, local, &events, &*handler);
+                                let _ = stream.shutdown(Shutdown::Both);
+                                return;
                             };
-                            let _ = stream.write_all(&response.to_bytes());
+                            let Ok(connection) = ServerConnection::new(config) else {
+                                return;
+                            };
+                            let mut stream = StreamOwned::new(connection, stream);
+                            serve_http_request(&mut stream, peer, local, &events, &*handler);
+                            stream.conn.send_close_notify();
                             let _ = stream.flush();
-                            let _ = stream.shutdown(Shutdown::Both);
+                            let _ = stream.sock.shutdown(Shutdown::Both);
                         });
                     }
                     Err(err) if err.kind() == ErrorKind::WouldBlock => thread::sleep(IO_POLL_DELAY),
@@ -54,7 +60,27 @@ where
     ))
 }
 
-fn parse_http_request(stream: &mut TcpStream) -> io::Result<HttpRequest> {
+fn serve_http_request<F>(
+    stream: &mut (impl Read + Write),
+    peer: SocketAddr,
+    local: Option<SocketAddr>,
+    events: &EventLog,
+    handler: &F,
+) where
+    F: Fn(HttpRequest, SocketAddr, Option<SocketAddr>) -> HttpResponse,
+{
+    let response = match parse_http_request(stream) {
+        Ok(request) => handler(request, peer, local),
+        Err(err) => {
+            events.record(event("http_error", "http", peer, local, &err.to_string(), 0, None));
+            HttpResponse::not_found()
+        }
+    };
+    let _ = stream.write_all(&response.to_bytes());
+    let _ = stream.flush();
+}
+
+fn parse_http_request(stream: &mut impl Read) -> io::Result<HttpRequest> {
     let mut raw = read_until_marker(stream, b"\r\n\r\n");
     let request = String::from_utf8_lossy(&raw).into_owned();
     let first_line = request.lines().next().ok_or_else(|| io::Error::new(ErrorKind::InvalidData, "empty request"))?;

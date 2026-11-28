@@ -138,6 +138,7 @@ data class FixtureManifestDto(
     val verifiedHttpsPort: Int?,
     val dnsUdpPort: Int,
     val dnsHttpPort: Int,
+    val dnsHttpsPort: Int,
     val dnsDotPort: Int,
     val dnsDnscryptPort: Int,
     val dnsDoqPort: Int,
@@ -483,11 +484,12 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
             EncryptedDnsProtocolDot -> fixture.dnsDotPort
             EncryptedDnsProtocolDnsCrypt -> fixture.dnsDnscryptPort
             EncryptedDnsProtocolDoq -> fixture.dnsDoqPort
-            else -> fixture.dnsHttpPort
+            else -> fixture.dnsHttpsPort
         }
     val dohUrl =
         if (normalizedProtocol == EncryptedDnsProtocolDoh) {
-            "http://${fixture.androidHost}:${fixture.dnsHttpPort}/dns-query"
+            // IP literal: DoH through the local proxy resolves the URL host remotely and ignores bootstrap IPs.
+            "https://${fixture.androidHost}:${fixture.dnsHttpsPort}/dns-query"
         } else {
             ""
         }
@@ -517,11 +519,7 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
             if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) fixture.dnscryptPublicKey else "",
         )
         setEncryptedDnsTlsRootsPem(
-            if (normalizedProtocol == EncryptedDnsProtocolDot || normalizedProtocol == EncryptedDnsProtocolDoq) {
-                fixture.tlsCertificatePem
-            } else {
-                ""
-            },
+            if (normalizedProtocol == EncryptedDnsProtocolDnsCrypt) "" else fixture.tlsCertificatePem,
         )
         setDetectionCheckDnsRouteThroughProxy(false)
     }
@@ -2237,6 +2235,7 @@ private fun parseManifest(body: String): FixtureManifestDto {
         verifiedHttpsPort = json.optInt("verifiedHttpsPort").takeIf { it in 1..65535 },
         dnsUdpPort = json.getInt("dnsUdpPort"),
         dnsHttpPort = json.getInt("dnsHttpPort"),
+        dnsHttpsPort = json.getInt("dnsHttpsPort"),
         dnsDotPort = json.getInt("dnsDotPort"),
         dnsDnscryptPort = json.getInt("dnsDnscryptPort"),
         dnsDoqPort = json.getInt("dnsDoqPort"),

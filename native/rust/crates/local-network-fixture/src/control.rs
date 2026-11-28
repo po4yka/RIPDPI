@@ -16,7 +16,7 @@ pub(crate) fn start_control_server(
     faults: FaultController,
     manifest: Arc<Mutex<FixtureManifest>>,
 ) -> io::Result<(JoinHandle<()>, u16)> {
-    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), None, move |request, peer, local| {
         match (request.method.as_str(), request.path.as_str()) {
             ("GET", "/health") => HttpResponse::text("ok"),
             ("GET", "/manifest") => {

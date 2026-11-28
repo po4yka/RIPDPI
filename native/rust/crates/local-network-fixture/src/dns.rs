@@ -100,8 +100,9 @@ pub(crate) fn start_dns_http_server(
     events: EventLog,
     faults: FaultController,
     answer_ip: String,
+    tls: Option<Arc<ServerConfig>>,
 ) -> io::Result<(JoinHandle<()>, u16)> {
-    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), tls, move |request, peer, local| {
         let path = request.path.clone();
         let binary_query =
             request.method.eq_ignore_ascii_case("POST") && request.path == "/dns-query" && !request.body.is_empty();
@@ -180,7 +181,7 @@ pub(crate) fn start_dns_odoh_target_server(
     let answer_ip =
         Ipv4Addr::from_str(&answer_ip).map_err(|err| io::Error::new(ErrorKind::InvalidInput, err.to_string()))?;
     let key_pair = odoh_key_pair();
-    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), None, move |request, peer, local| {
         if !request.method.eq_ignore_ascii_case("POST") || request.path != "/dns-query" {
             return HttpResponse::not_found();
         }
@@ -200,7 +201,7 @@ pub(crate) fn start_dns_odoh_proxy_server(
     stop: Arc<AtomicBool>,
     events: EventLog,
 ) -> io::Result<(JoinHandle<()>, u16)> {
-    start_http_server(bind_host, port, stop, events.clone(), move |request, peer, local| {
+    start_http_server(bind_host, port, stop, events.clone(), None, move |request, peer, local| {
         if !request.method.eq_ignore_ascii_case("POST") || request.path != "/proxy" {
             return HttpResponse::not_found();
         }

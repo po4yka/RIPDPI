@@ -57,7 +57,7 @@ import java.net.Socket
 import java.util.UUID
 import javax.inject.Inject
 
-private const val VpnEncryptedDnsAutoFailoverReasonPrefix = "vpn_encrypted_dns_auto_failover: "
+private const val VpnEncryptedDnsTimeoutFailoverReason = "vpn_encrypted_dns_auto_failover: timeout"
 private const val FixtureDnsTimeoutFaultDelayMs = 5_000L
 private const val SoBindEvidenceProfileArg = "ripdpi.soBindEvidenceProfile"
 private const val SoBindIpv6HostArg = "ripdpi.soBindIpv6Host"
@@ -496,9 +496,6 @@ class NetworkPathE2ETest {
                         "failures=${failureSnapshot.tunnelTelemetry.dnsFailuresTotal} " +
                         "error=${failureSnapshot.tunnelTelemetry.lastDnsError}; awaiting resolver fallback",
                 )
-                val expectedFallbackReason =
-                    VpnEncryptedDnsAutoFailoverReasonPrefix +
-                        requireNotNull(failureSnapshot.tunnelTelemetry.lastDnsError).trim()
                 val recoverySnapshot =
                     serviceStateStore.telemetry.first { snapshot ->
                         snapshot.status == AppStatus.Running &&
@@ -507,7 +504,7 @@ class NetworkPathE2ETest {
                             snapshot.runtimeFieldTelemetry.tunnelRecoveryRetryCount >
                             baselineTunnelRecoveryRetryCount &&
                             snapshot.tunnelTelemetry.resolverFallbackActive &&
-                            snapshot.tunnelTelemetry.resolverFallbackReason == expectedFallbackReason
+                            snapshot.tunnelTelemetry.resolverFallbackReason == VpnEncryptedDnsTimeoutFailoverReason
                     }
                 android.util.Log.i(
                     "VpnDnsRecovery",
@@ -544,8 +541,7 @@ class NetworkPathE2ETest {
                     baselineTunnelRecoveryRetryCount,
             )
             assertEquals(
-                VpnEncryptedDnsAutoFailoverReasonPrefix +
-                    requireNotNull(dnsTimeoutSnapshot.tunnelTelemetry.lastDnsError).trim(),
+                VpnEncryptedDnsTimeoutFailoverReason,
                 recoverySnapshot.tunnelTelemetry.resolverFallbackReason,
             )
             val events = fixtureClient.events()

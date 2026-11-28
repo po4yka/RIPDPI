@@ -91,7 +91,7 @@ reverse_fixture_ports() {
         return
     fi
     mapfile -t tcp_ports < <(
-        jq -r '[.controlPort, .tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsDotPort, .dnsDnscryptPort, .socks5Port] | .[]' "$fixture_manifest"
+        jq -r '[.controlPort, .tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsHttpsPort, .dnsDotPort, .dnsDnscryptPort, .socks5Port] | .[]' "$fixture_manifest"
     )
     for port in "${tcp_ports[@]}"; do
         adb_cmd reverse "tcp:${port}" "tcp:${port}" >/dev/null
@@ -800,7 +800,7 @@ RIPDPI_FIXTURE_ANDROID_HOST="$fixture_android_host" \
 RIPDPI_FIXTURE_DNS_ANSWER_IPV4="$(resolve_fixture_dns_answer_ipv4)" \
     bash "$start_fixture_script" "$fixture_log" "$fixture_manifest" "$fixture_pid_file" >/dev/null
 fixture_control_port="$(jq -r '.controlPort' "$fixture_manifest")"
-device_capture_filter="$(jq -r '[.tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsDotPort, .dnsDnscryptPort, .dnsDoqPort] | map("port " + tostring) | join(" or ")' "$fixture_manifest")"
+device_capture_filter="$(jq -r '[.tcpEchoPort, .tlsEchoPort, .dnsHttpPort, .dnsHttpsPort, .dnsDotPort, .dnsDnscryptPort, .dnsDoqPort] | map("port " + tostring) | join(" or ")' "$fixture_manifest")"
 
 adb_cmd wait-for-device >/dev/null
 reverse_fixture_ports

@@ -121,12 +121,12 @@ fn serve_verified_https(
 
 impl TlsMaterial {
     pub(crate) fn generate(config: &FixtureConfig) -> io::Result<Self> {
-        let certificate = generate_simple_self_signed(vec![
-            config.fixture_domain.clone(),
-            "localhost".to_string(),
-            "127.0.0.1".to_string(),
-        ])
-        .map_err(util::other_io)?;
+        let mut names = vec![config.fixture_domain.clone(), "localhost".to_string(), "127.0.0.1".to_string()];
+        // DoH clients verify the URL host; Android tests reach the fixture by this IP literal.
+        if !names.contains(&config.android_host) {
+            names.push(config.android_host.clone());
+        }
+        let certificate = generate_simple_self_signed(names).map_err(util::other_io)?;
         let cert_der = certificate.cert.der().clone();
         let certificate_pem = certificate.cert.pem();
         let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
