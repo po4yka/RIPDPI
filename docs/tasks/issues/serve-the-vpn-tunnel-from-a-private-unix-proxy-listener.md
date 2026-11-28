@@ -2,7 +2,7 @@
 id: VPN-1795773987131888
 title: Serve the VPN tunnel from a private Unix proxy listener
 kind: feature
-status: doing
+status: review
 area: vpn
 priority: medium
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: vpn-1795773987131888-serve-the-vpn-tunnel-from-a-private-unix-proxy-listener
 created: 2026-11-27
-updated: 2026-11-27
+updated: 2026-11-28
 ---
 
 ## Goal
