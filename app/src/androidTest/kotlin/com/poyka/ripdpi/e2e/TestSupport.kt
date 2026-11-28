@@ -488,7 +488,6 @@ suspend fun AppSettingsRepository.applyFixtureEncryptedDns(
         }
     val dohUrl =
         if (normalizedProtocol == EncryptedDnsProtocolDoh) {
-            // IP literal: DoH through the local proxy resolves the URL host remotely and ignores bootstrap IPs.
             "https://${fixture.androidHost}:${fixture.dnsHttpsPort}/dns-query"
         } else {
             ""

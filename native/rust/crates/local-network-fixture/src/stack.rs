@@ -221,7 +221,6 @@ fn start_dns_services(config: &FixtureConfig, context: &ServiceContext, tls: &Tl
         config.dns_answer_ipv4.clone(),
         None,
     )?;
-    // Same handler, events, and faults as the plain listener; the port is ephemeral like `verified_https_port`.
     let (https_handle, https_port) = dns::start_dns_http_server(
         config.bind_host.clone(),
         0,
