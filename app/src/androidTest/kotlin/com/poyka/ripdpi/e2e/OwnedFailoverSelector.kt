@@ -93,7 +93,8 @@ internal class OwnedFailoverSelector(
         probe: CandidateHttpPayloadProbe,
         lease: DiagnosticsInPathRouteLease,
     ) {
-        val result = probe.probePayload(RelayProbeEndpoint(lease.host, lease.port, lease.credentials), policy)
+        val endpoint = RelayProbeEndpoint(lease.host, lease.port, lease.credentials, lease.unixPath)
+        val result = probe.probePayload(endpoint, policy)
         assertTrue("The active route must work before the fault: ${result.failureStage}", result.succeeded)
     }
 
