@@ -6,11 +6,11 @@ Define how the VPN tunnel and the in-app path clients reach the native proxy in 
 
 ### Requirement: REQ-VPL-NO-LOOPBACK — No loopback listener for the tunnel-to-proxy hop
 
-In VPN mode with the native proxy provider, when encrypted DNS is not routed through the proxy, the app process MUST NOT own a listening TCP socket bound to a loopback or wildcard address for the tunnel-to-proxy hop.
+In VPN mode with the native proxy provider, the app process MUST NOT own a listening TCP socket bound to a loopback or wildcard address for the tunnel-to-proxy hop.
 
 #### Scenario: Native VPN session exposes no loopback listener
 
-- **GIVEN** VPN mode runs with the native proxy provider, no relay, WARP, or AmneziaWG upstream, and no encrypted DNS routed through the proxy
+- **GIVEN** VPN mode runs with the native proxy provider, encrypted DNS, and no relay, WARP, or AmneziaWG upstream
 - **WHEN** a client enumerates the sockets of the app process
 - **THEN** no socket bound to a loopback or wildcard address accepts a TCP connection.
 
@@ -67,20 +67,27 @@ The tunnel MUST carry UDP flows through the private UDP association on the Unix 
 - **WHEN** the proxy aborts the client side
 - **THEN** the app observes the end of the stream and no further data.
 
-### Requirement: REQ-VPL-DNS-TCP — Proxied encrypted DNS keeps the TCP listener
+### Requirement: REQ-VPL-DNS-UNIX — Encrypted DNS uses the Unix upstream
 
-When encrypted DNS is routed through the proxy, the VPN session MUST use the loopback TCP listener with the session token, as before this change, because the encrypted DNS client cannot dial a Unix socket. The tunnel MUST refuse to start with a Unix upstream and proxied encrypted DNS together. Plain DNS that is routed through the proxy uses the tunnel flows and works with the Unix upstream.
+When the tunnel routes encrypted DNS through the proxy, the resolver MUST reach the proxy through the Unix listener with the session credentials, with the same certificate verification, reply validation, limits, and timeouts as on the TCP route. The VPN session MUST NOT bind a TCP listener for encrypted DNS. DoQ through a SOCKS route MUST stay refused, as before this change.
 
-#### Scenario: Encrypted DNS routed through the proxy
+#### Scenario: Supported protocols
 
-- **GIVEN** the DNS plan routes encrypted DNS through the proxy
-- **WHEN** a VPN session starts with the native proxy provider
-- **THEN** the proxy binds the token-protected loopback TCP listener and the tunnel uses it.
+- **WHEN** the resolver uses DoH or ODoH on the Unix route
+- **THEN** it uses the HTTP/1.1 path over TLS over a SOCKS5 CONNECT on the Unix stream.
+- **WHEN** the resolver uses DoT or DNSCrypt on the Unix route
+- **THEN** it uses a SOCKS5 CONNECT on the Unix stream.
 
-#### Scenario: Unix upstream with proxied encrypted DNS
+#### Scenario: Encrypted DNS in a VPN session
 
-- **WHEN** the tunnel receives a config with a Unix upstream and proxied encrypted DNS
-- **THEN** the tunnel rejects the config and does not start.
+- **GIVEN** a VPN session runs with the native proxy provider and encrypted DNS
+- **WHEN** a routed app resolves a host name
+- **THEN** the resolver sends the query through the Unix listener and the app receives the answer.
+
+#### Scenario: Untrusted DNS server certificate
+
+- **WHEN** the DoH or DoT server presents a certificate that does not verify
+- **THEN** the resolver rejects the connection on the Unix route as it does on the TCP route.
 
 ### Requirement: REQ-VPL-AUTH — Authentication on the Unix listener
 

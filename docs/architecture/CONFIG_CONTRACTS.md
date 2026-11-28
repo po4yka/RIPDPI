@@ -267,8 +267,7 @@ not call `VpnService.Builder.setHttpProxy`, even when the setting is on
   bound, so advertising it sends proxied requests to any local app that binds
   that port.
 - `ProxyInfo` cannot carry credentials or a Unix path, so system-proxy clients
-  cannot use the session listener in either form. The TCP form answers them
-  with `407`; the Unix form is not reachable from them.
+  cannot reach the Unix listener.
 - The TUN already captures the traffic of the routed apps.
 
 Do not advertise a proxy endpoint that the session does not own, and do not
@@ -307,13 +306,14 @@ that the session owns and that unauthenticated loopback clients can use.
   payload probe, field report upload, in-path diagnostics scan) use the Unix
   route. The in-path route of the scan request has an optional `unixPath`
   (additive, no wire version change).
-- Exception: when the DNS plan routes encrypted DNS through the proxy
-  (`mapDnsEnabled && (routeDnsThroughSocks5 || a split strict DNS policy)`,
-  `vpnTunnelNeedsTcpProxyListener`), the session keeps the token-protected
-  loopback TCP listener on an ephemeral port (`listenPortOverride = 0`). The
-  encrypted DNS client dials its proxy over TCP only. A handover or DNS refresh
-  that changes this answer recomposes the runtime.
-- Unchanged: the proxy mode TCP listener, the Xray provider loopback inbound,
+- Encrypted DNS through the proxy uses the same Unix upstream. DoH and ODoH
+  run HTTP/1.1 over TLS over a SOCKS5 CONNECT on the Unix stream. DoT and
+  DNSCrypt run over a SOCKS5 CONNECT on the Unix stream. DoQ through a SOCKS
+  route is refused, in the Unix form too. The resolver authenticates with the
+  session credentials. In VPN mode with the native proxy provider, the proxy
+  always starts on the Unix socket, and no configuration binds a loopback TCP
+  listener for the tunnel-to-proxy hop.
+- Unchanged: the proxy mode listener, the Xray provider loopback inbound,
   and the relay, WARP, AmneziaWG, NaiveProxy, pluggable-transport,
   cloudflare-origin, and diagnostics candidate listeners.
 
@@ -366,12 +366,11 @@ credential field must contain 1 to 255 UTF-8 bytes.
   (default 10808). The normal relay start keeps the configured relay port
   (default 11980). WARP, AmneziaWG (default 10808), NaiveProxy,
   pluggable-transport, cloudflare-origin, and other helper processes bind
-  loopback. Diagnostics candidate listeners bind loopback. The native proxy
-  keeps its TCP listener in proxy mode, and in VPN mode when the DNS plan
-  routes encrypted DNS through the proxy. In the default VPN mode with the
-  native proxy provider, the proxy has no loopback listener. Another app can
-  find the remaining SOCKS listeners by a port scan, but it cannot use one
-  without the session pair. An ephemeral Xray port is not a contained change:
+  loopback. Diagnostics candidate listeners bind loopback. Proxy mode keeps
+  its listener, which is the product in that mode. In VPN mode with the native
+  proxy provider, the proxy has no loopback listener. Another app can find the
+  remaining SOCKS listeners by a port scan, but it cannot use one without the
+  session pair. An ephemeral Xray port is not a contained change:
   the profile port is the route port by design (`XrayProviderRouteBuilder`,
   `XrayProviderConfig.localInboundPort`), the orchestrator treats a port change
   as a full replace, and libXray needs the port before it binds, so the app

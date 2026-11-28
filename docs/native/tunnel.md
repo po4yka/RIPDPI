@@ -2,7 +2,7 @@
 
 ## Role in RIPDPI
 
-The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`, over a private Unix socket (a loopback TCP port only when encrypted DNS is proxied).
+The TUN-to-SOCKS tunnel is used only in VPN mode. It takes the Android TUN file descriptor, reads packets from it, and forwards traffic to the local SOCKS5 proxy started by `libripdpi.so`, over a private Unix socket.
 
 When encrypted DNS is enabled, the tunnel also intercepts DNS with a mapped-DNS listener (`198.18.0.53` over the synthetic `198.18.0.0/15` pool), resolves those queries through the shared encrypted resolver, and rewrites follow-up traffic back to the real upstream IPv4 targets before opening SOCKS sessions. The active encrypted DNS path can come from the user's current settings or from a validated remembered VPN policy that replays an exact DoH/DoT/DNSCrypt/DoQ endpoint for the current network.
 
@@ -244,7 +244,7 @@ The Rust crate graph is centered on:
 ## Android-specific Notes
 
 - RIPDPI now starts the tunnel with an in-memory JSON config payload and an already established Android TUN fd.
-- The config points the tunnel to the session-local SOCKS5 proxy endpoint at the private Unix socket path of the active proxy session (`socks5UnixPath`), or on `127.0.0.1:$port` (the telemetry-resolved ephemeral bind) when the DNS plan routes encrypted DNS through the proxy.
+- The config points the tunnel to the session-local SOCKS5 proxy endpoint at the private Unix socket path of the active proxy session (`socks5UnixPath`). The encrypted DNS resolver uses the same upstream: DoH and ODoH over HTTP/1.1, DoT, and DNSCrypt over a SOCKS5 CONNECT on the Unix stream. DoQ through a SOCKS route is refused.
 - VPN-mode tunnel sessions also use the per-session localhost auth token that the proxy runtime rotates on first start and on full handover restarts.
 - In encrypted DNS mode the config also enables `mapdns` on `198.18.0.53:53` with a synthetic `198.18.0.0/15` address pool and passes the active encrypted resolver definition into native code.
 - `RipDpiVpnService` resolves connection policy before startup and can overlay a remembered VPN-only DNS policy without changing the user's selected app mode.

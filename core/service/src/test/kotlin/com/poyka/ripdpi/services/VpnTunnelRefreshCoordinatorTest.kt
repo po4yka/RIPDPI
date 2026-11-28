@@ -261,23 +261,9 @@ class VpnTunnelRefreshCoordinatorTest {
         }
 
     @Test
-    fun dnsRefreshThatNeedsProxiedEncryptedDnsRecomposesTheRuntimeOnAUnixProxy() =
+    fun dnsRefreshThatNeedsProxiedEncryptedDnsRebuildsTheTunnelOnAUnixProxy() =
         runTest {
             with(routingRefreshFixture(endpoint = unixEndpoint)) {
-                resolver.enqueue(proxiedEncryptedDnsResolution(runtime, initialSettings))
-
-                coordinator.refreshIfNeeded(session, forceTunnelRebuild = true)
-
-                assertEquals(listOf("recompose"), updates)
-                assertEquals(1, events.count { it == "vpn:establish" })
-                runtime.stop()
-            }
-        }
-
-    @Test
-    fun dnsRefreshThatNeedsProxiedEncryptedDnsRebuildsTheTunnelOnATcpProxy() =
-        runTest {
-            with(routingRefreshFixture()) {
                 resolver.enqueue(proxiedEncryptedDnsResolution(runtime, initialSettings))
                 sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
 

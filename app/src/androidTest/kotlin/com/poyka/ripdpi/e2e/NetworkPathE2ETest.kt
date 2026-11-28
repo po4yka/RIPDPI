@@ -50,7 +50,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TestRule
 import java.io.File
-import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -281,34 +280,44 @@ class NetworkPathE2ETest {
     }
 
     @Test
-    fun vpnServiceLoopbackListenersRejectUnauthenticatedClients() {
+    fun vpnServiceOwnsNoLoopbackListenerWhileTcpAndUdpFlow() {
         assumeEmulatorLocalVpnFixture()
         ensureVpnConsentGranted(appContext)
         startService(RipDpiVpnService::class.java)
         awaitServiceStatus(serviceStateStore, AppStatus.Running, Mode.VPN, fixtureClient, timeoutMs = 30_000)
 
-        val vpnListeners = ownLoopbackListeners()
-        assertTrue("VPN mode opened no loopback listener to audit", vpnListeners.isNotEmpty())
-        val targetPort = fixture.tcpEchoPort
-        val socks4Connect =
-            byteArrayOf(4, 1, (targetPort shr 8).toByte(), targetPort.toByte()) +
-                InetAddress.getByName(fixture.androidHost).address +
-                byteArrayOf(0)
-        val httpConnect = "CONNECT ${fixture.androidHost}:$targetPort HTTP/1.1\r\n\r\n".toByteArray()
-        vpnListeners.forEach { listener ->
-            val socks5 = loopbackReply(listener, byteArrayOf(5, 1, 0))
-            assertFalse(
-                "Loopback listener accepted SOCKS5 without authentication",
-                socks5.take(2) == listOf<Byte>(5, 0),
-            )
-            assertFalse(
-                "Loopback listener granted an anonymous SOCKS4 CONNECT",
-                loopbackReply(listener, socks4Connect).getOrNull(1) == 0x5A.toByte(),
-            )
-            assertFalse(
-                "Loopback listener granted an anonymous HTTP CONNECT",
-                Regex("^HTTP/1\\.[01] 2").containsMatchIn(loopbackReply(listener, httpConnect).decodeToString()),
-            )
+        val tcpOutput = vpnTcpRoundTrip(fixture.androidHost, fixture.tcpEchoPort, httpEchoPayloadText("vpn-unix"))
+        assertTrue("Expected VPN TCP round-trip, got: $tcpOutput", tcpOutput.contains("GET /vpn-unix HTTP/1.1"))
+        val udpPayload = "vpn-unix-${UUID.randomUUID()}"
+        val udp = testProcessUdpRoundTrip(fixture.androidHost, fixture.udpEchoPort, udpPayload)
+        assertTrue("UDP exchange failed: ${udp.failureKind}", udp.ok)
+        assertEquals(udpPayload, udp.response)
+        awaitUntil {
+            val snapshot = serviceStateStore.telemetry.value
+            snapshot.mode == Mode.VPN &&
+                snapshot.status == AppStatus.Running &&
+                snapshot.tunnelStats.txPackets > 0 &&
+                snapshot.tunnelStats.rxPackets > 0 &&
+                snapshot.proxyTelemetry.totalSessions > 0
+        }
+
+        val listenerCount = ownLoopbackListeners().size
+        assertEquals("VPN mode left $listenerCount loopback listeners open", 0, listenerCount)
+        val privateSocket = Regex("^px-[0-9a-f]{32}$")
+        val socketCount =
+            appContext.filesDir
+                .list()
+                .orEmpty()
+                .count { privateSocket.matches(it) }
+        assertEquals("Expected one private proxy socket file while the session runs", 1, socketCount)
+
+        stopService(RipDpiVpnService::class.java)
+        awaitServiceStatus(serviceStateStore, AppStatus.Halted, Mode.VPN, fixtureClient)
+        awaitUntil {
+            appContext.filesDir
+                .list()
+                .orEmpty()
+                .none { privateSocket.matches(it) }
         }
     }
 
@@ -1709,27 +1718,6 @@ class NetworkPathE2ETest {
             }.filterTo(mutableSetOf()) { candidate ->
                 runCatching { Socket().use { it.connect(candidate, 2_000) } }.isSuccess
             }
-
-    private fun loopbackReply(
-        listener: InetSocketAddress,
-        request: ByteArray,
-    ): ByteArray =
-        Socket().use { socket ->
-            socket.connect(listener, 2_000)
-            socket.soTimeout = 2_000
-            val reply = ByteArray(16)
-            var length = 0
-            try {
-                socket.getOutputStream().write(request)
-                while (length < reply.size) {
-                    val read = socket.getInputStream().read(reply, length, reply.size - length)
-                    if (read < 0) break
-                    length += read
-                }
-            } catch (_: IOException) {
-            }
-            reply.copyOf(length)
-        }
 
     private fun assumeEmulatorLocalVpnFixture() {
         assumeTrue(

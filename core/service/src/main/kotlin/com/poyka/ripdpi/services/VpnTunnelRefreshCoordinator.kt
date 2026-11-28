@@ -32,7 +32,7 @@ internal class VpnTunnelRefreshCoordinator(
             val refreshSession = checkNotNull(activeSession)
             val latestRefreshPlan = planRefreshOrFail(refreshSession) ?: return@withLock
             val latestConnectionPolicy = checkNotNull(latestRefreshPlan.connectionPolicy)
-            if (latestRefreshPlan.requiresRuntimeRecompose || unixListenerLacksDnsPath(latestConnectionPolicy)) {
+            if (latestRefreshPlan.requiresRuntimeRecompose) {
                 try {
                     val policy =
                         latestRefreshPlan.packetBackend?.prepare?.invoke(latestConnectionPolicy)
@@ -88,14 +88,6 @@ internal class VpnTunnelRefreshCoordinator(
             }
         }
     }
-
-    private fun unixListenerLacksDnsPath(policy: ConnectionPolicyResolution): Boolean =
-        state.currentLocalProxyEndpoint()?.unixPath != null &&
-            vpnTunnelNeedsTcpProxyListener(
-                policy.activeDns,
-                dependencies.vpnTunnelRuntime.consumedForceTunnelDns,
-                policy.splitStrictDnsPolicy,
-            )
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun planRefreshOrFail(session: VpnRuntimeSession): ResolverRefreshPlan? =

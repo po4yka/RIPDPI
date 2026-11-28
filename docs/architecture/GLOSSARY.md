@@ -141,8 +141,7 @@ modes themselves. See [`ARCHITECTURE.md`](ARCHITECTURE.md) §2.
 
 **SOCKS endpoint** — The local SOCKS5 proxy listener. In proxy mode it is a
 configured localhost port and apps connect to it directly. In VPN mode it is a
-private owner-only Unix socket (a loopback port only when encrypted DNS is
-proxied), and the TUN-to-SOCKS bridge forwards device traffic into it. SOCKS protocol primitives live in
+private owner-only Unix socket, and the TUN-to-SOCKS bridge forwards device traffic into it. SOCKS protocol primitives live in
 `native/rust/crates/ripdpi-socks5-core`.
 
 **strategy** — A single packet-mutation technique. For TCP this is a chain-step

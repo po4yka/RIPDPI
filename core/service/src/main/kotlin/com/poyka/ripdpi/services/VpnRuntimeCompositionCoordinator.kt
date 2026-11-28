@@ -182,16 +182,12 @@ internal class VpnRuntimeCompositionCoordinator(
         }
         return appliedNativeProxy
             ?.takeIf { it.start.endpoint == currentLocalProxyEndpoint && it.matches(resolution) }
-            ?.takeIf { it.start.endpoint.unixPath == null || !resolution.needsTcpProxyListener() }
             ?.start
     }
 
     private fun ConnectionPolicyResolution.forceTunnelDns(): Boolean =
         proxyPreferences.awgConfigOrNull()?.dnsServers?.isEmpty()
             ?: (forceTunnelDnsForRelay(settings) && proxyPreferences.relayConfigOrNull() != null)
-
-    private fun ConnectionPolicyResolution.needsTcpProxyListener(): Boolean =
-        vpnTunnelNeedsTcpProxyListener(activeDns, forceTunnelDns(), splitStrictDnsPolicy)
 
     private suspend fun rebuildNativeTunnel(
         resolution: ConnectionPolicyResolution,
@@ -288,7 +284,7 @@ internal class VpnRuntimeCompositionCoordinator(
             vpnTunnelRuntime.proxySocketDirectory?.let { directory ->
                 withContext(ioDispatcher) {
                     sweepStaleProxySockets(directory)
-                    if (resolution.needsTcpProxyListener()) null else newProxySocketPath(directory)
+                    newProxySocketPath(directory)
                 }
             }
         val configuredAwg = resolution.proxyPreferences.awgConfigOrNull()

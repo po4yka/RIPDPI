@@ -145,11 +145,9 @@ RipDpiVpnService  → ConnectionPolicyResolver.resolve()
   1. RipDpiProxy.startProxy()    — same jniCreate/jniStart path as §1
        VPN applies runtime-only sessionOverrides: listenUnixPath
        (<filesDir>/px-<32 hex>, owner-only Unix socket, no TCP bind) + a fresh
-       authToken (mandatory local auth). When the DNS plan routes encrypted DNS
-       through the proxy, it uses listenPortOverride=0 (ephemeral loopback
-       bind) instead.
+       authToken (mandatory local auth).
   2. ProxyRuntimeSupervisor.start() waits for readiness, polls telemetry,
-       resolves the listenerAddress (`unix`, or the ephemeral loopback address)
+       resolves the listenerAddress (`unix`)
        (fails closed if none)
   3. VpnTunnelRuntime.start()              — core/service/.../services/VpnTunnelRuntime.kt
        → buildVpnTun2SocksConfig()          — core/service/.../services/VpnTun2SocksConfig.kt
@@ -160,9 +158,11 @@ RipDpiVpnService  → ConnectionPolicyResolver.resolve()
 ```
 
 `ripdpi-tunnel-core` reads IP packets from the TUN fd and opens SOCKS5 sessions
-to the Unix socket path (or, when encrypted DNS is proxied, to
-`127.0.0.1:<ephemeral port>`) with RFC 1929 auth with the session token into the
+to the Unix socket path with RFC 1929 auth with the session token into the
 proxy runtime, which applies the desync pipeline before traffic egresses.
+Encrypted DNS through the proxy uses the same Unix upstream: DoH and ODoH over
+HTTP/1.1, DoT, and DNSCrypt run over a SOCKS5 CONNECT on the Unix stream with
+the session credentials. DoQ through a SOCKS route is refused.
 
 **`libripdpi-tunnel.so` depends on `libripdpi.so` already being active** — the
 tunnel forwards into the proxy's SOCKS endpoint. Stop chain:
@@ -307,8 +307,8 @@ mode-specific orchestration through concrete subclasses and composed collaborato
 | Transition | What happens |
 |------------|--------------|
 | **Start (proxy)** | `onStartCommand` → `startForeground` (≤5 s) → `ConnectionPolicyResolver.resolve()` → `RipDpiProxy.startProxy()` → blocking `jniStart` |
-| **Start (VPN)** | `startForeground` → resolve policy → start proxy (private Unix socket or ephemeral port, plus a fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `VpnTunnelRuntime.start()` (starts the TUN bridge) |
-| **Network handover** | `NetworkHandoverMonitor` → **full proxy+tunnel restart under the service mutex**; auth token and the socket path or ephemeral port rotate. A DNS-only rebuild reuses the existing endpoint (proxy not restarted). |
+| **Start (VPN)** | `startForeground` → resolve policy → start proxy (private Unix socket, plus a fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `VpnTunnelRuntime.start()` (starts the TUN bridge) |
+| **Network handover** | `NetworkHandoverMonitor` → **full proxy+tunnel restart under the service mutex**; auth token and the socket path rotates. A DNS-only rebuild reuses the existing endpoint (proxy not restarted). |
 | **Raw-path diagnostics** | VPN service is **stopped** before probing, then reconstructed afterward; protect mechanisms unregister/re-register across the boundary |
 | **Revoke (VPN)** | `onRevoke()` sets `revoked = true` and runs the shell-delegate revoke path; `onDestroy` tears the session down |
 | **Stop / destroy** | `onDestroy` → coordinator/session teardown → `RootHelperManager.stop()` → native `jniStop`/`jniDestroy` |
@@ -333,7 +333,7 @@ mode-specific orchestration through concrete subclasses and composed collaborato
   protection loops into the TUN with exponential traffic growth. Raw-path scans
   are exempt only because they connect with no TUN present.
 - **Handover restart rotates the local listener contract.** The Unix socket path
-  (or ephemeral proxy port) and auth token change on a full restart; any component caching the old
+  and auth token change on a full restart; any component caching the old
   endpoint must re-read it. DNS-only rebuilds intentionally keep the endpoint.
 - **Relay failure must not kill the base path.** Relay composes into proxy/VPN;
   a relay transport fault should surface as a relay error, not tear down the

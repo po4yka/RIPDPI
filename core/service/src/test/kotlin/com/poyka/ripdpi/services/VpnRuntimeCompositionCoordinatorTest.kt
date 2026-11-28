@@ -192,22 +192,23 @@ class VpnRuntimeCompositionCoordinatorTest {
         }
 
     @Test
-    fun `native start with proxied encrypted dns keeps the tcp listener`() =
+    fun `native start with proxied encrypted dns uses the unix socket`() =
         runTest {
-            val fixture = compositionFixture(this, "127.0.0.1:18082")
+            val fixture = compositionFixture(this, "unix")
             val session = VpnRuntimeSession("runtime-test")
             val dns = canonicalDefaultEncryptedDnsSettings().copy(routeThroughProxy = true)
 
             fixture.coordinator.start(session, sampleResolution(mode = Mode.VPN, activeDns = dns))
 
-            val overrides = fixture.sessionOverrides()
-            assertFalse(overrides.containsKey("listenUnixPath"))
-            assertEquals("0", overrides.getValue("listenPortOverride").jsonPrimitive.content)
+            val path =
+                fixture
+                    .sessionOverrides()
+                    .getValue("listenUnixPath")
+                    .jsonPrimitive.content
             val config = fixture.bridge.startedConfigs.single()
-            assertEquals("127.0.0.1", config.socks5Address)
-            assertEquals(18082, config.socks5Port)
-            assertNull(config.socks5UnixPath)
-            assertNull(session.tunnelSocksRoute?.unixPath)
+            assertEquals(path, config.socks5UnixPath)
+            assertNull(config.socks5Address)
+            assertEquals(path, session.tunnelSocksRoute?.unixPath)
             fixture.coordinator.stop(skipRuntimeShutdown = false)
         }
 
@@ -320,23 +321,7 @@ class VpnRuntimeCompositionCoordinatorTest {
         }
 
     @Test
-    fun `a session that needs the tcp listener never generates a path`() =
-        runTest {
-            val longDirectory = File(root, "d".repeat(90)).apply { mkdirs() }
-            val fixture = compositionFixture(this, "127.0.0.1:18082", socketDirectory = longDirectory)
-            val dns = canonicalDefaultEncryptedDnsSettings().copy(routeThroughProxy = true)
-
-            fixture.coordinator.start(
-                VpnRuntimeSession("runtime-test"),
-                sampleResolution(mode = Mode.VPN, activeDns = dns),
-            )
-
-            assertFalse(fixture.sessionOverrides().containsKey("listenUnixPath"))
-            fixture.coordinator.stop(skipRuntimeShutdown = false)
-        }
-
-    @Test
-    fun `handover reuses the unix proxy while the dns plan still fits it`() =
+    fun `handover reuses the unix proxy`() =
         runTest {
             val fixture = compositionFixture(this, "unix")
             val session = VpnRuntimeSession("runtime-test")
@@ -349,26 +334,17 @@ class VpnRuntimeCompositionCoordinatorTest {
         }
 
     @Test
-    fun `handover replaces the unix proxy with a tcp listener when the dns plan needs one`() =
+    fun `handover reuses the unix proxy when encrypted dns rides the proxy`() =
         runTest {
-            val fixture = compositionFixture(this, "unix", "127.0.0.1:18082")
+            val fixture = compositionFixture(this, "unix")
             val session = VpnRuntimeSession("runtime-test")
-            fixture.coordinator.start(session, sampleResolution(mode = Mode.VPN))
             val dns = canonicalDefaultEncryptedDnsSettings().copy(routeThroughProxy = true)
-            fixture.sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = fixture.events)
+            val resolution = sampleResolution(mode = Mode.VPN, activeDns = dns)
+            fixture.coordinator.start(session, resolution)
 
-            val resolution = sampleResolution(mode = Mode.VPN, activeDns = dns).sameRoute()
+            fixture.coordinator.restartAfterHandover(session, resolution.sameRoute(), 1L)
 
-            fixture.coordinator.restartAfterHandover(session, resolution, 1L)
-
-            assertEquals(2, fixture.proxies.runtimes.size)
-            assertFalse(fixture.sessionOverrides().containsKey("listenUnixPath"))
-            assertEquals(
-                18082,
-                fixture.bridge.startedConfigs
-                    .last()
-                    .socks5Port,
-            )
+            assertEquals(1, fixture.proxies.runtimes.size)
             fixture.coordinator.stop(skipRuntimeShutdown = false)
         }
 

@@ -39,12 +39,3 @@ internal fun vpnTunnelDnsPlan(
         splitStrictPolicy = splitStrictPolicy,
     )
 }
-
-internal fun vpnTunnelNeedsTcpProxyListener(
-    activeDns: ActiveDnsSettings,
-    forceTunnelDns: Boolean,
-    splitStrictPolicy: ValidatedSplitStrictDnsPolicy?,
-): Boolean =
-    vpnTunnelDnsPlan(activeDns, forceTunnelDns, splitStrictPolicy).let { plan ->
-        plan.mapDnsEnabled && (plan.routeDnsThroughSocks5 || plan.splitStrictPolicy != null)
-    }
