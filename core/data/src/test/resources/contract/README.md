@@ -19,6 +19,7 @@ These files are **vendored byte-identical** from the server repo
 | `client-field-report.schema.json` | `ripdpi-vpn-deploy/contract/client-field-report.schema.json` |
 | `client-field-report.golden.json` | `ripdpi-vpn-deploy/contract/client-field-report.golden.json` |
 | `negative/README.md`, `negative/report-*.json` | `ripdpi-vpn-deploy/contract/negative/` |
+| `node-address-check.schema.json`, `node-address-check.golden.json` | `ripdpi-vpn-deploy/contract/` |
 
 Other files in this directory are contract schemas, examples, and fixtures that
 tests read. They are listed here by purpose:
