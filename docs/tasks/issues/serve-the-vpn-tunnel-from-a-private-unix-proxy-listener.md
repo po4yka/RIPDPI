@@ -2,7 +2,7 @@
 id: VPN-1795773987131888
 title: Serve the VPN tunnel from a private Unix proxy listener
 kind: feature
-status: review
+status: done
 area: vpn
 priority: medium
 owner: unassigned
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: vpn-1795773987131888-serve-the-vpn-tunnel-from-a-private-unix-proxy-listener
 created: 2026-11-27
 updated: 2026-11-28
+closed_at: "2026-11-28T18:04:05Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI run 46167726044 passed on main at 4437b3b978; emulator API 35 NetworkPathE2ETest 12 tests with 0 failures and zero loopback listeners in VPN mode; LocalSocksUnixRouteInstrumentedTest 7 of 7 on API 27 and API 35.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "vpn-1795773987131888-serve-the-vpn-tunnel-from-a-private-unix-proxy-listener",
+  "evidence_summary": "CI run 46167726044 passed on main at 4437b3b978; emulator API 35 NetworkPathE2ETest 12 tests with 0 failures and zero loopback listeners in VPN mode; LocalSocksUnixRouteInstrumentedTest 7 of 7 on API 27 and API 35.",
+  "execution_sha256": "62ccfccb21c8f6e82ca1a1c1aae92297c0181756e0aeef24271b208702f3d611",
+  "issue_sha256": "71125732b4ee9da55578c00ce62e565d948089f623d4282ea7f15155358c6985",
+  "outcome": "done",
+  "prepared_at": "2026-11-28T18:04:05Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "VPN-1795773987131888"
+}
