@@ -9,26 +9,57 @@ This document describes the current native size policy and attribution workflow.
 - always upload human-readable reports for both lanes so growth is attributable, not just pass/fail
 - defer protocol feature-gating unless the packaged `.so` trend becomes a real release constraint
 
-The user approved the per-library growth limit on 2026-11-16. The total limits
-remain as approved on 2026-11-06. All eight measured library sizes from the
-approved 2026-09-29 baseline remain unchanged.
+The user approved all three limits on 2026-11-28 for the private Unix proxy
+listener change. All eight measured library sizes from the approved 2026-09-29
+baseline remain unchanged.
 
 | Limit | Previous | Current |
 | --- | ---: | ---: |
-| Growth of each tracked library and ABI | 737,280 bytes (720 KiB) | 819,200 bytes (800 KiB) |
-| Total absolute growth | 3,670,016 bytes (3.5 MiB) | 3,670,016 bytes (3.5 MiB) |
-| Total percentage growth | 4.7% | 4.7% |
+| Growth of each tracked library and ABI | 950,272 bytes (928 KiB) | 1,163,264 bytes (1136 KiB) |
+| Total absolute growth | 3,670,016 bytes (3.5 MiB) | 4,456,448 bytes (4.25 MiB) |
+| Total percentage growth | 4.7% | 5.5% |
 
 The total limit is the smaller of the percentage limit, rounded up to the next
 byte, and the absolute limit. The recorded baseline total is 76,636,228 bytes.
-The 4.7% limit permits 80,238,131 bytes; the absolute limit permits 80,306,244
+The 5.5% limit permits 80,851,221 bytes; the absolute limit permits 81,092,676
 bytes. Thus, the percentage limit controls total growth. Each tracked library
-also has its own 819,200-byte growth limit.
+also has its own 1,163,264-byte growth limit.
 
 This approved policy change retains the recorded measurements, size checks,
 and bloat limits.
 
 ### Approval evidence
+
+#### Current approval: 2026-11-28
+
+The user explicitly approved the three limits above for the private Unix proxy
+listener change (task `VPN-1795773987131888`).
+[CI run 46141670774](https://github.com/po4yka/RIPDPI/actions/runs/46141670774)
+used source commit `c969d3ad94baf4527d27931a7713abaaac4ac68f`. Its report records
+80,834,492 bytes, or 4,198,264 bytes above the retained September baseline.
+The previous policy fails for `libripdpi.so` on x86 and for the total.
+
+| ABI | Library | Recorded baseline | Measured size |
+| --- | --- | ---: | ---: |
+| arm64-v8a | `libripdpi.so` | 11,518,392 | 12,098,736 |
+| arm64-v8a | `libripdpi-tunnel.so` | 8,834,528 | 8,819,592 |
+| armeabi-v7a | `libripdpi.so` | 8,056,932 | 8,980,476 |
+| armeabi-v7a | `libripdpi-tunnel.so` | 6,015,696 | 6,422,708 |
+| x86 | `libripdpi.so` | 11,225,552 | 12,367,320 |
+| x86 | `libripdpi-tunnel.so` | 8,181,064 | 8,606,428 |
+| x86_64 | `libripdpi.so` | 12,953,352 | 13,650,504 |
+| x86_64 | `libripdpi-tunnel.so` | 9,850,712 | 9,888,728 |
+
+The change itself adds 1,237,788 bytes in total against the last report before
+it (CI source commit `d9aa00b99f`, 79,596,704 bytes): 129,156 to 191,680 bytes
+for each `libripdpi.so` and 105,400 to 160,048 bytes for each
+`libripdpi-tunnel.so`. Before the change, `libripdpi.so` on x86 was 184 bytes
+below its limit. The individual limit rounds the largest measured growth,
+1,141,768 bytes, up to a 16 KiB boundary and adds one 16 KiB step. The total
+limits round growth up to 0.1 percentage point and 0.25 MiB boundaries. The
+approved policy leaves 21,496 bytes for the largest individual growth and
+16,729 bytes in total. The reserve is small; a later change can still fail
+this gate.
 
 #### Previous approval: 2026-10-09
 
@@ -228,7 +259,7 @@ and passes under the approved policy against the same extracted files.
 | `native-shard-x86` | `14036320515` | `afdf22bda38e5f24b788c52b893bc643d479339c795f4e7634037f180882bfa1` |
 | `native-shard-x86_64` | `14035183794` | `4f3379d5f901c5f49fceecf3176fc04f982144746b2fb5fe4109a35df62d9e98` |
 
-#### Current approval: 2026-11-16
+#### Previous approval: 2026-11-16
 
 The user explicitly approved an 819,200-byte (800 KiB) per-library growth
 limit. All eight recorded measurements, both total limits, and bloat limits
