@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: node-address-check-producer
 created: 2026-11-28
 updated: 2026-11-28
-status_detail: "Not started. The deploy gate (po4yka/ripdpi-vpn-deploy#OPS-1795704918170150, merged in ripdpi-vpn-deploy PR 777) refuses every RIPDPI bundle path until a signed attestation exists, and the deploy contract-sync job fails until this repository vendors the two contract files."
+status_detail: "The contract is vendored and pinned (step 1 done; deploy contract-sync passes). The producer is not started: the deploy gate (po4yka/ripdpi-vpn-deploy#OPS-1795704918170150) refuses every RIPDPI bundle path until a signed attestation exists."
 ---
 
 ## Goal
