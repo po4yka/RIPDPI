@@ -6,6 +6,7 @@ import com.poyka.ripdpi.activities.FakeAppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.activities.FakeStringResolver
 import com.poyka.ripdpi.activities.runningOn
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -25,6 +26,7 @@ import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.OwnedTlsFingerprintSelection
 import com.poyka.ripdpi.services.RelayChainVolumeStop
+import com.poyka.ripdpi.services.RelayProbeEndpoint
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeHandle
@@ -197,6 +199,23 @@ class OnboardingModeValidationRunnerTest {
         }
 
     @Test
+    fun `an out of range proxy port is rejected instead of probing the default port`() =
+        runTest {
+            val store = FakeServiceStateStore()
+
+            val failure =
+                runCatching {
+                    validationRunner(
+                        serviceStateStore = store,
+                        serviceController = RunningServiceController(store),
+                        settings = FakeAppSettingsRepository().apply { update { setProxyPort(OutOfRangePort) } },
+                    ).validate(Mode.Proxy) { }
+                }.exceptionOrNull()
+
+            assertTrue(failure is IllegalArgumentException)
+        }
+
+    @Test
     fun `noDomain probe never asks the listener to resolve a name`() =
         runTest {
             FakeSocksListener().use { socks ->
@@ -355,16 +374,11 @@ class OnboardingModeValidationRunnerTest {
         bytes: Int,
     ) = PayloadProbeControl("https://$host/payload.bin", bytes, "a".repeat(Sha256HexLength))
 
-    private suspend fun volumeFixture(
+    private suspend fun volumeSources(
         probes: List<PayloadProbeControl>?,
-        transfer: OnboardingVolumeTransfer,
-        socks: FakeSocksListener,
-        settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
         selection: RuntimeConfigurationSelection =
             RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "m"),
-        chainLocator: OnboardingChainStallLocator =
-            OnboardingChainStallLocator { _, _, _ -> error("chain locator not expected") },
-    ): OnboardingValidationResult {
+    ): Pair<FakeProxyGroupRepository, FakeAppliedRuntimeConfigurationSource> {
         val groups = FakeProxyGroupRepository()
         val failover =
             probes?.let {
@@ -389,6 +403,20 @@ class OnboardingModeValidationRunnerTest {
         groups.add(ProxyGroup("g", "g", ProxyGroupType.SUBSCRIPTION, 0, true, failover = failover))
         val applied = FakeAppliedRuntimeConfigurationSource()
         applied.applications.value = runningOn(selection)
+        return groups to applied
+    }
+
+    private suspend fun volumeFixture(
+        probes: List<PayloadProbeControl>?,
+        transfer: OnboardingVolumeTransfer,
+        socks: FakeSocksListener,
+        settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        selection: RuntimeConfigurationSelection =
+            RuntimeConfigurationSelection("relay", selectorGroupId = "g", selectorMemberId = "m"),
+        chainLocator: OnboardingChainStallLocator =
+            OnboardingChainStallLocator { _, _, _ -> error("chain locator not expected") },
+    ): OnboardingValidationResult {
+        val (groups, applied) = volumeSources(probes, selection)
         val store = FakeServiceStateStore()
         return validationRunner(
             serviceStateStore = store,
@@ -481,6 +509,28 @@ class OnboardingModeValidationRunnerTest {
                 assertEquals(true, (result as OnboardingValidationResult.Success).volumeTested)
                 assertEquals(listOf(large.url), contacted)
             }
+        }
+
+    @Test
+    fun `volume check hands a unix route to the transfer as a unix endpoint`() =
+        runTest {
+            val (groups, applied) =
+                volumeSources(
+                    listOf(policyControl("a.example", MinControlBytes), policyControl("b.example", LargeControlBytes)),
+                )
+            var endpoint: RelayProbeEndpoint? = null
+            val route =
+                LocalSocksRoute("", 0, LocalSocksCredentials("user", "pass"), unixPath = "/data/px-0123")
+
+            val outcome =
+                OnboardingVolumeCheck(groups, applied) { probeEndpoint, control, _ ->
+                    endpoint = probeEndpoint
+                    CandidateHttpPayloadEvidence(true, 1L, receivedBytes = control.expectedBytes.toLong())
+                }.run(Mode.VPN, route)
+
+            assertEquals(OnboardingVolumeOutcome.Verified, outcome)
+            assertEquals("/data/px-0123", endpoint?.unixPath)
+            assertEquals("pass", endpoint?.credentials?.password)
         }
 
     @Test
@@ -779,3 +829,5 @@ class OnboardingModeValidationRunnerTest {
         }
     }
 }
+
+private const val OutOfRangePort = 70_000

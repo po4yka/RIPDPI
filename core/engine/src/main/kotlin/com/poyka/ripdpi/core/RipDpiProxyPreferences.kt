@@ -10,6 +10,8 @@ sealed interface RipDpiProxyPreferences {
     fun toNativeConfigJson(): String
 
     val localAuthToken: String? get() = null
+
+    val localListenUnixPath: String? get() = null
 }
 
 data class OwnedRelayQuicMigrationConfig(
@@ -310,30 +312,26 @@ fun RipDpiProxyPreferences.withoutAwgDnsServers(): RipDpiProxyPreferences =
     }
 
 fun RipDpiProxyPreferences.withLocalProxySessionOverrides(
-    listenPortOverride: Int? = null,
-    authToken: String? = null,
+    overrides: LocalProxySessionOverrides,
 ): RipDpiProxyPreferences =
     when (this) {
         is RipDpiProxyUIPreferences -> {
             RipDpiProxyUiSessionPreferences(
                 preferences = this,
-                localListenPortOverride = listenPortOverride,
-                localAuthToken = authToken,
+                localProxyOverrides = overrides,
             )
         }
 
         is RipDpiProxyUiSessionPreferences -> {
             copy(
-                localListenPortOverride = listenPortOverride ?: localListenPortOverride,
-                localAuthToken = authToken ?: localAuthToken,
+                localProxyOverrides = overrides.overlaid(localProxyOverrides),
             )
         }
 
         is RipDpiProxyJsonPreferences -> {
             RipDpiProxyJsonPreferences(
                 configJson = toNativeConfigJson(),
-                localListenPortOverride = listenPortOverride,
-                localAuthToken = authToken,
+                localProxyOverrides = overrides,
                 awg = awg,
             )
         }
@@ -341,8 +339,7 @@ fun RipDpiProxyPreferences.withLocalProxySessionOverrides(
         is RipDpiProxyCmdPreferences -> {
             RipDpiProxyJsonPreferences(
                 configJson = toNativeConfigJson(),
-                localListenPortOverride = listenPortOverride,
-                localAuthToken = authToken,
+                localProxyOverrides = overrides,
             )
         }
     }
@@ -381,9 +378,12 @@ internal const val AmneziaWgAllTrafficRouteHosts = "__ripdpi_awg_all_traffic__"
 
 private data class RipDpiProxyUiSessionPreferences(
     val preferences: RipDpiProxyUIPreferences,
-    val localListenPortOverride: Int? = null,
-    override val localAuthToken: String? = null,
+    val localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
 ) : RipDpiProxyPreferences {
+    override val localAuthToken: String? get() = localProxyOverrides.authToken
+
+    override val localListenUnixPath: String? get() = localProxyOverrides.listenUnixPath
+
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.encodeUiPreferences(
             NativeProxyCreateRequest(
@@ -392,8 +392,7 @@ private data class RipDpiProxyUiSessionPreferences(
                 packetBackendSocketPath = preferences.packetBackendSocketPath,
                 geoipDbPath = preferences.geoipDbPath,
                 geositeDbPath = preferences.geositeDbPath,
-                localListenPortOverride = localListenPortOverride,
-                localAuthToken = localAuthToken,
+                localProxyOverrides = localProxyOverrides,
                 environmentKind = preferences.environmentKind,
             ),
         )
@@ -409,12 +408,15 @@ class RipDpiProxyJsonPreferences(
     private val packetBackendSocketPath: String? = null,
     private val geoipDbPath: String? = null,
     private val geositeDbPath: String? = null,
-    private val localListenPortOverride: Int? = null,
-    override val localAuthToken: String? = null,
+    private val localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
     private val environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
     private val relayRuntimeSelection: RipDpiRelayConfig? = null,
     internal val awg: AwgActivationRequest? = null,
 ) : RipDpiProxyPreferences {
+    override val localAuthToken: String? get() = localProxyOverrides.authToken
+
+    override val localListenUnixPath: String? get() = localProxyOverrides.listenUnixPath
+
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
             configJson = configJson,
@@ -426,8 +428,7 @@ class RipDpiProxyJsonPreferences(
             packetBackendSocketPath = packetBackendSocketPath,
             geoipDbPath = geoipDbPath,
             geositeDbPath = geositeDbPath,
-            localListenPortOverride = localListenPortOverride,
-            localAuthToken = localAuthToken,
+            localProxyOverrides = localProxyOverrides,
             environmentKind = environmentKind,
             relayRuntimeSelection = relayRuntimeSelection,
         )
@@ -446,8 +447,7 @@ class RipDpiProxyJsonPreferences(
             packetBackendSocketPath = packetBackendSocketPath,
             geoipDbPath = geoipDbPath,
             geositeDbPath = geositeDbPath,
-            localListenPortOverride = localListenPortOverride,
-            localAuthToken = localAuthToken,
+            localProxyOverrides = localProxyOverrides,
             environmentKind = environmentKind,
             relayRuntimeSelection = relay,
             awg = awg,
@@ -465,8 +465,7 @@ class RipDpiProxyJsonPreferences(
             packetBackendSocketPath = packetBackendSocketPath,
             geoipDbPath = geoipDbPath,
             geositeDbPath = geositeDbPath,
-            localListenPortOverride = localListenPortOverride,
-            localAuthToken = localAuthToken,
+            localProxyOverrides = localProxyOverrides,
             environmentKind = environmentKind,
             relayRuntimeSelection = relayRuntimeSelection,
             awg = awg,
@@ -485,11 +484,8 @@ class RipDpiProxyJsonPreferences(
         val decoded = decodeRipDpiProxyUiPreferences(toNativeConfigJson()) ?: return this
         val routed = project(decoded)
         val withSessionOverrides =
-            if (localListenPortOverride != null || localAuthToken != null) {
-                routed.withLocalProxySessionOverrides(
-                    listenPortOverride = localListenPortOverride,
-                    authToken = localAuthToken,
-                )
+            if (localProxyOverrides != LocalProxySessionOverrides()) {
+                routed.withLocalProxySessionOverrides(localProxyOverrides)
             } else {
                 routed
             }

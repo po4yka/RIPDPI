@@ -362,8 +362,8 @@ class RipDpiProxyJsonCodecCharacterizationTest {
                 .parseToJsonElement(
                     RipDpiProxyJsonCodec.encodeUiPreferences(
                         preferences = RipDpiProxyUIPreferences(),
-                        localListenPortOverride = 0,
-                        localAuthToken = "fixture-placeholder-value",
+                        localProxyOverrides =
+                            LocalProxySessionOverrides(listenPortOverride = 0, authToken = "fixture-placeholder-value"),
                     ),
                 ).jsonObject
 
@@ -372,6 +372,30 @@ class RipDpiProxyJsonCodecCharacterizationTest {
         // Shape-only: both keys exist; value identity is non-deterministic.
         assertTrue(sessionOverrides!!.jsonObject.containsKey("listenPortOverride"))
         assertTrue(sessionOverrides.jsonObject.containsKey("authToken"))
+    }
+
+    @Test
+    fun `session overrides carry a unix listen path only when one is set`() {
+        fun overrides(
+            port: Int?,
+            unixPath: String?,
+        ) = Json
+            .parseToJsonElement(
+                RipDpiProxyJsonCodec.encodeUiPreferences(
+                    preferences = RipDpiProxyUIPreferences(),
+                    localProxyOverrides =
+                        LocalProxySessionOverrides(port, unixPath, "fixture-placeholder-value"),
+                ),
+            ).jsonObject
+            .getValue("sessionOverrides")
+            .jsonObject
+
+        val unix = overrides(port = null, unixPath = "/data/px-0123")
+        val tcp = overrides(port = 0, unixPath = null)
+
+        assertEquals("/data/px-0123", unix["listenUnixPath"]?.jsonPrimitive?.content)
+        assertNull(unix["listenPortOverride"]?.jsonPrimitive?.contentOrNull)
+        assertEquals(setOf("listenPortOverride", "authToken"), tcp.keys)
     }
 
     @Test

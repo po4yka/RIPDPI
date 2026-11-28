@@ -51,7 +51,7 @@ class VpnTunnelRefreshCoordinatorTest {
             val staleSession = VpnRuntimeSession(runtimeId = "stale")
             runtime.publishInPathLease(staleSession, localProxyEndpoint)
             var activeSession: VpnRuntimeSession = staleSession
-            val state = TestRefreshState { activeSession }
+            val state = TestRefreshState(localProxyEndpoint) { activeSession }
             val failures = mutableListOf<String>()
             val updates = mutableListOf<String>()
             val resolver =
@@ -260,10 +260,46 @@ class VpnTunnelRefreshCoordinatorTest {
             }
         }
 
+    @Test
+    fun dnsRefreshThatNeedsProxiedEncryptedDnsRecomposesTheRuntimeOnAUnixProxy() =
+        runTest {
+            with(routingRefreshFixture(endpoint = unixEndpoint)) {
+                resolver.enqueue(proxiedEncryptedDnsResolution(runtime, initialSettings))
+
+                coordinator.refreshIfNeeded(session, forceTunnelRebuild = true)
+
+                assertEquals(listOf("recompose"), updates)
+                assertEquals(1, events.count { it == "vpn:establish" })
+                runtime.stop()
+            }
+        }
+
+    @Test
+    fun dnsRefreshThatNeedsProxiedEncryptedDnsRebuildsTheTunnelOnATcpProxy() =
+        runTest {
+            with(routingRefreshFixture()) {
+                resolver.enqueue(proxiedEncryptedDnsResolution(runtime, initialSettings))
+                sessionProvider.session = TestVpnTunnelSession(tunFd = 8, events = events)
+
+                coordinator.refreshIfNeeded(session, forceTunnelRebuild = true)
+
+                assertEquals(listOf("current"), updates)
+                assertEquals(2, events.count { it == "vpn:establish" })
+                runtime.stop()
+            }
+        }
+
+    private suspend fun proxiedEncryptedDnsResolution(
+        runtime: VpnTunnelRuntime,
+        settings: com.poyka.ripdpi.proto.AppSettings,
+    ): ConnectionPolicyResolution =
+        refreshResolution(runtime, settings).let { it.copy(activeDns = it.activeDns.copy(routeThroughProxy = true)) }
+
     private suspend fun kotlinx.coroutines.test.TestScope.routingRefreshFixture(
         sharedProxyPath: Boolean = false,
         beginDns: () -> Unit = {},
         onFailure: (Exception) -> Unit = { throw AssertionError("Unexpected refresh failure", it) },
+        endpoint: LocalProxyEndpoint = localProxyEndpoint,
     ): RoutingRefreshFixture {
         val initialSettings = AppSettingsSerializer.defaultValue
         val events = mutableListOf<String>()
@@ -294,16 +330,16 @@ class VpnTunnelRefreshCoordinatorTest {
             activeDns = initialSettings.activeDnsSettings(),
             overrideReason = null,
             logContext = null,
-            localProxyEndpoint = localProxyEndpoint,
+            localProxyEndpoint = endpoint,
             configurationInput = runtime.captureConfigurationInput(),
             sharedProxyPath = sharedProxyPath,
         )
         val session = VpnRuntimeSession(runtimeId = "current")
-        runtime.publishInPathLease(session, localProxyEndpoint)
+        runtime.publishInPathLease(session, endpoint)
         val originalLease = requireNotNull(session.diagnosticsInPathRouteLease)
         val leasesDuringEstablish = mutableListOf<DiagnosticsInPathRouteLease?>()
         sessionProvider.beforeEstablish = { leasesDuringEstablish += session.diagnosticsInPathRouteLease }
-        val state = TestRefreshState { session }
+        val state = TestRefreshState(endpoint) { session }
         val updates = mutableListOf<String>()
         val resolver =
             TestConnectionPolicyResolver(
@@ -314,7 +350,8 @@ class VpnTunnelRefreshCoordinatorTest {
                 ),
             )
         val overrides = TestResolverOverrideStore()
-        val coordinator = buildRefreshCoordinator(runtime, state, resolver, overrides, updates, beginDns, onFailure)
+        val coordinator =
+            buildRefreshCoordinator(runtime, state, resolver, overrides, updates, beginDns, onFailure)
 
         return RoutingRefreshFixture(
             initialSettings,
@@ -405,7 +442,9 @@ class VpnTunnelRefreshCoordinatorTest {
                     override suspend fun recomposeRuntimeForPolicyChange(
                         session: VpnRuntimeSession,
                         resolution: ConnectionPolicyResolution,
-                    ) = Unit
+                    ) {
+                        updates += "recompose"
+                    }
 
                     override fun updateRuntimeDnsState(
                         session: VpnRuntimeSession,
@@ -446,6 +485,7 @@ class VpnTunnelRefreshCoordinatorTest {
     }
 
     private class TestRefreshState(
+        private val endpoint: LocalProxyEndpoint,
         private val sessionProvider: () -> VpnRuntimeSession?,
     ) : VpnTelemetryStateAccess {
         override fun status(): ServiceStatus = ServiceStatus.Connected
@@ -454,7 +494,7 @@ class VpnTunnelRefreshCoordinatorTest {
 
         override fun runtimeSession(): VpnRuntimeSession? = sessionProvider()
 
-        override fun currentLocalProxyEndpoint(): LocalProxyEndpoint = localProxyEndpoint
+        override fun currentLocalProxyEndpoint(): LocalProxyEndpoint = endpoint
 
         override fun currentNetworkHandoverState(): String? = null
 
@@ -470,6 +510,15 @@ class VpnTunnelRefreshCoordinatorTest {
                 .setDnsMode(DnsModePlainUdp)
                 .setDnsIp("8.8.8.8")
                 .build()
+
+        val unixEndpoint =
+            LocalProxyEndpoint(
+                host = "",
+                port = 0,
+                username = VpnLocalProxyUsername,
+                password = TestLocalProxyAuth,
+                unixPath = "/data/user/0/app/files/px-0123",
+            )
 
         val localProxyEndpoint =
             LocalProxyEndpoint(

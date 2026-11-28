@@ -511,7 +511,12 @@ data class Tun2SocksConfig(
     val logContext: RipDpiLogContext? = null,
     @Required
     val schemaVersion: Int = Tun2SocksConfigSchemaVersion,
-)
+) {
+    override fun toString(): String {
+        val upstream = if (socks5UnixPath != null) "unix" else "$socks5Address:$socks5Port"
+        return "Tun2SocksConfig(upstream=$upstream, tunnelMtu=$tunnelMtu, credentials=[REDACTED])"
+    }
+}
 
 @Serializable
 data class TunForwardingEvidence(

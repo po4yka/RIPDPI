@@ -29,7 +29,6 @@ internal data class NativeProxyCreateRequest(
     val geoipDbPath: String? = null,
     val geositeDbPath: String? = null,
     val listenAuthToken: String? = null,
-    val localListenPortOverride: Int? = null,
-    val localAuthToken: String? = null,
+    val localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
     val environmentKind: EnvironmentKind = EnvironmentKind.Unknown,
 )

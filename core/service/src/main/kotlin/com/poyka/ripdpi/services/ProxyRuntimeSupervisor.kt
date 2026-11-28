@@ -109,6 +109,7 @@ internal class ProxyRuntimeSupervisor(
                         resolveLocalProxyEndpoint(
                             telemetry = readySnapshot,
                             authToken = preferences.localAuthToken,
+                            unixPath = preferences.localListenUnixPath,
                         ),
                     readySnapshot = readySnapshot,
                     effectivePreferences = preferences,

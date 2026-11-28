@@ -1,12 +1,16 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.LocalProxySessionOverrides
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.isUdpAssociateEnabled
 import com.poyka.ripdpi.core.relayConfigOrNull
+import com.poyka.ripdpi.core.withLocalProxySessionOverrides
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import java.util.UUID
@@ -42,6 +46,7 @@ internal class VpnRuntimeCompositionCoordinator(
      */
     private val providerController: XrayProviderSessionController? = null,
     private val initialRelayRacePolicy: InitialRelayRacePolicy? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private var appliedNativeProxy: AppliedNativeVpnProxy? = null
 
@@ -177,8 +182,16 @@ internal class VpnRuntimeCompositionCoordinator(
         }
         return appliedNativeProxy
             ?.takeIf { it.start.endpoint == currentLocalProxyEndpoint && it.matches(resolution) }
+            ?.takeIf { it.start.endpoint.unixPath == null || !resolution.needsTcpProxyListener() }
             ?.start
     }
+
+    private fun ConnectionPolicyResolution.forceTunnelDns(): Boolean =
+        proxyPreferences.awgConfigOrNull()?.dnsServers?.isEmpty()
+            ?: (forceTunnelDnsForRelay(settings) && proxyPreferences.relayConfigOrNull() != null)
+
+    private fun ConnectionPolicyResolution.needsTcpProxyListener(): Boolean =
+        vpnTunnelNeedsTcpProxyListener(activeDns, forceTunnelDns(), splitStrictDnsPolicy)
 
     private suspend fun rebuildNativeTunnel(
         resolution: ConnectionPolicyResolution,
@@ -192,15 +205,7 @@ internal class VpnRuntimeCompositionCoordinator(
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
             sharedProxyPath = proxyStartResult.consumedUpstreams.isNotEmpty(),
-            forceTunnelDns =
-                resolution.proxyPreferences
-                    .awgConfigOrNull()
-                    ?.dnsServers
-                    ?.isEmpty()
-                    ?: (
-                        forceTunnelDnsForRelay(resolution.settings) &&
-                            resolution.proxyPreferences.relayConfigOrNull() != null
-                    ),
+            forceTunnelDns = resolution.forceTunnelDns(),
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
             profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
@@ -259,15 +264,7 @@ internal class VpnRuntimeCompositionCoordinator(
             logContext = logContext,
             localProxyEndpoint = proxyStartResult.endpoint,
             sharedProxyPath = proxyStartResult.consumedUpstreams.isNotEmpty(),
-            forceTunnelDns =
-                resolution.proxyPreferences
-                    .awgConfigOrNull()
-                    ?.dnsServers
-                    ?.isEmpty()
-                    ?: (
-                        forceTunnelDnsForRelay(resolution.settings) &&
-                            resolution.proxyPreferences.relayConfigOrNull() != null
-                    ),
+            forceTunnelDns = resolution.forceTunnelDns(),
             splitStrictDnsPolicy = resolution.splitStrictDnsPolicy,
             profileInterface = resolution.proxyPreferences.awgConfigOrNull()?.vpnProfileInterface(),
         )
@@ -287,6 +284,13 @@ internal class VpnRuntimeCompositionCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
+        val unixPath =
+            vpnTunnelRuntime.proxySocketDirectory?.let { directory ->
+                withContext(ioDispatcher) {
+                    sweepStaleProxySockets(directory)
+                    if (resolution.needsTcpProxyListener()) null else newProxySocketPath(directory)
+                }
+            }
         val configuredAwg = resolution.proxyPreferences.awgConfigOrNull()
         val configuredRelay = resolution.proxyPreferences.relayConfigOrNull().takeIf { configuredAwg == null }
         val requirements =
@@ -311,7 +315,13 @@ internal class VpnRuntimeCompositionCoordinator(
                     resolution
                         .proxyPreferences
                         .withLogContext(logContext)
-                        .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
+                        .withLocalProxySessionOverrides(
+                            LocalProxySessionOverrides(
+                                listenPortOverride = if (unixPath == null) 0 else null,
+                                listenUnixPath = unixPath,
+                                authToken = authToken,
+                            ),
+                        ),
                 onRelayExit = exits::handleRelayExit,
                 onWarpExit = exits::handleWarpExit,
                 onAwgExit = exits::handleAwgExit,

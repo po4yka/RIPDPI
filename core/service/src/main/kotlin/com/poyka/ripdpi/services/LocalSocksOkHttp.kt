@@ -26,7 +26,6 @@ import java.net.SocketTimeoutException
 import javax.net.SocketFactory
 
 private const val SocksReplyHostUnreachable = 4
-private const val MaxUnixPathBytes = 108
 private const val MaxPort = 65_535
 
 /** An app-owned loopback SOCKS5 listener and the session credentials it requires, if any. */
@@ -43,8 +42,7 @@ data class LocalSocksRoute(
             require(host.isNotBlank() && port in 1..MaxPort) { "SOCKS route needs a host and port or a Unix path" }
         } else {
             require(host.isBlank() && port == 0) { "SOCKS route names a Unix path or a host and port, not both" }
-            require(unixPath.startsWith("/") && '\u0000' !in unixPath) { "SOCKS Unix path is invalid" }
-            require(unixPath.toByteArray(Charsets.UTF_8).size < MaxUnixPathBytes) { "SOCKS Unix path is too long" }
+            require(isProxyUnixPath(unixPath)) { "SOCKS Unix path is invalid" }
             requireNotNull(credentials) { "SOCKS Unix route needs credentials" }
         }
     }
@@ -75,12 +73,20 @@ fun LocalSocksRoute.openTunnel(
     LocalSocks5Client.connect(socket, target, credentials)
 }
 
-fun LocalSocksRoute.connectProxySocket(timeoutMillis: Int): Socket =
-    if (unixPath == null) {
-        Socket().apply { connect(InetSocketAddress(host, port), timeoutMillis) }
-    } else {
-        UnixProxySocket(unixPath).apply { connect(unixPlaceholderAddress(), timeoutMillis) }
+fun LocalSocksRoute.connectProxySocket(timeoutMillis: Int): Socket {
+    val socket = if (unixPath == null) Socket() else UnixProxySocket(unixPath)
+    var connected = false
+    try {
+        socket.connect(
+            if (unixPath == null) InetSocketAddress(host, port) else unixPlaceholderAddress(),
+            timeoutMillis,
+        )
+        connected = true
+    } finally {
+        if (!connected) socket.close()
     }
+    return socket
+}
 
 private fun unixPlaceholderAddress() = InetSocketAddress(InetAddress.getLoopbackAddress(), 0)
 
@@ -90,17 +96,17 @@ fun ProtocolException.isLocalSocksHostUnreachable(): Boolean =
 
 /** Routes OkHttp through the listener at [endpoint], presenting the session credentials its owner registered. */
 internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint): OkHttpClient.Builder =
-    localSocksProxy(
-        LocalSocksRoute(
-            endpoint.host,
-            endpoint.port,
-            endpoint.localCredentials(),
-        ),
-    )
+    localSocksProxy(endpoint.localSocksRoute())
+
+internal fun RelayProbeEndpoint.localSocksRoute(): LocalSocksRoute =
+    LocalSocksRoute(host, port, localCredentials(), unixPath = unixPath)
+
+internal fun RelayProbeEndpoint.connectProbeSocket(timeoutMillis: Int): Socket =
+    localSocksRoute().connectProxySocket(timeoutMillis)
 
 internal fun RelayProbeEndpoint.localCredentials(): LocalSocksCredentials? =
     credentials?.let { LocalSocksCredentials(it.username, it.password) }
-        ?: LocalSocksCredentialRegistry.lookup(host, port)
+        ?: if (unixPath == null) LocalSocksCredentialRegistry.lookup(host, port) else null
 
 /**
  * Routes OkHttp through [route]. `java.net` SOCKS can take credentials only from the process-wide
@@ -215,6 +221,8 @@ private class UnixSocketImpl(
     private val path: String,
 ) : SocketImpl() {
     private val socket = LocalSocket(LocalSocket.SOCKET_STREAM)
+
+    @Volatile
     private var readTimeoutMillis = 0
 
     override fun create(stream: Boolean) = Unit

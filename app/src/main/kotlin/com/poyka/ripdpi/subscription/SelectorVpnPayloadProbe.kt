@@ -78,6 +78,7 @@ internal class SelectorVpnPayloadProbe
                     lease.host,
                     lease.port,
                     lease.credentials,
+                    lease.unixPath,
                 )
             val result = http.probePayload(endpoint, policy)
             return MemberProbeResult(

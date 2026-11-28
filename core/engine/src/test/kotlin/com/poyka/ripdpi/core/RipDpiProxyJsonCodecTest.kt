@@ -210,8 +210,8 @@ class RipDpiProxyJsonCodecTest {
         val payload =
             RipDpiProxyJsonCodec.encodeUiPreferences(
                 preferences = preferences,
-                localListenPortOverride = 0,
-                localAuthToken = TestLocalProxyAuth,
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
             )
 
         val objectValue =
@@ -277,8 +277,8 @@ class RipDpiProxyJsonCodecTest {
                 hostAutolearnStorePath = null,
                 runtimeContext = null,
                 logContext = null,
-                localListenPortOverride = 0,
-                localAuthToken = TestLocalProxyAuth,
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
             )
 
         val objectValue =

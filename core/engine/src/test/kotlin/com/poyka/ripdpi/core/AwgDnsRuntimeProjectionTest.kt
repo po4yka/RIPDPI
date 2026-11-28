@@ -21,7 +21,9 @@ class AwgDnsRuntimeProjectionTest {
             listOf(
                 base,
                 RipDpiProxyJsonPreferences(base.toNativeConfigJson()),
-                base.withLocalProxySessionOverrides(18081, "test-token"),
+                base.withLocalProxySessionOverrides(
+                    LocalProxySessionOverrides(listenPortOverride = 18081, authToken = "token"),
+                ),
             )
         val projected = inputs.map { it.withAwgEgressPort(10809, resolvers) }
         resolvers.clear()
@@ -31,7 +33,7 @@ class AwgDnsRuntimeProjectionTest {
             assertEquals(AmneziaWgAllTrafficRouteHosts, decoded.warp.routeHosts)
             assertEquals(base.destinationRouting, decoded.destinationRouting)
         }
-        assertTrue(projected.last().toNativeConfigJson().contains("test-token"))
+        assertTrue(projected.last().toNativeConfigJson().contains("token"))
     }
 
     @Test

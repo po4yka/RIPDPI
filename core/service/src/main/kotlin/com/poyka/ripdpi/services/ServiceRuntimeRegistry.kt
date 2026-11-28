@@ -166,6 +166,7 @@ class VpnRuntimeSession(
                     endpoint.username?.takeIf(String::isNotEmpty),
                     endpoint.password?.takeIf(String::isNotEmpty),
                 ),
+                unixPath = endpoint.unixPath,
             )
     }
 
@@ -183,6 +184,7 @@ class VpnRuntimeSession(
                 host = endpoint.host,
                 port = endpoint.port,
                 credentials = DiagnosticsProxyCredentials(username, password),
+                unixPath = endpoint.unixPath,
             )
     }
 

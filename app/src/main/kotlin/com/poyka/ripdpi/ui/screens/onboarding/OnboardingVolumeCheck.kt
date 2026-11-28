@@ -105,6 +105,7 @@ class OnboardingVolumeCheck
                         route.host,
                         route.port,
                         route.credentials?.let { DiagnosticsProxyCredentials(it.username, it.password) },
+                        route.unixPath,
                     )
                 val outcome = transferAll(endpoint, controls, timeoutMillis)
                 val chainId = selection.profileId?.takeIf { selection.relayKind == RelayKindChainRelay }

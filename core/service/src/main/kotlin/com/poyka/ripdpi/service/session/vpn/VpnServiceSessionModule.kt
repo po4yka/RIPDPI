@@ -136,6 +136,7 @@ internal object VpnServiceSessionModule {
                     ?.activeRecoveryGeneration
             },
             geositeDbPath = resolveGeoDatabasePaths(vpnService).geositeDbPath,
+            proxySocketDirectory = vpnService.filesDir,
         )
 
     internal fun createVpnTunnelRuntime(
@@ -152,6 +153,7 @@ internal object VpnServiceSessionModule {
         routeLifecycleReceiptStore: VpnRouteLifecycleReceiptStore = VpnRouteLifecycleReceiptStore(),
         pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
         ownPackageName: String? = null,
+        proxySocketDirectory: File? = null,
     ): VpnTunnelRuntime =
         VpnTunnelRuntime(
             vpnHost = host,
@@ -169,6 +171,7 @@ internal object VpnServiceSessionModule {
                     luaScriptBaseDir = File(File(protectSocketServer.socketPath).parentFile, "lua").absolutePath,
                     packetBackendSocketPathProvider = { packetBackendRuntime.socketPath },
                     geositeDbPath = geositeDbPath,
+                    proxySocketDirectory = proxySocketDirectory,
                 ),
             flowAttributionBridge = flowAttributionBridge,
             appliedNetworkReceiptStore = appliedNetworkReceiptStore,

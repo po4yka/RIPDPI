@@ -21,7 +21,6 @@ import java.net.DatagramSocket
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ProtocolException
-import java.net.Socket
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -32,7 +31,23 @@ data class RelayProbeEndpoint(
     val host: String,
     val port: Int,
     val credentials: com.poyka.ripdpi.data.DiagnosticsProxyCredentials? = null,
-)
+    val unixPath: String? = null,
+) {
+    init {
+        if (unixPath != null) {
+            require(host.isBlank() && port == 0) { "Probe endpoint names a Unix path or a host and port, not both" }
+            require(isProxyUnixPath(unixPath)) { "Probe endpoint Unix path is invalid" }
+            requireNotNull(credentials) { "Probe endpoint Unix path needs credentials" }
+        }
+    }
+
+    override fun toString(): String =
+        if (unixPath == null) {
+            "RelayProbeEndpoint(host=$host, port=$port, credentials=$credentials)"
+        } else {
+            "RelayProbeEndpoint(unix, credentials=$credentials)"
+        }
+}
 
 data class RelayCapabilityProbeResult(
     val succeeded: Boolean,
@@ -372,9 +387,8 @@ internal class Socks5DnsUdpAssociateProbe internal constructor(
     ): RelayUdpProbeResult {
         var associationOpened = false
         return try {
-            Socket().use { control ->
+            endpoint.connectProbeSocket(timeoutMillis).use { control ->
                 control.soTimeout = timeoutMillis
-                control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
                 negotiateLocalSocksAuthentication(endpoint, input, output)

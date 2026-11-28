@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.DataInputStream
@@ -27,6 +29,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 class RelayCapabilityProbeTest {
+    @Test
+    fun `probe endpoint accepts one listener form and hides the unix path`() {
+        val unix =
+            RelayProbeEndpoint("", 0, DiagnosticsProxyCredentials("user", "pass"), unixPath = "/data/px-0123")
+
+        assertEquals("/data/px-0123", unix.localSocksRoute().unixPath)
+        assertEquals("pass", unix.localCredentials()?.password)
+        assertFalse(unix.toString().contains("px-0123"))
+        assertEquals("127.0.0.1", RelayProbeEndpoint("127.0.0.1", 1080).localSocksRoute().host)
+        assertThrows(IllegalArgumentException::class.java) {
+            RelayProbeEndpoint("127.0.0.1", 1080, unixPath = "/data/px-0123")
+        }
+        val credentials = DiagnosticsProxyCredentials("user", "pass")
+        listOf<() -> RelayProbeEndpoint>(
+            { RelayProbeEndpoint("", 0, null, unixPath = "/data/px-0123") },
+            { RelayProbeEndpoint("", 0, credentials, unixPath = "px-0123") },
+            { RelayProbeEndpoint("", 0, credentials, unixPath = "/" + "a".repeat(107)) },
+        ).forEach { assertThrows(IllegalArgumentException::class.java) { it() } }
+    }
+
     @Test
     fun `post-association IO is not reported as association-open failure`() {
         assertEquals(RelayProbeFailure.UdpAssociateOpen, classifyUdpAssociationIoFailure(false))

@@ -176,6 +176,7 @@ internal class VpnServiceRuntimeCoordinator(
             applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
             providerController = xrayProviderSessionController,
             initialRelayRacePolicy = initialRelayRacePolicy,
+            ioDispatcher = ioDispatcher,
         )
     private val telemetryState =
         VpnRuntimeTelemetryState(

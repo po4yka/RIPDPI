@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.services.fieldreport
 
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
+import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RuntimeConfigurationApplication
 import com.poyka.ripdpi.data.RuntimeConfigurationApplyReason
@@ -111,6 +113,20 @@ class FieldReportUploaderTest {
         }
         harness.now = recordedAt + hours * MillisPerHour
         return harness
+    }
+
+    @Test
+    fun `a lease becomes a tunnel route in either listener form`() {
+        val credentials = DiagnosticsProxyCredentials("ripdpi", "token")
+        val unix =
+            DiagnosticsInPathRouteLease("runtime", 1L, 1L, "", 0, credentials, "/data/px-0123").fieldReportRoute()
+        val tcp = DiagnosticsInPathRouteLease("runtime", 1L, 1L, "127.0.0.1", 1080, credentials).fieldReportRoute()
+
+        assertEquals("/data/px-0123", unix.unixPath)
+        assertEquals("token", unix.credentials?.password)
+        assertFalse(unix.resolveNamesLocally)
+        assertNull(tcp.unixPath)
+        assertEquals(1080, tcp.port)
     }
 
     @Test

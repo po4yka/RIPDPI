@@ -23,6 +23,7 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.connectProxySocket
 import com.poyka.ripdpi.services.isLocalSocksHostUnreachable
 import com.poyka.ripdpi.services.localSocksProxy
 import com.poyka.ripdpi.services.openTunnel
@@ -46,7 +47,6 @@ import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ProtocolException
-import java.net.Socket
 import java.net.URI
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
@@ -323,8 +323,7 @@ class DefaultOnboardingModeValidationRunner
             val host = resolveDnsProbeHost()
             withContext(dispatchers.io) {
                 try {
-                    Socket().use { socket ->
-                        socket.connect(InetSocketAddress(route.host, route.port), ValidationTrafficTimeoutMs.toInt())
+                    route.connectProxySocket(ValidationTrafficTimeoutMs.toInt()).use { socket ->
                         socket.soTimeout = ValidationTrafficTimeoutMs.toInt()
                         route.openTunnel(socket, dnsProbeTarget(host, route))
                     }

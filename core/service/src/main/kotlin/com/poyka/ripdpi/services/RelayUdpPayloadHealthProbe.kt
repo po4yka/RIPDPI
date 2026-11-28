@@ -11,7 +11,6 @@ import java.io.InterruptedIOException
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
 import java.net.ProtocolException
-import java.net.Socket
 import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.util.concurrent.atomic.AtomicInteger
@@ -237,9 +236,8 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
         target: InetSocketAddress,
     ): RelayUdpPayloadFamilyHealthEvidence {
         val classification =
-            Socket().use { control ->
+            endpoint.connectProbeSocket(timeoutMillis).use { control ->
                 control.soTimeout = timeoutMillis
-                control.connect(InetSocketAddress(endpoint.host, endpoint.port), timeoutMillis)
                 val input = DataInputStream(control.getInputStream())
                 val output = DataOutputStream(control.getOutputStream())
                 negotiateLocalSocksAuthentication(endpoint, input, output)

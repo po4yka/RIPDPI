@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalProxySessionOverrides
 import com.poyka.ripdpi.core.ProxyForwardingEvidence
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.withLocalProxySessionOverrides
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpoch
 import com.poyka.ripdpi.data.DiagnosticsNetworkEpochProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -739,9 +741,8 @@ class ProxyRuntimeSupervisorTest {
             val endpoint =
                 supervisor
                     .start(
-                        RipDpiProxyUIPreferences().withSessionLocalProxyOverrides(
-                            listenPortOverride = 0,
-                            authToken = TestLocalProxyAuth,
+                        RipDpiProxyUIPreferences().withLocalProxySessionOverrides(
+                            LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
                         ),
                     ) {}
                     .endpoint

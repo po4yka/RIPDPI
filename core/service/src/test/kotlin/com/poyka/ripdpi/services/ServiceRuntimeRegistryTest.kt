@@ -36,6 +36,20 @@ class ServiceRuntimeRegistryTest {
     }
 
     @Test
+    fun `unix endpoint publishes a unix route and lease with the session credentials`() {
+        val session = VpnRuntimeSession(runtimeId = "vpn-runtime")
+        val endpoint = LocalProxyEndpoint("", 0, "ripdpi", "token", unixPath = "/data/px-0123")
+
+        session.publishTunnelSocksRoute(endpoint)
+        session.publishInPathLease(endpoint, routeGeneration = 1L)
+
+        assertEquals("/data/px-0123", session.tunnelSocksRoute?.unixPath)
+        assertEquals("token", session.tunnelSocksRoute?.credentials?.password)
+        assertEquals("/data/px-0123", session.diagnosticsInPathRouteLease?.unixPath)
+        assertEquals("ripdpi", session.diagnosticsInPathRouteLease?.credentials?.username)
+    }
+
+    @Test
     fun `register keeps vpn and proxy runtimes independently`() =
         runTest {
             val registry = DefaultServiceRuntimeRegistry()

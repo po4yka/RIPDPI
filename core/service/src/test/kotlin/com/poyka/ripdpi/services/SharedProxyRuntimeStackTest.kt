@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalProxySessionOverrides
 import com.poyka.ripdpi.core.RipDpiProtocolConfig
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
@@ -590,8 +591,8 @@ class SharedProxyRuntimeStackTest {
                             localSocksPort = RememberedRelayPort,
                         ),
                 ).toNativeConfigJson(),
-            localListenPortOverride = 0,
-            localAuthToken = TestLocalProxyAuth,
+            localProxyOverrides =
+                LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
         )
 
     private fun awgPreferences(dnsServers: List<String> = emptyList()): RipDpiProxyUIPreferences =

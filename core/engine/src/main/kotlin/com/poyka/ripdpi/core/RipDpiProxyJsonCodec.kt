@@ -42,8 +42,7 @@ internal object RipDpiProxyJsonCodec {
         geositeDbPath: String? = null,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext?,
-        localListenPortOverride: Int? = null,
-        localAuthToken: String? = null,
+        localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
     ): String =
         encode(
             NativeProxyConfig.CommandLine(
@@ -54,7 +53,7 @@ internal object RipDpiProxyJsonCodec {
                 geositeDbPath = geositeDbPath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(logContext),
-                sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
+                sessionOverrides = SessionOverrideCodec.toNative(localProxyOverrides),
             ),
         )
 
@@ -66,8 +65,7 @@ internal object RipDpiProxyJsonCodec {
         geoipDbPath: String? = null,
         geositeDbPath: String? = null,
         listenAuthToken: String? = null,
-        localListenPortOverride: Int? = null,
-        localAuthToken: String? = null,
+        localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
     ): String =
         encode(
@@ -95,7 +93,7 @@ internal object RipDpiProxyJsonCodec {
                 environmentKind = environmentKind.name,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
-                sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
+                sessionOverrides = SessionOverrideCodec.toNative(localProxyOverrides),
             ),
             PacketBackendWire.proxyFields(packetBackendRequested, packetBackendSocketPath),
         )
@@ -109,8 +107,7 @@ internal object RipDpiProxyJsonCodec {
             geoipDbPath = request.geoipDbPath,
             geositeDbPath = request.geositeDbPath,
             listenAuthToken = request.listenAuthToken,
-            localListenPortOverride = request.localListenPortOverride,
-            localAuthToken = request.localAuthToken,
+            localProxyOverrides = request.localProxyOverrides,
             environmentKind = request.environmentKind,
         )
 
@@ -200,8 +197,7 @@ internal object RipDpiProxyJsonCodec {
         packetBackendSocketPath: String? = null,
         geoipDbPath: String? = null,
         geositeDbPath: String? = null,
-        localListenPortOverride: Int? = null,
-        localAuthToken: String? = null,
+        localProxyOverrides: LocalProxySessionOverrides = LocalProxySessionOverrides(),
         environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
         relayRuntimeSelection: RipDpiRelayConfig? = null,
     ): String {
@@ -228,8 +224,7 @@ internal object RipDpiProxyJsonCodec {
                                     json,
                                     SessionOverrideCodec.merge(
                                         existing = payload.sessionOverrides,
-                                        listenPortOverride = localListenPortOverride,
-                                        authToken = localAuthToken,
+                                        overrides = localProxyOverrides,
                                     ),
                                 ),
                         ),
@@ -268,8 +263,7 @@ internal object RipDpiProxyJsonCodec {
                                     json,
                                     SessionOverrideCodec.merge(
                                         existing = payload.sessionOverrides,
-                                        listenPortOverride = localListenPortOverride,
-                                        authToken = localAuthToken,
+                                        overrides = localProxyOverrides,
                                     ),
                                 ),
                             )

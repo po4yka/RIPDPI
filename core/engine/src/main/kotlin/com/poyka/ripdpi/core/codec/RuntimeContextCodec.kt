@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.codec
 
+import com.poyka.ripdpi.core.LocalProxySessionOverrides
 import com.poyka.ripdpi.core.RipDpiConnectionConcurrencyPolicy
 import com.poyka.ripdpi.core.RipDpiDirectPathCapability
 import com.poyka.ripdpi.core.RipDpiEncryptedDnsContext
@@ -17,6 +18,7 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.TcpFamily
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -111,32 +113,39 @@ internal data class NativeLogContext(
 internal data class NativeSessionLocalProxyOverrides(
     val listenPortOverride: Int? = null,
     val authToken: String? = null,
-)
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val listenUnixPath: String? = null,
+) {
+    override fun toString(): String = "NativeSessionLocalProxyOverrides([REDACTED])"
+}
 
 internal object SessionOverrideCodec {
-    fun toNative(
-        listenPortOverride: Int?,
-        authToken: String?,
-    ): NativeSessionLocalProxyOverrides? {
-        val normalizedToken = authToken?.takeIf { it.isNotBlank() }
-        return if (listenPortOverride == null && normalizedToken == null) {
+    fun toNative(overrides: LocalProxySessionOverrides): NativeSessionLocalProxyOverrides? {
+        val normalizedToken = overrides.authToken?.takeIf { it.isNotBlank() }
+        val empty = overrides.listenPortOverride == null && overrides.listenUnixPath == null
+        return if (empty && normalizedToken == null) {
             null
         } else {
             NativeSessionLocalProxyOverrides(
-                listenPortOverride = listenPortOverride,
+                listenPortOverride = overrides.listenPortOverride,
                 authToken = normalizedToken,
+                listenUnixPath = overrides.listenUnixPath,
             )
         }
     }
 
     fun merge(
         existing: NativeSessionLocalProxyOverrides?,
-        listenPortOverride: Int?,
-        authToken: String?,
+        overrides: LocalProxySessionOverrides,
     ): NativeSessionLocalProxyOverrides? =
         toNative(
-            listenPortOverride = listenPortOverride ?: existing?.listenPortOverride,
-            authToken = authToken ?: existing?.authToken,
+            overrides.overlaid(
+                LocalProxySessionOverrides(
+                    listenPortOverride = existing?.listenPortOverride,
+                    listenUnixPath = existing?.listenUnixPath,
+                    authToken = existing?.authToken,
+                ),
+            ),
         )
 }
 

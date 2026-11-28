@@ -10,8 +10,10 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
+import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsRuntimeCoordinator
 import com.poyka.ripdpi.data.InPathRouteLeaseAcquisition
 import com.poyka.ripdpi.data.Mode
@@ -21,7 +23,6 @@ import com.poyka.ripdpi.data.subscription.RipdpiFieldReport
 import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.localSocksProxy
-import com.poyka.ripdpi.services.withLogin
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -253,6 +254,14 @@ private fun FieldReportState.claimReport(
     return next to report
 }
 
+internal fun DiagnosticsInPathRouteLease.fieldReportRoute(): LocalSocksRoute =
+    LocalSocksRoute(
+        host,
+        port,
+        LocalSocksCredentials(credentials.username, credentials.password),
+        unixPath = unixPath,
+    )
+
 private suspend fun currentFieldReportTunnel(
     diagnostics: DiagnosticsRuntimeCoordinator,
     configurations: AppliedRuntimeConfigurationSource,
@@ -263,7 +272,7 @@ private suspend fun currentFieldReportTunnel(
     val applied = configurations.applications.value[Mode.VPN]
     return fieldReportUpstream(applied, lease.runtimeId)?.let { upstream ->
         FieldReportTunnel(
-            LocalSocksRoute(lease.host, lease.port).withLogin(lease.credentials.username, lease.credentials.password),
+            lease.fieldReportRoute(),
             upstream,
         ) {
             configurations.applications.value[Mode.VPN] == applied &&

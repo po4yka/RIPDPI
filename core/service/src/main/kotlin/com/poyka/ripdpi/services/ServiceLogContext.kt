@@ -2,7 +2,6 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiLogContext
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
-import com.poyka.ripdpi.core.withLocalProxySessionOverrides
 import com.poyka.ripdpi.core.withProxyLogContext
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 
@@ -20,12 +19,3 @@ internal fun ServiceRuntimeSession.buildLogContext(
 
 internal fun RipDpiProxyPreferences.withLogContext(logContext: RipDpiLogContext?): RipDpiProxyPreferences =
     withProxyLogContext(logContext)
-
-internal fun RipDpiProxyPreferences.withSessionLocalProxyOverrides(
-    listenPortOverride: Int? = null,
-    authToken: String? = null,
-): RipDpiProxyPreferences =
-    withLocalProxySessionOverrides(
-        listenPortOverride = listenPortOverride,
-        authToken = authToken,
-    )

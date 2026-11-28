@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withTimeout
+import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 
 private const val NativeTunnelStartTimeoutMillis = 6_000L
@@ -44,6 +45,7 @@ internal class VpnRouteForwardingEvidenceSink(
 
 internal data class VpnTunnelRuntimeEnvironment(
     val protectPath: String? = null,
+    val proxySocketDirectory: File? = null,
     /**
      * Absolute `<filesDir>/lua` directory the native TUN egress strategy loader
      * jails `lua`-step `script_paths` to. `null` falls back to the process CWD.
@@ -108,6 +110,9 @@ internal class VpnTunnelRuntime(
 
     val isRunning: Boolean
         get() = tunSession != null || retiringSession != null
+
+    val proxySocketDirectory: File?
+        get() = environment.proxySocketDirectory
 
     private var readyEvidence: RuntimeTunnelReadyEvidence? = null
     private var consumedConfigurationInput: VpnTunnelConfigurationInput? = null

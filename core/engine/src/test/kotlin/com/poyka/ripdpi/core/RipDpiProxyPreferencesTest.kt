@@ -65,8 +65,8 @@ class RipDpiProxyPreferencesTest {
         val preferences =
             RipDpiProxyJsonPreferences(
                 configJson = RipDpiProxyCmdPreferences("--port 1081 --no-domain").toNativeConfigJson(),
-                localListenPortOverride = 0,
-                localAuthToken = TestLocalProxyAuth,
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
             )
 
         val payload = preferences.toNativeConfigJson().parseJsonObject()
@@ -81,8 +81,8 @@ class RipDpiProxyPreferencesTest {
         val preferences =
             RipDpiProxyJsonPreferences(
                 configJson = RipDpiProxyCmdPreferences("--port 1081 --no-domain").toNativeConfigJson(),
-                localListenPortOverride = 0,
-                localAuthToken = TestLocalProxyAuth,
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = TestLocalProxyAuth),
             )
 
         val routed =
@@ -908,7 +908,7 @@ class RipDpiProxyPreferencesTest {
                         profileId = "relay-profile",
                     ),
                 awg = request,
-            ).withLocalProxySessionOverrides(listenPortOverride = 0, authToken = "token")
+            ).withLocalProxySessionOverrides(LocalProxySessionOverrides(listenPortOverride = 0, authToken = "token"))
 
         assertEquals(request, preferences.awgConfigOrNull())
 
@@ -957,8 +957,8 @@ class RipDpiProxyPreferencesTest {
         val preferences =
             RipDpiProxyJsonPreferences(
                 configJson = rememberedJson,
-                localListenPortOverride = 0,
-                localAuthToken = "token",
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = "token"),
                 awg = request,
             )
 
@@ -1018,8 +1018,8 @@ class RipDpiProxyPreferencesTest {
             RipDpiProxyJsonPreferences(
                 configJson = rememberedJson,
                 logContext = RipDpiLogContext(runtimeId = "runtime", mode = "vpn"),
-                localListenPortOverride = 0,
-                localAuthToken = "token",
+                localProxyOverrides =
+                    LocalProxySessionOverrides(listenPortOverride = 0, authToken = "token"),
             )
 
         val routed =

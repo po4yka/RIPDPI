@@ -295,6 +295,8 @@ internal class XrayProviderSessionControllerTest : XrayProviderSessionTestFixtur
             assertTrue(bridge.startedConfig.orEmpty().contains("\"pass\":\"${credentials.password}\""))
             assertEquals(credentials.password, ctrl.currentLocalProxyEndpoint()?.password)
             assertEquals(credentials.username, ctrl.currentLocalProxyEndpoint()?.username)
+            assertEquals(null, ctrl.currentLocalProxyEndpoint()?.unixPath)
+            assertEquals("127.0.0.1", ctrl.currentLocalProxyEndpoint()?.host)
             // Protect registered BEFORE start, and start BEFORE the tunnel points
             // at the inbound.
             val registerIdx = bridge.callLog.indexOf("registerProtect")
